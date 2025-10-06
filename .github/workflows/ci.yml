@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -11,23 +11,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout du code
+      - name: ⬇️ Checkout du code
         uses: actions/checkout@v3
 
-      - name: Installation de Node.js
+      - name: 🔧 Installation de Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '22'
 
-
-      - name: Installation des dépendances
+      - name: 📦 Installation des dépendances
         run: npm install
         working-directory: ./frontend
 
-      - name: Lint du code avec ESLint
+      - name: 🧹 Lint du code avec ESLint
         run: npm run lint
         working-directory: ./frontend  
 
-      - name: Build du projet
+      - name: 🧪 Lancer les tests unitaires (Vitest)
+        run: npm run test
+        working-directory: ./frontend  
+
+      - name: 🛠️ Build du projet
         run: npm run build
         working-directory: ./frontend
+
+      - name: 📤 Sauvegarde des fichiers de build
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: ./frontend/dist
+
+  deploy:
+    name: 🚀 Déploiement vers Firebase
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout du code
+        uses: actions/checkout@v3
+
+      - name: 🔧 Installation de Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: 📥 Restauration des fichiers de build
+        uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: ./frontend/dist
+
+      - name: 🌐 Déploiement vers Firebase Hosting
+        run: |
+          npm install -g firebase-tools
+          firebase deploy --only hosting --project paniscope-ticketing
+        working-directory: ./frontend
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
