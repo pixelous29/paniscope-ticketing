@@ -4,8 +4,6 @@ import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebas
 import { db } from '../../firebaseConfig';
 import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Modal, FloatingLabel } from 'react-bootstrap';
 
-
-const statusVariant = { 'Nouveau': 'primary', 'En cours': 'warning', 'En attente': 'info', 'En attente de validation': 'secondary', 'Ticket Clôturé': 'success' };
 const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': 'success', 'Faible': 'secondary' };
 
 export default function ManagerTicketDetailPage() {
@@ -17,10 +15,11 @@ export default function ManagerTicketDetailPage() {
     const [editFormData, setEditFormData] = useState({ priority: '', assignedTo: '', tags: '' });
     const [replyText, setReplyText] = useState('');
     const [internalNoteText, setInternalNoteText] = useState('');
+
+
+
     useEffect(() => {
-        setLoading(true);
         const docRef = doc(db, "tickets", ticketId);
-        
         const updateStatusIfNeeded = async (ticketData) => {
             if (ticketData.status === 'Nouveau') {
                 try {
@@ -51,18 +50,6 @@ export default function ManagerTicketDetailPage() {
         });
         return () => unsubscribe();
     }, [ticketId]);
-
-    const handleCloseTicket = async () => {
-        if (window.confirm("Êtes-vous sûr de vouloir clôturer ce ticket ?")) {
-          const docRef = doc(db, "tickets", ticketId);
-          try {
-            await updateDoc(docRef, { status: 'Ticket Clôturé', lastUpdate: serverTimestamp() });
-          } catch (err) {
-            console.error("Erreur lors de la clôture du ticket: ", err);
-            alert("Une erreur est survenue.");
-          }
-        }
-    };
 
     const handleEditModalOpen = () => setShowEditModal(true);
     const handleEditModalClose = () => setShowEditModal(false);
@@ -140,64 +127,73 @@ export default function ManagerTicketDetailPage() {
         await updateDoc(docRef, { hasNewDeveloperMessage: false });
     };
 
-  const handleApproveResolution = async () => {
-    if (window.confirm("Confirmez-vous la résolution de ce ticket ? Vous pourrez ensuite le clôturer.")) {
-        const docRef = doc(db, "tickets", ticketId);
-        const approvalNote = {
-            author: 'Manager',
-            text: 'Résolution du ticket approuvée.',
-            timestamp: new Date()
-        };
-        try {
-            await updateDoc(docRef, {
-                status: 'En cours',
-                hasNewDeveloperMessage: false,
-                internalNotes: arrayUnion(approvalNote),
-                hasNewManagerMessage: true,
-                lastUpdate: serverTimestamp()
-            });
-        } catch (err) {
-            console.error("Erreur lors de l'approbation: ", err);
-            alert("Une erreur est survenue.");
+    const handleApproveResolution = async () => {
+        if (window.confirm("Confirmez-vous la résolution de ce ticket ? Vous pourrez ensuite le clôturer.")) {
+            const docRef = doc(db, "tickets", ticketId);
+            const approvalNote = {
+                author: 'Manager',
+                text: 'Résolution du ticket approuvée.',
+                timestamp: new Date()
+            };
+            try {
+                await updateDoc(docRef, {
+                    status: 'En cours',
+                    hasNewDeveloperMessage: false,
+                    internalNotes: arrayUnion(approvalNote),
+                    hasNewManagerMessage: true,
+                    lastUpdate: serverTimestamp()
+                });
+            } catch (err) {
+                console.error("Erreur lors de l'approbation: ", err);
+                alert("Une erreur est survenue.");
+            }
         }
-    }
-  };
+    };
 
-  const handleRejectResolution = async () => {
-    const note = prompt("Veuillez indiquer les modifications à apporter au développeur :");
-    if (note && note.trim() !== '') {
+    const handleRejectResolution = async () => {
+        const note = prompt("Veuillez indiquer les modifications à apporter au développeur :");
+        if (note && note.trim() !== '') {
+            const docRef = doc(db, "tickets", ticketId);
+            const newInternalNote = {
+                author: 'Manager',
+                text: `REJET DE LA SOLUTION : ${note}`,
+                timestamp: new Date()
+            };
+            try {
+                await updateDoc(docRef, {
+                    status: 'En cours',
+                    internalNotes: arrayUnion(newInternalNote),
+                    hasNewDeveloperMessage: false,
+                    hasNewManagerMessage: true,
+                    lastUpdate: serverTimestamp()
+                });
+            } catch (err) {
+                console.error("Erreur lors du rejet: ", err);
+                alert("Une erreur est survenue.");
+            }
+        }
+    };
+    
+    const handleCloseTicket = async () => {
+        if (window.confirm("Êtes-vous sûr de vouloir clôturer ce ticket ?")) {
         const docRef = doc(db, "tickets", ticketId);
-        const newInternalNote = {
-            author: 'Manager',
-            text: `REJET DE LA SOLUTION : ${note}`,
-            timestamp: new Date()
-        };
         try {
-            await updateDoc(docRef, {
-                status: 'En cours',
-                internalNotes: arrayUnion(newInternalNote),
-                hasNewDeveloperMessage: false,
-                hasNewManagerMessage: true,
-                lastUpdate: serverTimestamp()
-            });
+            await updateDoc(docRef, { status: 'Ticket Clôturé', lastUpdate: serverTimestamp() });
         } catch (err) {
-            console.error("Erreur lors du rejet: ", err);
+            console.error("Erreur lors de la clôture du ticket: ", err);
             alert("Une erreur est survenue.");
         }
-    }
-  };
-  
+        }
+    };
+
     if (loading) {
         return <Container className="text-center mt-5"><Spinner animation="border" /></Container>;
     }
     if (error || !ticket) {
         return <Container className="mt-4"><Alert variant="danger">{error || "Ticket non trouvé."}</Alert></Container>;
     }
-    
     const isTicketClosed = ticket.status === 'Ticket Clôturé';
     const isPendingValidation = ticket.status === 'En attente de validation';
-
-
     return (
         <>
         <Container className="mt-4">
@@ -221,7 +217,8 @@ export default function ManagerTicketDetailPage() {
                             <p className="mb-1" style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</p>
                         </ListGroup.Item>
                         ))}
-                    </ListGroup>                    {!isTicketClosed && (
+                    </ListGroup>
+                    {!isTicketClosed && (
                     <>
                         <hr />
                         <h5>Répondre au client</h5>
@@ -259,7 +256,8 @@ export default function ManagerTicketDetailPage() {
                                 <p className="mb-1" style={{ whiteSpace: 'pre-wrap' }}>{note.text}</p>
                             </ListGroup.Item>
                             ))}
-                        </ListGroup>                        {!isTicketClosed && (
+                        </ListGroup>
+                        {!isTicketClosed && (
                         <>
                             <hr />
                             <h5>Ajouter une note interne</h5>
@@ -288,7 +286,7 @@ export default function ManagerTicketDetailPage() {
                     <p><strong>Soumis le:</strong> {ticket.submittedAt?.toDate ? ticket.submittedAt.toDate().toLocaleString('fr-FR') : 'Date inconnue'}</p>
                     <div>
                         <strong>Priorité:</strong>{' '}
-                        <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'}>{ticket.priority}</Badge>
+                        <Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge>
                     </div>
                     <div className="mt-2">
                         <strong>Tags:</strong>{' '}
@@ -296,27 +294,25 @@ export default function ManagerTicketDetailPage() {
                     </div>
                     <p className="mt-2"><strong>Assigné à:</strong> {ticket.assignedTo || 'Personne'}</p>
                     <hr />
-
-                {isPendingValidation ? (
-                    <div className="d-grid gap-2">
-                        <Card.Title>Validation requise</Card.Title>
-                        <Button variant="outline-success" onClick={handleApproveResolution}>Approuver la résolution</Button>
-                        <Button variant="outline-danger" onClick={handleRejectResolution}>Demander une modification</Button>
-                    </div>
-                ) : (
-                    <div className="d-grid gap-2">
-                        <Card.Title>Actions Manager</Card.Title>
-                        <Button variant="outline-secondary" onClick={handleEditModalOpen} disabled={isTicketClosed}>Modifier Tags / Priorité / Assignation</Button>
-                        <Button variant="success" onClick={handleCloseTicket} disabled={isTicketClosed}>Clôturer le ticket</Button>
-                    </div>
-                )}
+                    {isPendingValidation ? (
+                        <div className="d-grid gap-2">
+                            <Card.Title>Validation requise</Card.Title>
+                            <Button variant="outline-success" onClick={handleApproveResolution}>Approuver la résolution</Button>
+                            <Button variant="outline-danger" onClick={handleRejectResolution}>Demander une modification</Button>
+                        </div>
+                    ) : (
+                        <div className="d-grid gap-2">
+                            <Card.Title>Actions Manager</Card.Title>
+                            <Button variant="outline-secondary" onClick={handleEditModalOpen} disabled={isTicketClosed}>Modifier Tags / Priorité / Assignation</Button>
+                            <Button variant="success" onClick={handleCloseTicket} disabled={isTicketClosed}>Clôturer le ticket</Button>
+                        </div>
+                    )}
                     </Card.Body>
                 </Card>
                 </Col>
             </Row>
         </Container>
-
-      <Modal show={showEditModal} onHide={handleEditModalClose}>
+        <Modal show={showEditModal} onHide={handleEditModalClose}>
             <Modal.Header closeButton>
             <Modal.Title>Modifier le Ticket</Modal.Title>
             </Modal.Header>
