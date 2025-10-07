@@ -88,6 +88,11 @@ firebase deploy
 git add .
 git commit -m "exemple : Ajout de la configuration complète CI/CD + mise à jour du README"
 git push origin main
+
+git status 'vérifier que tout est prêt'
+
+git diff --cached  'vérifier avant de push'
+
 ```
 
 
