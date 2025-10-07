@@ -2,8 +2,7 @@
   "hosting": [
     {
       "target": "production",
-      "public": "dist",
-      "site": "paniscope-ticketing",
+      "public": "frontend/dist",
       "ignore": [
         "firebase.json",
         "**/.*",
@@ -18,8 +17,7 @@
     },
     {
       "target": "development",
-      "public": "dist",
-      "site": "paniscope-dev",
+      "public": "frontend/dist",
       "ignore": [
         "firebase.json",
         "**/.*",
