@@ -45,6 +45,7 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PANISCOPE_TICKETING }}'
           target: production
           channelId: live
+          entryPoint: ./frontend # Indique où se trouve le projet
 
       - name: Deploy to Firebase Hosting (Development)
         if: github.ref == 'refs/heads/develop'
@@ -54,3 +55,4 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PANISCOPE_TICKETING }}'
           target: development
           channelId: live
+          entryPoint: ./frontend # Indique où se trouve le projet
