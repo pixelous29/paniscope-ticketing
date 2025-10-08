@@ -12,7 +12,7 @@ import DeveloperDashboardPage from './pages/developer/DeveloperDashboardPage';
 import DeveloperTicketDetailPage from './pages/developer/DeveloperTicketDetailPage';
 import UpdateNotification from './components/shared/UpdateNotification';
 
-import { ModalProvider } from './contexts/ModalProvider';
+import ModalProvider from './contexts/ModalProvider';
 
 export default function App() {
   const {
