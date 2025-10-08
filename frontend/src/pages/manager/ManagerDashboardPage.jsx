@@ -3,7 +3,7 @@ import { collection, onSnapshot, query, doc, updateDoc } from "firebase/firestor
 import { db } from '../../firebaseConfig';
 import { Container, Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Card, Nav } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { useModal } from '../../contexts/ModalProvider';
+import { useModal } from '../../hooks/useModal';
 
 const statusVariant = { 'Nouveau': 'primary', 'En cours': 'warning', 'En attente': 'info', 'En attente de validation': 'secondary', 'Ticket Clôturé': 'success' };
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };

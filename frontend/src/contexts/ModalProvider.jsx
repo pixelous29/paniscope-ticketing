@@ -1,15 +1,10 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { useState } from 'react';
+import { ModalContext } from './ModalContext';
 import AlertModal from '../components/shared/AlertModal';
 import ConfirmationModal from '../components/shared/ConfirmationModal';
 import PromptModal from '../components/shared/PromptModal';
 
-const ModalContext = createContext();
-
-export function useModal() {
-  return useContext(ModalContext);
-}
-
-export function ModalProvider({ children }) {
+export default function ModalProvider({ children }) {
   const [alertModal, setAlertModal] = useState({ show: false, title: '', body: '' });
   const [confirmationModal, setConfirmationModal] = useState({ show: false, title: '', body: '', onConfirm: () => {} });
   const [promptModal, setPromptModal] = useState({ show: false, title: '', body: '', onConfirm: () => {} });

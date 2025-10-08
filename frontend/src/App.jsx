@@ -16,7 +16,7 @@ import { ModalProvider } from './contexts/ModalProvider';
 
 export default function App() {
   const {
-    needRefresh: [needRefresh, setNeedRefresh],
+    needRefresh: [needRefresh, _setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW();
 
