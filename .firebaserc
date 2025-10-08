@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "paniscope-ticketing"
+  },
+  "targets": {
+    "paniscope-ticketing": {
+      "hosting": {
+        "production": [
+          "paniscope-ticketing"
+        ],
+        "development": [
+          "paniscope-dev"
+        ]
+      }
+    }
   }
 }
