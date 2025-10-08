@@ -4,8 +4,8 @@ import { db } from '../../firebaseConfig';
 import { Container, Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Card, Nav } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
+import { STATUS, STATUS_VARIANT } from '../../constants/status';
 
-const statusVariant = { 'Nouveau': 'primary', 'En cours': 'warning', 'En attente': 'info', 'En attente de validation': 'secondary', 'Ticket Clôturé': 'success' };
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
 
@@ -65,7 +65,7 @@ export default function ManagerDashboardPage() {
 
   const currentTickets = tickets.filter(ticket => !ticket.archived);
   const archivedTickets = tickets.filter(ticket => ticket.archived);
-  const showActionsColumn = currentTickets.some(ticket => ticket.status === 'Ticket Clôturé');
+  const showActionsColumn = currentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (
     <Container className="mt-4">
@@ -127,10 +127,10 @@ export default function ManagerDashboardPage() {
                           <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
                         ))}
                       </td>
-                      <td className="align-middle"><Badge bg={statusVariant[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
+                      <td className="align-middle"><Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
                       {showActionsColumn && (
                         <td className="align-middle text-center">
-                          {ticket.status === 'Ticket Clôturé' && (
+                          {ticket.status === STATUS.CLOSED && (
                             <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
                               <Button variant="outline-secondary" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)}>
                                 <i className="bi bi-archive-fill"></i>
@@ -173,7 +173,7 @@ export default function ManagerDashboardPage() {
                           <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
                         ))}
                       </td>
-                      <td className="align-middle"><Badge bg={statusVariant[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
+                      <td className="align-middle"><Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
                     </tr>
                   ))
                 ) : (

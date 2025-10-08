@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
-import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Modal, FloatingLabel } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Modal, FloatingLabel, Breadcrumb } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
+import { LinkContainer } from 'react-router-bootstrap';
+import { STATUS } from '../../constants/status';
 
 const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': 'success', 'Faible': 'secondary' };
 
@@ -21,9 +23,9 @@ export default function ManagerTicketDetailPage() {
     useEffect(() => {
         const docRef = doc(db, "tickets", ticketId);
         const updateStatusIfNeeded = async (ticketData) => {
-            if (ticketData.status === 'Nouveau') {
+            if (ticketData.status === STATUS.NEW) {
                 try {
-                    await updateDoc(docRef, { status: 'En cours' });
+                    await updateDoc(docRef, { status: STATUS.IN_PROGRESS });
                 } catch (err) {
                     console.error("Erreur lors du changement de statut: ", err);
                 }
@@ -85,7 +87,7 @@ export default function ManagerTicketDetailPage() {
             await updateDoc(docRef, {
                 conversation: arrayUnion(newConversationEntry),
                 lastUpdate: serverTimestamp(),
-                status: 'En attente',
+                status: STATUS.PENDING,
                 hasNewClientMessage: false
             });
             setReplyText('');
@@ -137,7 +139,7 @@ export default function ManagerTicketDetailPage() {
             };
             try {
                 await updateDoc(docRef, {
-                    status: 'En cours',
+                    status: STATUS.IN_PROGRESS,
                     hasNewDeveloperMessage: false,
                     internalNotes: arrayUnion(approvalNote),
                     hasNewManagerMessage: true,
@@ -161,7 +163,7 @@ export default function ManagerTicketDetailPage() {
                 };
                 try {
                     await updateDoc(docRef, {
-                        status: 'En cours',
+                        status: STATUS.IN_PROGRESS,
                         internalNotes: arrayUnion(newInternalNote),
                         hasNewDeveloperMessage: false,
                         hasNewManagerMessage: true,
@@ -179,7 +181,7 @@ export default function ManagerTicketDetailPage() {
         showConfirmation('Clôturer le ticket', 'Êtes-vous sûr de vouloir clôturer ce ticket ?', async () => {
             const docRef = doc(db, "tickets", ticketId);
             try {
-                await updateDoc(docRef, { status: 'Ticket Clôturé', lastUpdate: serverTimestamp() });
+                await updateDoc(docRef, { status: STATUS.CLOSED, lastUpdate: serverTimestamp() });
             } catch (err) {
                 console.error("Erreur lors de la clôture du ticket: ", err);
                 showAlert('Erreur', 'Une erreur est survenue.');
@@ -193,11 +195,17 @@ export default function ManagerTicketDetailPage() {
     if (error || !ticket) {
         return <Container className="mt-4"><Alert variant="danger">{error || "Ticket non trouvé."}</Alert></Container>;
     }
-    const isTicketClosed = ticket.status === 'Ticket Clôturé';
-    const isPendingValidation = ticket.status === 'En attente de validation';
+    const isTicketClosed = ticket.status === STATUS.CLOSED;
+    const isPendingValidation = ticket.status === STATUS.PENDING_VALIDATION;
     return (
         <>
         <Container className="mt-4">
+            <Breadcrumb>
+                <LinkContainer to="/manager">
+                    <Breadcrumb.Item>Tableau de bord</Breadcrumb.Item>
+                </LinkContainer>
+                <Breadcrumb.Item active>Ticket #{ticket.id}</Breadcrumb.Item>
+            </Breadcrumb>
             <Row>
                 <Col md={7}>
                 <Card className="mb-4">
@@ -263,16 +271,17 @@ export default function ManagerTicketDetailPage() {
                             <hr />
                             <h5>Ajouter une note interne</h5>
                             <Form onSubmit={handleInternalNoteSubmit}>
-                                <Form.Group className="mb-3">
+                                <Form.Group className="mb-3" controlId="managerInternalNote">
                                     <Form.Control 
                                     as="textarea" 
+                                    name="managerInternalNote"
                                     rows={3} 
                                     placeholder="Note pour le développeur..." 
                                     value={internalNoteText}
                                     onChange={(e) => setInternalNoteText(e.target.value)}
                                     />
                                 </Form.Group>
-                                <Button variant="secondary" type="submit">Envoyer la note</Button>
+                                <Button variant="primary" type="submit">Envoyer la note</Button>
                             </Form>
                         </>
                         )}

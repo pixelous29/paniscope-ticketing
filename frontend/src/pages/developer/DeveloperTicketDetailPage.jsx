@@ -4,6 +4,8 @@ import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebas
 import { db } from '../../firebaseConfig';
 import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Breadcrumb } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
+import { STATUS } from '../../constants/status';
+import { LinkContainer } from 'react-router-bootstrap';
 
 const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': 'success', 'Faible': 'secondary' };
 
@@ -72,7 +74,7 @@ export default function DeveloperTicketDetailPage() {
             const docRef = doc(db, "tickets", ticketId);
             try {
                 await updateDoc(docRef, {
-                    status: 'En attente de validation',
+                    status: STATUS.PENDING_VALIDATION,
                     lastUpdate: serverTimestamp(),
                     hasNewDeveloperMessage: true // Notifie le manager que le statut a changé
                 });
@@ -89,8 +91,8 @@ export default function DeveloperTicketDetailPage() {
     if (error || !ticket) {
         return <Container className="mt-4"><Alert variant="danger">{error || "Ticket non trouvé."}</Alert></Container>;
     }
-    const isTicketClosed = ticket.status === 'Ticket Clôturé';
-    const isPendingValidation = ticket.status === 'En attente de validation';
+    const isTicketClosed = ticket.status === STATUS.CLOSED;
+    const isPendingValidation = ticket.status === STATUS.PENDING_VALIDATION;
 
     // Tri des notes internes pour affichage chronologique correct
     const sortedInternalNotes = ticket.internalNotes?.slice().sort((a, b) => {
@@ -102,7 +104,9 @@ export default function DeveloperTicketDetailPage() {
     return (
         <Container className="mt-4">
         <Breadcrumb>
-            <Breadcrumb.Item as={Link} to="/dev">Tableau de bord</Breadcrumb.Item>
+            <LinkContainer to="/dev">
+                <Breadcrumb.Item>Tableau de bord</Breadcrumb.Item>
+            </LinkContainer>
             <Breadcrumb.Item active>Ticket #{ticket.id}</Breadcrumb.Item>
         </Breadcrumb>
         <Row>
@@ -110,7 +114,7 @@ export default function DeveloperTicketDetailPage() {
             <Card className="mb-4">
                 <Card.Header as="h5">Note(s) du Manager</Card.Header>
                 <ListGroup variant="flush">{/* Affiche uniquement les notes du manager */}
-                {sortedInternalNotes?.filter(note => note.author === 'Manager').map((note, index) => (
+                {(sortedInternalNotes || []).filter(note => note.author === 'Manager').map((note, index) => (
                     <ListGroup.Item key={index}>
                     <p style={{ whiteSpace: 'pre-wrap' }}>{note.text}</p>
                     <small className="text-muted">Le {note.timestamp?.toDate ? note.timestamp.toDate().toLocaleDateString('fr-FR') : ''}</small>
@@ -144,8 +148,9 @@ export default function DeveloperTicketDetailPage() {
                     <hr/>
                     <h6>Ajouter un commentaire technique</h6>
                     <Form onSubmit={handleCommentSubmit}>
-                    <Form.Group className="mb-3">
+                    <Form.Group className="mb-3" controlId="devInternalComment">
                         <Form.Control 
+                        name="devInternalComment"
                         as="textarea"
                         rows={3}
                         placeholder="Mise à jour, question..."

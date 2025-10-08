@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { STATUS } from '../../constants/status';
 import { Container, Card, Form, Button, FloatingLabel, Spinner, Alert } from 'react-bootstrap';
 
 export default function NewTicketPage() {
@@ -32,7 +33,7 @@ export default function NewTicketPage() {
       const docRef = await addDoc(collection(db, "tickets"), {
         subject: formData.subject,
         clientId: formData.clientId,
-        status: 'Nouveau',
+        status: STATUS.NEW,
         priority: 'Normale',
         submittedAt: serverTimestamp(),
         lastUpdate: serverTimestamp(),

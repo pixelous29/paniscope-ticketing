@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query } from "firebase/firestore";
+import { collection, onSnapshot, query, doc, updateDoc } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
-import { Container, Card, Button, ListGroup, Badge, Spinner, Alert } from 'react-bootstrap';
+import { Container, Card, Button, Badge, Spinner, Alert, Nav, Table, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap';
-
-const statusVariant = { 'Nouveau': 'primary', 'En cours': 'warning', 'En attente': 'info', 'En attente de validation': 'secondary', 'Ticket Clôturé': 'success' };
+import { useNavigate } from 'react-router-dom';
+import { useModal } from '../../hooks/useModal';
+import { STATUS, STATUS_VARIANT } from '../../constants/status';
 
 export default function ClientDashboardPage() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [view, setView] = useState('current');
+  const navigate = useNavigate();
+  const { showAlert } = useModal();
 
   useEffect(() => {
     const ticketsCollectionQuery = query(collection(db, "tickets"));
@@ -17,7 +21,6 @@ export default function ClientDashboardPage() {
     const unsubscribe = onSnapshot(ticketsCollectionQuery, (querySnapshot) => {
       const ticketsData = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        // Convertir le timestamp Firebase en une date lisible
         const lastUpdateDate = data.lastUpdate?.toDate ? data.lastUpdate.toDate().toLocaleDateString('fr-FR') : 'Date inconnue';
         return { 
           id: doc.id, 
@@ -26,7 +29,6 @@ export default function ClientDashboardPage() {
         };
       });
       
-      // Pour l'instant, on affiche tous les tickets. Le filtrage par client se fera avec l'authentification.
       setTickets(ticketsData);
       setLoading(false);
     }, (err) => {
@@ -38,52 +40,124 @@ export default function ClientDashboardPage() {
     return () => unsubscribe();
   }, []);
 
+  const handleArchiveTicket = async (e, id) => {
+    e.stopPropagation();
+    const ticketRef = doc(db, "tickets", id);
+    try {
+      await updateDoc(ticketRef, { archived: true });
+    } catch (err) {
+      console.error("Erreur lors de l'archivage du ticket: ", err);
+      showAlert("Erreur", "Une erreur est survenue lors de l'archivage.");
+    }
+  };
+
+  const renderTooltip = (props, text) => (
+    <Tooltip id="button-tooltip" {...props}>{text}</Tooltip>
+  );
+
   if (loading) {
-    return (
-      <Container className="text-center mt-5">
-        <Spinner animation="border" />
-      </Container>
-    );
+    return <Container className="d-flex justify-content-center mt-5"><Spinner animation="border" /></Container>;
   }
 
   if (error) {
-    return (
-      <Container className="mt-4">
-        <Alert variant="danger">{error}</Alert>
-      </Container>
-    );
+    return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
   }
+
+  const currentTickets = tickets.filter(ticket => !ticket.archived);
+  const archivedTickets = tickets.filter(ticket => ticket.archived);
+  const showActionsColumn = currentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (
     <Container className="mt-4">
       <Card>
-        <Card.Header className="d-flex justify-content-between align-items-center">
-          <h4 className="mb-0">Tableau de bord Client</h4>
-          <LinkContainer to="/nouveau-ticket">
-            <Button variant="success">+ Nouvelle demande</Button>
-          </LinkContainer>
+        <Card.Header className="position-relative">
+          <h4 className="mb-3 text-center">Tableau de bord Client</h4>
+          <div className="position-absolute top-0 end-0 mt-1">
+            <LinkContainer to="/nouveau-ticket">
+              <Button variant="success">+ Nouvelle demande</Button>
+            </LinkContainer>
+          </div>
+          <Nav variant="tabs" activeKey={view} onSelect={(k) => setView(k)}>
+            <Nav.Item>
+              <Nav.Link eventKey="current">Tickets en cours</Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="archived">Tickets Archivés</Nav.Link>
+            </Nav.Item>
+          </Nav>
         </Card.Header>
         <Card.Body>
-          <Card.Title>Voici la liste de vos demandes d'assistance :</Card.Title>
-          <ListGroup variant="flush">
-            {tickets.length > 0 ? (
-              tickets.map(ticket => (
-                <LinkContainer key={ticket.id} to={`/ticket/${ticket.id}`}>
-                  <ListGroup.Item action className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <div className="fw-bold">{ticket.subject}</div>
-                      <small className="text-muted">Dernière mise à jour : {ticket.lastUpdate}</small>
-                    </div>
-                    <Badge bg={statusVariant[ticket.status] || 'secondary'} pill>
-                      {ticket.status}
-                    </Badge>
-                  </ListGroup.Item>
-                </LinkContainer>
-              ))
-            ) : (
-              <p className="text-muted mt-3">Vous n'avez aucune demande pour le moment.</p>
-            )}
-          </ListGroup>
+          {view === 'current' ? (
+            <Table striped bordered hover responsive className="m-0">
+              <thead>
+                <tr>
+                  <th>Sujet</th>
+                  <th>Dernière mise à jour</th>
+                  <th>Statut</th>
+                  {showActionsColumn && <th>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {currentTickets.length > 0 ? (
+                  currentTickets.map(ticket => (
+                    <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
+                      <td className="fw-bold align-middle">{ticket.subject}</td>
+                      <td className="align-middle">{ticket.lastUpdate}</td>
+                      <td className="align-middle">
+                        <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>
+                          {ticket.status}
+                        </Badge>
+                      </td>
+                      {showActionsColumn && (
+                        <td className="align-middle text-center">
+                          {ticket.status === STATUS.CLOSED && (
+                            <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
+                              <Button variant="outline-secondary" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)}>
+                                <i className="bi bi-archive-fill"></i>
+                              </Button>
+                            </OverlayTrigger>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={showActionsColumn ? 4 : 3} className="text-center">Aucun ticket en cours.</td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          ) : (
+            <Table striped bordered hover responsive className="m-0">
+              <thead>
+                <tr>
+                  <th>Sujet</th>
+                  <th>Dernière mise à jour</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {archivedTickets.length > 0 ? (
+                  archivedTickets.map(ticket => (
+                    <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
+                      <td className="fw-bold align-middle">{ticket.subject}</td>
+                      <td className="align-middle">{ticket.lastUpdate}</td>
+                      <td className="align-middle">
+                        <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>
+                          {ticket.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="3" className="text-center">Aucun ticket archivé.</td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          )}
         </Card.Body>
       </Card>
     </Container>

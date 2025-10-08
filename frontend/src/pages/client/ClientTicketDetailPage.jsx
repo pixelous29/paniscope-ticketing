@@ -4,8 +4,8 @@ import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebas
 import { db } from '../../firebaseConfig';
 import { Container, Card, Form, Button, ListGroup, Badge, Spinner, Alert, Breadcrumb } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
-
-const statusVariant = { 'Nouveau': 'primary', 'En cours': 'warning', 'En attente': 'info', 'En attente de validation': 'secondary', 'Ticket Clôturé': 'success' };
+import { LinkContainer } from 'react-router-bootstrap';
+import { STATUS, STATUS_VARIANT } from '../../constants/status';
 
 export default function ClientTicketDetailPage() {
     const { ticketId } = useParams();
@@ -66,18 +66,20 @@ export default function ClientTicketDetailPage() {
         return <Container className="mt-4"><Alert variant="danger">{error || "Ticket non trouvé."}</Alert></Container>;
     }
     
-    const isTicketClosed = ticket.status === 'Ticket Clôturé';
+    const isTicketClosed = ticket.status === STATUS.CLOSED;
     
     return (
         <Container className="mt-4">
         <Breadcrumb>
-            <Breadcrumb.Item as={Link} to="/">Tableau de bord</Breadcrumb.Item>
+            <LinkContainer to="/">
+                <Breadcrumb.Item>Tableau de bord</Breadcrumb.Item>
+            </LinkContainer>
             <Breadcrumb.Item active>Ticket #{ticket?.id}</Breadcrumb.Item>
         </Breadcrumb>
         <Card>
             <Card.Header className="d-flex justify-content-between align-items-center">
             <h4 className="mb-0">{ticket.subject}</h4>
-            <Badge bg={statusVariant[ticket.status] || 'secondary'} pill>{ticket.status}</Badge>
+            <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge>
             </Card.Header>
             <Card.Body>
             <h5>Conversation</h5>

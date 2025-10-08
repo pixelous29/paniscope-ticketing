@@ -15,12 +15,15 @@ export default function PromptModal({ show, onConfirm, onCancel, title, body }) 
       </Modal.Header>
       <Modal.Body>
         <p>{body}</p>
-        <Form.Control
-          as="textarea"
-          rows={3}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-        />
+        <Form.Group controlId="promptInput">
+          <Form.Control
+            as="textarea"
+            name="prompt"
+            rows={3}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+          />
+        </Form.Group>
       </Modal.Body>
       <Modal.Footer>
         <Button variant="secondary" onClick={onCancel}>
