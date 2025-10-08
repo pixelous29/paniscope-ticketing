@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
 import { Container, Card, Form, Button, ListGroup, Badge, Spinner, Alert, Breadcrumb } from 'react-bootstrap';
-
+import { useModal } from '../../contexts/ModalProvider';
 
 const statusVariant = { 'Nouveau': 'primary', 'En cours': 'warning', 'En attente': 'info', 'En attente de validation': 'secondary', 'Ticket Clôturé': 'success' };
 
@@ -13,6 +13,7 @@ export default function ClientTicketDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [replyText, setReplyText] = useState('');
+    const { showAlert } = useModal();
 
     useEffect(() => {
         setLoading(true);
@@ -54,7 +55,7 @@ export default function ClientTicketDetailPage() {
             setReplyText('');
         } catch (err) {
             console.error("Erreur lors de l'envoi de la réponse: ", err);
-            alert("Une erreur est survenue.");
+            showAlert('Erreur', 'Une erreur est survenue.');
         }
     };
     

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
 import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Breadcrumb } from 'react-bootstrap';
-
+import { useModal } from '../../contexts/ModalProvider';
 
 const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': 'success', 'Faible': 'secondary' };
 
@@ -13,6 +13,7 @@ export default function DeveloperTicketDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [commentText, setCommentText] = useState('');
+    const { showAlert, showConfirmation } = useModal();
 
   useEffect(() => {
     const docRef = doc(db, "tickets", ticketId);
@@ -62,12 +63,12 @@ export default function DeveloperTicketDetailPage() {
             setCommentText('');
         } catch (err) {
             console.error("Erreur lors de l'ajout du commentaire: ", err);
-            alert("Une erreur est survenue.");
+            showAlert('Erreur', 'Une erreur est survenue.');
         }
     };
 
     const handleMarkAsDone = async () => {
-        if (window.confirm("Confirmez-vous que le travail sur ce ticket est terminé et prêt pour validation ?")) {
+        showConfirmation('Terminer le ticket', 'Confirmez-vous que le travail sur ce ticket est terminé et prêt pour validation ?', async () => {
             const docRef = doc(db, "tickets", ticketId);
             try {
                 await updateDoc(docRef, {
@@ -77,9 +78,9 @@ export default function DeveloperTicketDetailPage() {
                 });
             } catch (err) {
                 console.error("Erreur lors de la finalisation du ticket: ", err);
-                alert("Une erreur est survenue.");
+                showAlert('Erreur', 'Une erreur est survenue.');
             }
-        }
+        });
     };
 
     if (loading) {

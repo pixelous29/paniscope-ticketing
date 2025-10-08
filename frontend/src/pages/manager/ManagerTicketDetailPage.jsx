@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
 import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Modal, FloatingLabel } from 'react-bootstrap';
+import { useModal } from '../../contexts/ModalProvider';
 
 const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': 'success', 'Faible': 'secondary' };
 
@@ -15,8 +16,7 @@ export default function ManagerTicketDetailPage() {
     const [editFormData, setEditFormData] = useState({ priority: '', assignedTo: '', tags: '' });
     const [replyText, setReplyText] = useState('');
     const [internalNoteText, setInternalNoteText] = useState('');
-
-
+    const { showAlert, showConfirmation, showPrompt } = useModal();
 
     useEffect(() => {
         const docRef = doc(db, "tickets", ticketId);
@@ -72,7 +72,7 @@ export default function ManagerTicketDetailPage() {
         handleEditModalClose();
         } catch (err) {
         console.error("Erreur lors de la mise à jour du ticket: ", err);
-        alert("Une erreur est survenue. Veuillez réessayer.");
+        showAlert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
         }
     };
 
@@ -91,7 +91,7 @@ export default function ManagerTicketDetailPage() {
             setReplyText('');
         } catch (err) {
             console.error("Erreur lors de l'envoi de la réponse: ", err);
-            alert("Une erreur est survenue. Veuillez réessayer.");
+            showAlert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
         }
     };
     
@@ -113,7 +113,7 @@ export default function ManagerTicketDetailPage() {
             setInternalNoteText('');
         } catch (err) {
             console.error("Erreur lors de l'envoi de la note interne: ", err);
-            alert("Une erreur est survenue.");
+            showAlert('Erreur', 'Une erreur est survenue.');
         }
     };
 
@@ -128,7 +128,7 @@ export default function ManagerTicketDetailPage() {
     };
 
     const handleApproveResolution = async () => {
-        if (window.confirm("Confirmez-vous la résolution de ce ticket ? Vous pourrez ensuite le clôturer.")) {
+        showConfirmation('Approuver la résolution', 'Confirmez-vous la résolution de ce ticket ? Vous pourrez ensuite le clôturer.', async () => {
             const docRef = doc(db, "tickets", ticketId);
             const approvalNote = {
                 author: 'Manager',
@@ -145,45 +145,46 @@ export default function ManagerTicketDetailPage() {
                 });
             } catch (err) {
                 console.error("Erreur lors de l'approbation: ", err);
-                alert("Une erreur est survenue.");
+                showAlert('Erreur', 'Une erreur est survenue.');
             }
-        }
+        });
     };
 
     const handleRejectResolution = async () => {
-        const note = prompt("Veuillez indiquer les modifications à apporter au développeur :");
-        if (note && note.trim() !== '') {
-            const docRef = doc(db, "tickets", ticketId);
-            const newInternalNote = {
-                author: 'Manager',
-                text: `REJET DE LA SOLUTION : ${note}`,
-                timestamp: new Date()
-            };
-            try {
-                await updateDoc(docRef, {
-                    status: 'En cours',
-                    internalNotes: arrayUnion(newInternalNote),
-                    hasNewDeveloperMessage: false,
-                    hasNewManagerMessage: true,
-                    lastUpdate: serverTimestamp()
-                });
-            } catch (err) {
-                console.error("Erreur lors du rejet: ", err);
-                alert("Une erreur est survenue.");
+        showPrompt('Demander une modification', 'Veuillez indiquer les modifications à apporter au développeur :', async (note) => {
+            if (note && note.trim() !== '') {
+                const docRef = doc(db, "tickets", ticketId);
+                const newInternalNote = {
+                    author: 'Manager',
+                    text: `REJET DE LA SOLUTION : ${note}`,
+                    timestamp: new Date()
+                };
+                try {
+                    await updateDoc(docRef, {
+                        status: 'En cours',
+                        internalNotes: arrayUnion(newInternalNote),
+                        hasNewDeveloperMessage: false,
+                        hasNewManagerMessage: true,
+                        lastUpdate: serverTimestamp()
+                    });
+                } catch (err) {
+                    console.error("Erreur lors du rejet: ", err);
+                    showAlert('Erreur', 'Une erreur est survenue.');
+                }
             }
-        }
+        });
     };
     
     const handleCloseTicket = async () => {
-        if (window.confirm("Êtes-vous sûr de vouloir clôturer ce ticket ?")) {
-        const docRef = doc(db, "tickets", ticketId);
-        try {
-            await updateDoc(docRef, { status: 'Ticket Clôturé', lastUpdate: serverTimestamp() });
-        } catch (err) {
-            console.error("Erreur lors de la clôture du ticket: ", err);
-            alert("Une erreur est survenue.");
-        }
-        }
+        showConfirmation('Clôturer le ticket', 'Êtes-vous sûr de vouloir clôturer ce ticket ?', async () => {
+            const docRef = doc(db, "tickets", ticketId);
+            try {
+                await updateDoc(docRef, { status: 'Ticket Clôturé', lastUpdate: serverTimestamp() });
+            } catch (err) {
+                console.error("Erreur lors de la clôture du ticket: ", err);
+                showAlert('Erreur', 'Une erreur est survenue.');
+            }
+        });
     };
 
     if (loading) {
@@ -312,7 +313,7 @@ export default function ManagerTicketDetailPage() {
                 </Col>
             </Row>
         </Container>
-        <Modal show={showEditModal} onHide={handleEditModalClose}>
+        <Modal show={showEditModal} onHide={handleEditModalClose} centered>
             <Modal.Header closeButton>
             <Modal.Title>Modifier le Ticket</Modal.Title>
             </Modal.Header>

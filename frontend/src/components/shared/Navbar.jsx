@@ -7,7 +7,7 @@ export default function AppNavbar() {
     // Ajout de sticky="top"
     <Navbar bg="dark" variant="dark" expand="lg" sticky="top">
       <Container>
-        <Navbar.Brand as={NavLink} to="/">Paniscope Ticketing</Navbar.Brand>
+        <Navbar.Brand as={NavLink} to="/">Support Paniscope</Navbar.Brand>
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="ms-auto">
