@@ -31,9 +31,16 @@ export default function ClientDashboardPage() {
       
       setTickets(ticketsData);
       setLoading(false);
+      setError(null); // Réinitialiser l'erreur en cas de succès
     }, (err) => {
-      setError("Erreur lors de la récupération des tickets.");
-      console.error(err);
+      console.error('Erreur Firestore:', err);
+      // Ne pas afficher d'erreur si c'est juste une permission refusée (normal pour un nouveau client)
+      if (err.code === 'permission-denied') {
+        setTickets([]);
+        setError(null);
+      } else {
+        setError("Erreur lors de la récupération des tickets.");
+      }
       setLoading(false);
     });
 
