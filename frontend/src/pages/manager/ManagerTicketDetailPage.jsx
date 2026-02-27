@@ -216,7 +216,25 @@ export default function ManagerTicketDetailPage() {
                         )}
                     </Card.Header>
                     <Card.Body>
-                    <ListGroup variant="flush" className="mb-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    <ListGroup variant="flush" className="mb-3" style={{ maxHeight: '450px', overflowY: 'auto' }}>
+                        {/* Affichage de la pièce jointe (capture d'écran) si elle existe */}
+                        {ticket.attachmentUrl && (
+                            <ListGroup.Item className="border-0 px-0 pb-3">
+                                <div className="fw-bold mb-2">Capture d'écran jointe :</div>
+                                <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                    <img 
+                                        src={ticket.attachmentUrl} 
+                                        alt="Capture d'écran" 
+                                        className="rounded img-fluid border shadow-sm"
+                                        style={{ maxHeight: '300px', cursor: 'pointer' }}
+                                    />
+                                </a>
+                                <div className="mt-1 small text-muted text-center pt-2 border-bottom pb-2">
+                                    Cliquez sur l'image pour l'ouvrir en grand
+                                </div>
+                            </ListGroup.Item>
+                        )}
+
                         {ticket.conversation?.map((msg, index) => (
                         <ListGroup.Item key={index} className="d-flex flex-column border-0 px-0">
                             <div className="d-flex justify-content-between">

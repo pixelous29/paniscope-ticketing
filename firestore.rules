@@ -7,80 +7,59 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Fonction helper pour récupérer le rôle de l'utilisateur
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    // Fonction helper pour récupérer les données de l'utilisateur
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
     // Fonction helper pour vérifier si l'utilisateur est un manager
     function isManager() {
-      return isSignedIn() && getUserRole() == 'manager';
+      return isSignedIn() && getUserData().role == 'manager';
     }
     
     // Fonction helper pour vérifier si l'utilisateur est un développeur
     function isDeveloper() {
-      return isSignedIn() && getUserRole() == 'developer';
+      return isSignedIn() && getUserData().role == 'developer';
     }
     
     // Fonction helper pour vérifier si l'utilisateur est un client
     function isClient() {
-      return isSignedIn() && getUserRole() == 'client';
+      return isSignedIn() && getUserData().role == 'client';
     }
     
     // Rules pour la collection users
     match /users/{userId} {
-      // Lecture : l'utilisateur peut lire son propre document, les managers peuvent tout lire
       allow read: if isSignedIn() && (request.auth.uid == userId || isManager());
-      
-      // Création : seulement lors de l'inscription (géré par AuthProvider)
       allow create: if isSignedIn() && request.auth.uid == userId;
-      
-      // Mise à jour : l'utilisateur peut mettre à jour son propre profil (sauf le rôle)
-      //               les managers peuvent tout mettre à jour
       allow update: if isSignedIn() && (
-        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
+        (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])) ||
         isManager()
       );
-      
-      // Suppression : seulement les managers
       allow delete: if isManager();
     }
     
     // Rules pour la collection tickets
     match /tickets/{ticketId} {
-      // Lecture :
-      // - Les clients peuvent lire leurs propres tickets
-      // - Les managers et développeurs peuvent tout lire
+      // Lecture : clients voient leurs tickets, staff voit tout
       allow read: if isSignedIn() && (
-        (isClient() && resource.data.clientId == request.auth.uid) ||
+        (request.auth.uid == resource.data.clientUid) ||
         isManager() ||
         isDeveloper()
       );
       
-      // Création : seulement les clients
-      allow create: if isClient() && 
-        request.resource.data.clientId == request.auth.uid &&
-        request.resource.data.status == 'Nouveau' &&
-        request.resource.data.keys().hasAll(['subject', 'clientId', 'status', 'priority', 'submittedAt', 'lastUpdate']);
-      
-      // Mise à jour :
-      // - Les clients peuvent ajouter des messages à leurs tickets et marquer les messages comme lus
-      // - Les managers peuvent tout modifier
-      // - Les développeurs peuvent modifier les tickets qui leur sont assignés
-      allow update: if isSignedIn() && (
-        (isClient() && resource.data.clientId == request.auth.uid && 
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['conversation', 'lastUpdate', 'hasNewClientMessage', 'hasNewManagerMessage', 'hasNewDeveloperMessage'])) ||
-        isManager() ||
-        (isDeveloper() && resource.data.assignedTo == getUserDisplayName())
+      // Création : Autoriser la création avec les nouveaux champs
+      allow create: if isSignedIn() && (
+        request.resource.data.clientUid == request.auth.uid
       );
       
-      // Suppression : seulement les managers
+      // Mise à jour :
+      allow update: if isSignedIn() && (
+        (request.auth.uid == resource.data.clientUid) ||
+        isManager() ||
+        isDeveloper()
+      );
+      
       allow delete: if isManager();
-    }
-    
-    // Fonction helper pour obtenir le nom d'affichage de l'utilisateur
-    function getUserDisplayName() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.displayName;
     }
   }
 }

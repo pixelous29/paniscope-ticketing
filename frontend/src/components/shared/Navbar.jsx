@@ -77,7 +77,7 @@ export default function AppNavbar() {
           <Nav>
             <NavDropdown
               title={
-                <span className="d-flex align-items-center">
+                <span className="d-inline-flex align-items-center">
                   {currentUser?.photoURL ? (
                     <img
                       src={currentUser.photoURL}

@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 
-import { Mail, Lock, LogIn } from 'lucide-react';
+import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
@@ -19,6 +19,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(loginSchema)
@@ -109,12 +110,23 @@ export default function LoginPage() {
                   <Lock size={16} className="me-2" />
                   Mot de passe
                 </Form.Label>
-                <Form.Control
-                  type="password"
-                  placeholder="••••••••"
-                  {...register('password')}
-                  isInvalid={!!errors.password}
-                />
+                <div className="position-relative">
+                  <Form.Control
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    {...register('password')}
+                    isInvalid={!!errors.password}
+                  />
+                  <Button
+                    variant="link"
+                    className="position-absolute end-0 top-50 translate-middle-y text-muted p-0 me-3"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{ zIndex: 5 }}
+                    type="button"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </Button>
+                </div>
                 <Form.Control.Feedback type="invalid">
                   {errors.password?.message}
                 </Form.Control.Feedback>

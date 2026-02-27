@@ -84,6 +84,24 @@ export default function ClientTicketDetailPage() {
             <Card.Body>
             <h5>Conversation</h5>
             <ListGroup variant="flush" className="mb-3" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {/* Affichage de la pièce jointe (capture d'écran) si elle existe */}
+                {ticket.attachmentUrl && (
+                    <ListGroup.Item className="border-0 px-0 pb-3 mb-3 border-bottom">
+                         <div className="fw-bold mb-2 text-primary">Capture d'écran que vous avez jointe :</div>
+                        <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                            <img 
+                                src={ticket.attachmentUrl} 
+                                alt="Votre capture d'écran" 
+                                className="rounded img-fluid border shadow-sm"
+                                style={{ maxHeight: '250px', cursor: 'pointer' }}
+                            />
+                        </a>
+                        <div className="mt-1 small text-muted">
+                            Cliquez sur l'image pour l'ouvrir en grand
+                        </div>
+                    </ListGroup.Item>
+                )}
+
                 {ticket.conversation?.slice().sort((a, b) => {
                     const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
                     const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp).getTime();

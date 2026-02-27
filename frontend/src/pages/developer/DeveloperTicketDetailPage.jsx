@@ -125,9 +125,26 @@ export default function DeveloperTicketDetailPage() {
             <Card className="mb-4">
                 <Card.Header as="h5">Description originale du client</Card.Header>
                 <Card.Body>
-                <p style={{ whiteSpace: 'pre-wrap' }}>
+                <p style={{ whiteSpace: 'pre-wrap' }} className="mb-3">
                     {ticket.conversation?.[0]?.text || "Aucune description initiale trouvée."}
                 </p>
+                {/* Affichage de la pièce jointe (capture d'écran) si elle existe */}
+                {ticket.attachmentUrl && (
+                    <div className="mt-3 border-top pt-3">
+                        <div className="fw-bold mb-2">Capture d'écran jointe par le client :</div>
+                        <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                            <img 
+                                src={ticket.attachmentUrl} 
+                                alt="Capture d'écran" 
+                                className="rounded img-fluid border shadow-sm"
+                                style={{ maxHeight: '250px', cursor: 'pointer' }}
+                            />
+                        </a>
+                        <div className="mt-1 small text-muted">
+                            Cliquez sur l'image pour l'ouvrir en grand
+                        </div>
+                    </div>
+                )}
                 </Card.Body>
             </Card>
             <Card>
