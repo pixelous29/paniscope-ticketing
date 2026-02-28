@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, doc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, doc, updateDoc, where } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
 import { Container, Card, Button, Badge, Spinner, Alert, Nav, Table, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
+import { useAuth } from '../../hooks/useAuth';
 import { STATUS, STATUS_VARIANT } from '../../constants/status';
 
 export default function ClientDashboardPage() {
@@ -14,9 +15,15 @@ export default function ClientDashboardPage() {
   const [view, setView] = useState('current');
   const navigate = useNavigate();
   const { showAlert } = useModal();
+  const { currentUser } = useAuth();
 
   useEffect(() => {
-    const ticketsCollectionQuery = query(collection(db, "tickets"));
+    if (!currentUser) return;
+
+    const ticketsCollectionQuery = query(
+      collection(db, "tickets"),
+      where("clientUid", "==", currentUser.uid)
+    );
 
     const unsubscribe = onSnapshot(ticketsCollectionQuery, (querySnapshot) => {
       const ticketsData = querySnapshot.docs.map(doc => {
@@ -45,7 +52,7 @@ export default function ClientDashboardPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentUser]);
 
   const handleArchiveTicket = async (e, id) => {
     e.stopPropagation();

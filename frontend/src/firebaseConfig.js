@@ -6,12 +6,12 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBh_CwZgloHw6l1-gjNW_ZdK9A6B9G1EA0",
-  authDomain: "paniscope-ticketing.firebaseapp.com",
-  projectId: "paniscope-ticketing",
-  storageBucket: "paniscope-ticketing.firebasestorage.app",
-  messagingSenderId: "593655564657",
-  appId: "1:593655564657:web:78e32049485fd5ade40ed0",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase

@@ -1,0 +1,8 @@
+2026-02-27T22:53:50.850075234Z D notifyWimiOnNewTicket: Function execution started
+2026-02-27T22:53:51.038148Z ? notifyWimiOnNewTicket: Nouveau ticket d├®tect├® : guaAmjz7ecpJJSABwHU1
+2026-02-27T22:53:52.451508Z ? notifyWimiOnNewTicket: Notification envoy├®e ├á Wimi avec succ├¿s
+2026-02-27T22:53:52.469275001Z D notifyWimiOnNewTicket: Function execution took 1619 ms, finished with status: 'ok'
+2026-02-27T23:05:51.126526120Z D notifyWimiOnNewTicket: Function execution started
+2026-02-27T23:05:51.133336Z ? notifyWimiOnNewTicket: Nouveau ticket d├®tect├® : 1CtJw6lY5GMpKk20IsQ0
+2026-02-27T23:05:51.906974Z ? notifyWimiOnNewTicket: Notification envoy├®e ├á Wimi avec succ├¿s
+2026-02-27T23:05:51.909538742Z D notifyWimiOnNewTicket: Function execution took 783 ms, finished with status: 'ok'
