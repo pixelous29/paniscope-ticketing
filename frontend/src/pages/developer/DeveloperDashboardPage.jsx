@@ -4,6 +4,7 @@ import { db } from '../../firebaseConfig';
 import { Container, Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Card, Nav } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
+import { useAuth } from '../../hooks/useAuth';
 import { STATUS } from '../../constants/status';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
@@ -16,9 +17,14 @@ export default function DeveloperDashboardPage() {
   const [view, setView] = useState('current'); // 'current' or 'archived'
   const navigate = useNavigate();
   const { showAlert } = useModal();
+  const { currentUser } = useAuth();
 
   useEffect(() => {
-    const developerName = "Lise"; 
+    if (!currentUser) return;
+    
+    // Fallback to email if displayName is not set
+    const developerName = currentUser.displayName || currentUser.email; 
+    
     const ticketsCollectionQuery = query(
       collection(db, "tickets"),
       where("assignedTo", "==", developerName)
@@ -42,7 +48,7 @@ export default function DeveloperDashboardPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [currentUser]);
 
   const handleArchiveTicket = async (e, id) => {
     e.stopPropagation();

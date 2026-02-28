@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
 import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Modal, FloatingLabel, Breadcrumb } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
@@ -18,10 +18,29 @@ export default function ManagerTicketDetailPage() {
     const [editFormData, setEditFormData] = useState({ priority: '', assignedTo: '', tags: '' });
     const [replyText, setReplyText] = useState('');
     const [internalNoteText, setInternalNoteText] = useState('');
+    const [developers, setDevelopers] = useState([]);
     const { showAlert, showConfirmation, showPrompt } = useModal();
 
     useEffect(() => {
         const docRef = doc(db, "tickets", ticketId);
+        
+        // Fetch developers for the assignment dropdown
+        const fetchDevelopers = async () => {
+            try {
+                const q = query(collection(db, "users"), where("role", "==", "developer"));
+                const querySnapshot = await getDocs(q);
+                const devs = querySnapshot.docs.map(d => ({
+                    id: d.id,
+                    name: d.data().displayName || d.data().email
+                }));
+                // Ensure unique values (in case email and displayname are duplicated or multiple devs have same name, maybe edge case, but safe)
+                setDevelopers(devs);
+            } catch (err) {
+                console.error("Erreur lors de la récupération des développeurs:", err);
+            }
+        };
+        fetchDevelopers();
+
         const updateStatusIfNeeded = async (ticketData) => {
             if (ticketData.status === STATUS.NEW) {
                 try {
@@ -355,7 +374,12 @@ export default function ManagerTicketDetailPage() {
                 </Form.Select>
                 </FloatingLabel>
                 <FloatingLabel controlId="assignedToInput" label="Assigner à" className="mb-3">
-                <Form.Control type="text" placeholder="Nom du développeur" name="assignedTo" value={editFormData.assignedTo} onChange={handleEditFormChange} />
+                <Form.Select name="assignedTo" value={editFormData.assignedTo} onChange={handleEditFormChange}>
+                    <option value="">Non assigné / Sélectionner...</option>
+                    {developers.map(dev => (
+                        <option key={dev.id} value={dev.name}>{dev.name}</option>
+                    ))}
+                </Form.Select>
                 </FloatingLabel>
                 <FloatingLabel controlId="tagsInput" label="Tags (séparés par des virgules)">
                 <Form.Control type="text" placeholder="tag1, tag2, tag3" name="tags" value={editFormData.tags} onChange={handleEditFormChange} />
