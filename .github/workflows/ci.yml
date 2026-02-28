@@ -17,8 +17,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
@@ -36,13 +36,20 @@ jobs:
       - name: Build project
         run: npm run build
         working-directory: ./frontend
+        env:
+          VITE_FIREBASE_API_KEY: "AIzaSyBh_CwZgloHw6l1-gjNW_ZdK9A6B9G1EA0"
+          VITE_FIREBASE_AUTH_DOMAIN: "paniscope-ticketing.firebaseapp.com"
+          VITE_FIREBASE_PROJECT_ID: "paniscope-ticketing"
+          VITE_FIREBASE_STORAGE_BUCKET: "paniscope-ticketing.firebasestorage.app"
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "593655564657"
+          VITE_FIREBASE_APP_ID: "1:593655564657:web:78e32049485fd5ade40ed0"
 
       - name: Deploy to Firebase Hosting (Production)
         if: github.ref == 'refs/heads/main'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PANISCOPE_TICKETING }}'
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_PANISCOPE_TICKETING }}"
           target: production
           channelId: live
 
@@ -50,7 +57,7 @@ jobs:
         if: github.ref == 'refs/heads/develop'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PANISCOPE_TICKETING }}'
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_PANISCOPE_TICKETING }}"
           target: development
           channelId: live

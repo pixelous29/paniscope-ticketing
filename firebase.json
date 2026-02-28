@@ -20,7 +20,7 @@
   "hosting": [
     {
       "target": "production",
-      "public": "landing-prod",
+      "public": "frontend/dist",
       "ignore": [
         "firebase.json",
         "**/.*",
