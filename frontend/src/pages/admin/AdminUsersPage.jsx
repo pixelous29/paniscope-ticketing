@@ -5,6 +5,9 @@ import { Container, Card, Table, Form, Button, Spinner, Alert, Badge } from 'rea
 import { Shield, User, Code, Check, X, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Email du super admin protégé : ne peut être ni bloqué, ni révoqué, ni modifié
+const SUPER_ADMIN_EMAIL = 'yves@paniscope.fr';
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,6 +159,7 @@ export default function AdminUsersPage() {
                 const statusBadge = getStatusBadge(user.status || 'approved');
                 const RoleIcon = roleBadge.icon;
                 const StatusIcon = statusBadge.icon;
+                const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
                 
                 return (
                   <tr key={user.id}>
@@ -195,56 +199,66 @@ export default function AdminUsersPage() {
                       </Badge>
                     </td>
                     <td className="align-middle">
-                      <Form.Select
-                        value={user.role}
-                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                        style={{ maxWidth: '200px' }}
-                      >
-                        <option value="client">Client</option>
-                        <option value="manager">Manager</option>
-                        <option value="developer">Développeur</option>
-                      </Form.Select>
+                      {isSuperAdmin ? (
+                        <span className="text-muted fst-italic">Super Admin</span>
+                      ) : (
+                        <Form.Select
+                          value={user.role}
+                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                          style={{ maxWidth: '200px' }}
+                        >
+                          <option value="client">Client</option>
+                          <option value="manager">Manager</option>
+                          <option value="developer">Développeur</option>
+                        </Form.Select>
+                      )}
                     </td>
                     <td className="align-middle">
-                      {user.status === 'pending' && (
-                        <div className="d-flex gap-2">
-                          <Button
-                            variant="success"
-                            size="sm"
-                            onClick={() => handleStatusChange(user.id, 'approved')}
-                          >
-                            <Check size={16} className="me-1" />
-                            Approuver
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleStatusChange(user.id, 'rejected')}
-                          >
-                            <X size={16} className="me-1" />
-                            Rejeter
-                          </Button>
-                        </div>
-                      )}
-                      {user.status === 'approved' && (
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => handleStatusChange(user.id, 'rejected')}
-                        >
-                          <X size={16} className="me-1" />
-                          Bloquer
-                        </Button>
-                      )}
-                      {user.status === 'rejected' && (
-                        <Button
-                          variant="outline-success"
-                          size="sm"
-                          onClick={() => handleStatusChange(user.id, 'approved')}
-                        >
-                          <Check size={16} className="me-1" />
-                          Réactiver
-                        </Button>
+                      {isSuperAdmin ? (
+                        <span className="text-muted fst-italic">—</span>
+                      ) : (
+                        <>
+                          {user.status === 'pending' && (
+                            <div className="d-flex gap-2">
+                              <Button
+                                variant="success"
+                                size="sm"
+                                onClick={() => handleStatusChange(user.id, 'approved')}
+                              >
+                                <Check size={16} className="me-1" />
+                                Approuver
+                              </Button>
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => handleStatusChange(user.id, 'rejected')}
+                              >
+                                <X size={16} className="me-1" />
+                                Rejeter
+                              </Button>
+                            </div>
+                          )}
+                          {user.status === 'approved' && (
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              onClick={() => handleStatusChange(user.id, 'rejected')}
+                            >
+                              <X size={16} className="me-1" />
+                              Bloquer
+                            </Button>
+                          )}
+                          {user.status === 'rejected' && (
+                            <Button
+                              variant="outline-success"
+                              size="sm"
+                              onClick={() => handleStatusChange(user.id, 'approved')}
+                            >
+                              <Check size={16} className="me-1" />
+                              Réactiver
+                            </Button>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="align-middle">
