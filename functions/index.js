@@ -58,112 +58,124 @@ exports.notifyZapierOnNewTicket = functions.firestore
 
 /**
  * 2. EMAIL -> TICKET (WebHook Inbound)
- * Reçoit les emails de CloudMailin et les transforme en tickets
+ * Reçoit les emails de Make via multipart/form-data
  */
-exports.inboundEmailToTicket = functions.https.onRequest(async (req, res) => {
-  // Format "JSON - Normalized" de CloudMailin
-  const headers = req.body.headers || {};
-  const fromHeader =
-    headers.from || (req.body.envelope && req.body.envelope.from) || "";
-  const subject = headers.subject || "Sans objet";
-  const plain = req.body.plain || "";
-  const attachments = req.body.attachments || [];
+const busboy = require("busboy");
 
-  // Extraction de l'email (ex: "Jean Dupont <jean@dupont.com>" devient "jean@dupont.com")
-  const emailMatch = fromHeader.match(/<([^>]+)>/);
-  const from = emailMatch
-    ? emailMatch[1].toLowerCase().trim()
-    : fromHeader.toLowerCase().trim();
-
-  console.log(`Mail reçu (header): ${fromHeader} -> Email extrait: ${from}`);
-
-  console.log(`Mail reçu de : ${from}`);
-
-  try {
-    // 1. Chercher l'utilisateur par son email
-    const userQuery = await db
-      .collection("users")
-      .where("email", "==", from)
-      .limit(1)
-      .get();
-
-    if (userQuery.empty) {
-      console.log(`Utilisateur non trouvé pour l'email : ${from}`);
-      return res.status(200).send("Expéditeur inconnu, ticket non créé.");
-    }
-
-    const userData = userQuery.docs[0].data();
-    const userId = userQuery.docs[0].id;
-
-    // 2. Gérer les photos attachées (si présentes)
-    let attachmentUrl = null;
-    if (attachments && attachments.length > 0) {
-      const firstAttach = attachments[0];
-      if (
-        firstAttach.content_type &&
-        firstAttach.content_type.startsWith("image/")
-      ) {
-        try {
-          console.log(
-            `Traitement de la pièce jointe: ${firstAttach.file_name}`,
-          );
-          const bucket = storage.bucket(
-            "paniscope-ticketing.firebasestorage.app",
-          );
-          const fileName = `attachments/email_${Date.now()}_${firstAttach.file_name || "image.jpg"}`;
-          const file = bucket.file(fileName);
-
-          const buffer = Buffer.from(firstAttach.content, "base64");
-
-          // Générer un token pour l'URL publique Firebase
-          const token = require("crypto").randomUUID();
-
-          await file.save(buffer, {
-            metadata: {
-              contentType: firstAttach.content_type,
-              metadata: {
-                firebaseStorageDownloadTokens: token,
-              },
-            },
-          });
-
-          attachmentUrl = `https://firebasestorage.googleapis.com/v0/b/paniscope-ticketing.firebasestorage.app/o/${encodeURIComponent(fileName)}?alt=media&token=${token}`;
-          console.log(`Image uploadée avec succès : ${attachmentUrl}`);
-        } catch (err) {
-          console.error("Erreur lors de l'upload de la pièce jointe", err);
-        }
-      }
-    }
-
-    // 3. Créer le ticket dans Firestore
-    const newTicket = {
-      subject: subject,
-      clientUid: userId,
-      client: userData.displayName || from,
-      status: "Nouveau",
-      priority: "Normale",
-      submittedAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-      conversation: [
-        {
-          author: "Client (Email)",
-          text: plain,
-          timestamp: new Date(),
-        },
-      ],
-      hasNewClientMessage: true,
-    };
-
-    if (attachmentUrl) {
-      newTicket.attachmentUrl = attachmentUrl;
-    }
-
-    const docRef = await db.collection("tickets").add(newTicket);
-    console.log(`Ticket créé via email avec l'ID : ${docRef.id}`);
-
-    return res.status(200).send(`Ticket #${docRef.id} créé !`);
-  } catch (error) {
-    console.error("Erreur lors de la création du ticket via email:", error);
-    return res.status(500).send("Erreur interne.");
+exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
+  if (req.method !== "POST") {
+    return res.status(405).send("Method Not Allowed");
   }
+
+  const bb = busboy({ headers: req.headers });
+  const fields = {};
+  let fileData = null;
+  let fileMimeType = null;
+  let fileName = null;
+
+  bb.on("field", (name, val) => {
+    fields[name] = val;
+  });
+
+  bb.on("file", (name, file, info) => {
+    console.log(`Fichier détecté : ${info.filename}`);
+    fileName = info.filename || "piece_jointe";
+    fileMimeType = info.mimeType;
+    let chunks = [];
+    file.on("data", (data) => {
+      chunks.push(data);
+    });
+    file.on("end", () => {
+      fileData = Buffer.concat(chunks);
+    });
+  });
+
+  bb.on("finish", async () => {
+    try {
+      const fromHeader = fields.from || "";
+      const subject = fields.subject || "Sans objet";
+      const plain = fields.text || "";
+
+      // Extraction de l'email (ex: "Jean Dupont <jean@dupont.com>" devient "jean@dupont.com")
+      const emailMatch = fromHeader.match(/<([^>]+)>/);
+      const from = emailMatch
+        ? emailMatch[1].toLowerCase().trim()
+        : fromHeader.toLowerCase().trim();
+
+      console.log(`Mail reçu de : ${from} - Sujet: ${subject}`);
+
+      // 1. Chercher l'utilisateur par son email
+      const userQuery = await db
+        .collection("users")
+        .where("email", "==", from)
+        .limit(1)
+        .get();
+
+      if (userQuery.empty) {
+        console.log(`Utilisateur non trouvé pour l'email : ${from}`);
+        return res.status(200).send("Expéditeur inconnu, ticket non créé.");
+      }
+
+      const userData = userQuery.docs[0].data();
+      const userId = userQuery.docs[0].id;
+
+      // 2. Gérer la photo attachée (si présente)
+      let attachmentUrl = null;
+      if (fileData && fileMimeType && fileMimeType.startsWith("image/")) {
+        console.log(`Traitement de la pièce jointe: ${fileName}`);
+        const bucket = storage.bucket(
+          "paniscope-ticketing.firebasestorage.app",
+        );
+        const storedFileName = `attachments/email_${Date.now()}_${fileName}`;
+        const storageFile = bucket.file(storedFileName);
+
+        const token = require("crypto").randomUUID();
+
+        await storageFile.save(fileData, {
+          metadata: {
+            contentType: fileMimeType,
+            metadata: {
+              firebaseStorageDownloadTokens: token,
+            },
+          },
+        });
+
+        attachmentUrl = `https://firebasestorage.googleapis.com/v0/b/paniscope-ticketing.firebasestorage.app/o/${encodeURIComponent(storedFileName)}?alt=media&token=${token}`;
+        console.log(`Image uploadée avec succès : ${attachmentUrl}`);
+      }
+
+      // 3. Créer le ticket dans Firestore
+      const newTicket = {
+        subject: subject,
+        clientUid: userId,
+        client: userData.displayName || from,
+        status: "Nouveau",
+        priority: "Normale",
+        submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+        conversation: [
+          {
+            author: "Client (Email)",
+            text: plain,
+            timestamp: new Date(),
+          },
+        ],
+        hasNewClientMessage: true,
+      };
+
+      if (attachmentUrl) {
+        newTicket.attachmentUrl = attachmentUrl;
+      }
+
+      const docRef = await db.collection("tickets").add(newTicket);
+      console.log(`Ticket créé via email avec l'ID : ${docRef.id}`);
+
+      return res.status(200).send(`Ticket #${docRef.id} créé !`);
+    } catch (error) {
+      console.error("Erreur lourde process email:", error);
+      return res.status(500).send("Erreur interne du Cloud.");
+    }
+  });
+
+  bb.end(req.rawBody);
 });
