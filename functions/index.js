@@ -35,7 +35,7 @@ exports.notifyZapierOnNewTicket = functions.firestore
       const payload = {
         ticket_id: ticketId,
         subject: ticket.subject,
-        client_name: ticket.client || ticket.clientUid,
+        client_name: ticket.clientName || ticket.client || ticket.clientUid,
         priority: ticket.priority || "Normale",
         ticket_url: `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`,
         created_at: new Date().toISOString(),
