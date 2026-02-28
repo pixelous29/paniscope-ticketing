@@ -78,9 +78,12 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
   });
 
   bb.on("file", (name, file, info) => {
-    console.log(`Fichier détecté : ${info.filename}`);
-    fileName = info.filename || "piece_jointe";
-    fileMimeType = info.mimeType;
+    console.log(
+      `Fichier détecté -> param: ${name}, filename: ${info.filename}, mime: ${info.mimeType}`,
+    );
+    fileName = info.filename || `piece_jointe_${Date.now()}`;
+    fileMimeType = info.mimeType || "application/octet-stream";
+
     let chunks = [];
     file.on("data", (data) => {
       chunks.push(data);
@@ -96,13 +99,18 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       const subject = fields.subject || "Sans objet";
       const plain = fields.text || "";
 
-      // Extraction de l'email (ex: "Jean Dupont <jean@dupont.com>" devient "jean@dupont.com")
-      const emailMatch = fromHeader.match(/<([^>]+)>/);
+      // Extraction de l'email avec une RegEx robuste qui trouve le texte format email
+      // Même si Make envoie '{"address":"jean@truc.com"}' ou 'Jean <jean@truc.com>'
+      const emailMatch = fromHeader.match(
+        /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
+      );
       const from = emailMatch
-        ? emailMatch[1].toLowerCase().trim()
+        ? emailMatch[0].toLowerCase().trim()
         : fromHeader.toLowerCase().trim();
 
-      console.log(`Mail reçu de : ${from} - Sujet: ${subject}`);
+      console.log(
+        `Mail reçu brut: ${fromHeader} -> Email extrait: ${from} - Sujet: ${subject}`,
+      );
 
       // 1. Chercher l'utilisateur par son email
       const userQuery = await db
@@ -119,14 +127,17 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       const userData = userQuery.docs[0].data();
       const userId = userQuery.docs[0].id;
 
-      // 2. Gérer la photo attachée (si présente)
+      // 2. Gérer la pièce jointe (si présente et non vide)
       let attachmentUrl = null;
-      if (fileData && fileMimeType && fileMimeType.startsWith("image/")) {
-        console.log(`Traitement de la pièce jointe: ${fileName}`);
+      if (fileData && fileData.length > 0) {
+        console.log(
+          `Traitement de la pièce jointe (taille: ${fileData.length} octets) : ${fileName}`,
+        );
         const bucket = storage.bucket(
           "paniscope-ticketing.firebasestorage.app",
         );
-        const storedFileName = `attachments/email_${Date.now()}_${fileName}`;
+        const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_"); // sécuriser le nom
+        const storedFileName = `attachments/email_${Date.now()}_${safeName}`;
         const storageFile = bucket.file(storedFileName);
 
         const token = require("crypto").randomUUID();
@@ -141,7 +152,7 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
         });
 
         attachmentUrl = `https://firebasestorage.googleapis.com/v0/b/paniscope-ticketing.firebasestorage.app/o/${encodeURIComponent(storedFileName)}?alt=media&token=${token}`;
-        console.log(`Image uploadée avec succès : ${attachmentUrl}`);
+        console.log(`Fichier uploadé avec succès : ${attachmentUrl}`);
       }
 
       // 3. Créer le ticket dans Firestore
