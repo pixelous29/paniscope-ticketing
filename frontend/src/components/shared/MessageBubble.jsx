@@ -70,12 +70,21 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
 
             if (targetUid) {
                 try {
-                    // Si la promesse de ce profil_id n'existe pas en cache, on la lance et on la stocke
-                    if (!userProfileCache[targetUid]) {
-                        userProfileCache[targetUid] = getDoc(doc(db, 'users', targetUid));
+                    const now = Date.now();
+                    const cached = userProfileCache[targetUid];
+                    
+                    // Cache valide pendant 5 minutes
+                    if (cached && cached.timestamp && (now - cached.timestamp < 5 * 60 * 1000)) {
+                        if (isMounted) {
+                            setUserData({
+                                displayName: cached.displayName,
+                                photoURL: cached.photoURL
+                            });
+                        }
+                        return;
                     }
                     
-                    const userDoc = await userProfileCache[targetUid];
+                    const userDoc = await getDoc(doc(db, 'users', targetUid));
                     
                     if (userDoc.exists() && isMounted) {
                         const data = userDoc.data();
@@ -84,9 +93,17 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                             fullName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
                         }
                         
-                        setUserData({
+                        const profile = {
                             displayName: fullName || data.displayName || msg.displayName || msg.author,
-                            photoURL: data.photoURL || msg.photoURL || null
+                            photoURL: data.photoURL || msg.photoURL || null,
+                            timestamp: now
+                        };
+                        
+                        userProfileCache[targetUid] = profile;
+                        
+                        setUserData({
+                            displayName: profile.displayName,
+                            photoURL: profile.photoURL
                         });
                     }
                 } catch (error) {
@@ -138,8 +155,51 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
             break;
     }
 
-    const displayName = userData.displayName === 'Système' ? 'Ouverture du ticket' : userData.displayName;
-    const displayAuthor = msg.author === 'Système' ? 'Ouverture du ticket' : msg.author;
+    // Seul le tout premier message "Système" (description du ticket) affiche "Ouverture du ticket"
+    // Les messages de clôture/réouverture gardent "Système"
+    const isOpeningMessage = msg.author === 'Système' && !msg.text?.startsWith('🔒') && !msg.text?.startsWith('🔓');
+    const displayName = userData.displayName === 'Système' ? (isOpeningMessage ? 'Ouverture du ticket' : 'Système') : userData.displayName;
+    const displayAuthor = msg.author === 'Système' ? (isOpeningMessage ? 'Ouverture du ticket' : 'Système') : msg.author;
+
+    // Rendu du texte avec mise en surbrillance des @mentions
+    // Supporte le format @[Prénom Nom] (noms avec espaces) et aussi @Prénom (ancien format sans espaces)
+    const renderTextWithMentions = (text) => {
+        if (!text) return null;
+        // Cherche @[Nom Complet] ou @MotSimple
+        const parts = text.split(/(@\[[^\]]+\]|@[a-zA-ZÀ-ÿ0-9_-]+)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('@[') && part.endsWith(']')) {
+                // Format @[Nom Complet] → affiche @Nom Complet
+                const name = part.slice(2, -1);
+                return (
+                    <span key={i} style={{ 
+                        color: '#0d6efd', 
+                        fontWeight: '600',
+                        backgroundColor: '#e7f1ff',
+                        borderRadius: '3px',
+                        padding: '1px 4px'
+                    }}>
+                        @{name}
+                    </span>
+                );
+            }
+            if (part.startsWith('@') && part.length > 1) {
+                // Ancien format @MotSimple
+                return (
+                    <span key={i} style={{ 
+                        color: '#0d6efd', 
+                        fontWeight: '600',
+                        backgroundColor: '#e7f1ff',
+                        borderRadius: '3px',
+                        padding: '1px 4px'
+                    }}>
+                        {part}
+                    </span>
+                );
+            }
+            return <span key={i}>{part}</span>;
+        });
+    };
 
     const handleReaction = async (emoji) => {
         if (!ticket || !currentUser) return;
@@ -319,7 +379,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
             )}
             
             <div className="mb-1 mt-2 text-dark" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.95rem' }}>
-                {msg.text}
+                {renderTextWithMentions(msg.text)}
             </div>
             
             {/* Affichage des images jointes au message */}

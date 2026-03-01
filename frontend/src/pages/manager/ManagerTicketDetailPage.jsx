@@ -12,6 +12,7 @@ import { Reply, X } from 'lucide-react';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
 import ImageModal from '../../components/shared/ImageModal';
 import MessageBubble from '../../components/shared/MessageBubble';
+import MentionTextarea from '../../components/shared/MentionTextarea';
 
 const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': 'success', 'Faible': 'secondary' };
 
@@ -82,13 +83,40 @@ export default function ManagerTicketDetailPage() {
 
     useEffect(() => {
         if (localLastRead !== null && !autoScrolled.current) {
-            setTimeout(() => {
+            const scrollContainerToBottom = (containerId) => {
+                const container = document.getElementById(containerId);
+                if (container) {
+                    container.scrollTo({
+                        top: container.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                    return true;
+                }
+                return false;
+            };
+
+            const doScroll = () => {
                 const firstUnread = document.getElementById('first-unread-msg');
                 if (firstUnread) {
                     firstUnread.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    // Pas de messages non lus → scroller les deux conteneurs en bas
+                    scrollContainerToBottom('conversation-list');
+                    scrollContainerToBottom('internal-notes-list');
                 }
                 autoScrolled.current = true;
-            }, 500);
+            };
+
+            // Première tentative après 800ms
+            setTimeout(() => {
+                const container = document.getElementById('conversation-list');
+                if (container) {
+                    doScroll();
+                } else {
+                    // Retry si pas encore rendu
+                    setTimeout(doScroll, 1000);
+                }
+            }, 800);
         }
     }, [localLastRead, ticket]);
 
@@ -391,9 +419,42 @@ export default function ManagerTicketDetailPage() {
         showConfirmation('Clôturer le ticket', 'Êtes-vous sûr de vouloir clôturer ce ticket ?', async () => {
             const docRef = doc(db, "tickets", ticketId);
             try {
-                await updateDoc(docRef, { status: STATUS.CLOSED, lastUpdate: serverTimestamp() });
+                const closureMessage = {
+                    text: '🔒 Ticket clôturé par le Manager.',
+                    author: 'Système',
+                    displayName: 'Système',
+                    timestamp: new Date()
+                };
+                await updateDoc(docRef, { 
+                    status: STATUS.CLOSED, 
+                    lastUpdate: serverTimestamp(),
+                    conversation: arrayUnion(closureMessage)
+                });
             } catch (err) {
                 console.error("Erreur lors de la clôture du ticket: ", err);
+                showAlert('Erreur', 'Une erreur est survenue.');
+            }
+        });
+    };
+
+    const handleReopenTicket = async () => {
+        showConfirmation('Réouvrir le ticket', 'Êtes-vous sûr de vouloir réouvrir ce ticket ? Il sera de nouveau visible dans les tickets en cours pour tous les utilisateurs.', async () => {
+            const docRef = doc(db, "tickets", ticketId);
+            try {
+                const reopenMessage = {
+                    text: '🔓 Ticket réouvert par le Manager.',
+                    author: 'Système',
+                    displayName: 'Système',
+                    timestamp: new Date()
+                };
+                await updateDoc(docRef, { 
+                    status: STATUS.IN_PROGRESS, 
+                    archived: false,
+                    lastUpdate: serverTimestamp(),
+                    conversation: arrayUnion(reopenMessage)
+                });
+            } catch (err) {
+                console.error("Erreur lors de la réouverture du ticket: ", err);
                 showAlert('Erreur', 'Une erreur est survenue.');
             }
         });
@@ -423,7 +484,7 @@ export default function ManagerTicketDetailPage() {
                         <h5 className="mb-0">Conversation Client</h5>
                     </Card.Header>
                     <Card.Body>
-                    <ListGroup variant="flush" className="mb-3" style={{ maxHeight: '450px', overflowY: 'auto' }}>
+                    <ListGroup variant="flush" className="mb-3" id="conversation-list" style={{ maxHeight: '450px', overflowY: 'auto' }}>
                         {ticket.conversation?.slice().sort((a, b) => {
                             const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
                             const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp).getTime();
@@ -486,13 +547,13 @@ export default function ManagerTicketDetailPage() {
                                 </div>
                             )}
                             <Form.Group className="mb-4" controlId="managerResponse">
-                            <Form.Control 
-                            as="textarea" 
+                            <MentionTextarea 
                             rows={4} 
-                            placeholder="Votre réponse ici..." 
+                            placeholder="Votre réponse ici... (utilisez @ pour mentionner)" 
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
                             className="border-primary"
+                            ticket={ticket}
                             />
                             </Form.Group>
                             
@@ -520,7 +581,7 @@ export default function ManagerTicketDetailPage() {
                         <h5 className="mb-0">Discussion Interne (Développeur)</h5>
                     </Card.Header>
                     <Card.Body>
-                        <ListGroup variant="flush" className="mb-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        <ListGroup variant="flush" className="mb-3" id="internal-notes-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                             {ticket.internalNotes?.map((note, index, arr) => {
                                 const msgMs = note.timestamp?.toMillis ? note.timestamp.toMillis() : new Date(note.timestamp).getTime();
                                 const isNew = localLastRead !== null && msgMs > localLastRead;
@@ -573,14 +634,14 @@ export default function ManagerTicketDetailPage() {
                                     </div>
                                 )}
                                 <Form.Group className="mb-4" controlId="managerInternalNote">
-                                    <Form.Control 
-                                    as="textarea" 
+                                    <MentionTextarea 
                                     name="managerInternalNote"
                                     rows={4} 
-                                    placeholder="Note pour le développeur..." 
+                                    placeholder="Note pour le développeur... (utilisez @ pour mentionner)" 
                                     value={internalNoteText}
                                     onChange={(e) => setInternalNoteText(e.target.value)}
                                     className="border-secondary"
+                                    ticket={ticket}
                                     />
                                 </Form.Group>
 
@@ -630,7 +691,11 @@ export default function ManagerTicketDetailPage() {
                         <div className="d-grid gap-2">
                             <Card.Title>Actions Manager</Card.Title>
                             <Button variant="outline-secondary" onClick={handleEditModalOpen} disabled={isTicketClosed}>Modifier Tags / Priorité / Assignation</Button>
-                            <Button variant="success" onClick={handleCloseTicket} disabled={isTicketClosed}>Clôturer le ticket</Button>
+                            {isTicketClosed ? (
+                                <Button variant="warning" onClick={handleReopenTicket}>Réouvrir le ticket</Button>
+                            ) : (
+                                <Button variant="success" onClick={handleCloseTicket}>Clôturer le ticket</Button>
+                            )}
                         </div>
                     )}
                     </Card.Body>

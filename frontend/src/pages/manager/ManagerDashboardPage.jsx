@@ -63,8 +63,10 @@ export default function ManagerDashboardPage() {
     return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
   }
 
-  const currentTickets = tickets.filter(ticket => !ticket.archived);
-  const archivedTickets = tickets.filter(ticket => ticket.archived);
+  // Un ticket est archivé seulement si archived=true ET status=CLOSED
+  // Si un ticket est réouvert, il revient automatiquement dans les tickets en cours
+  const currentTickets = tickets.filter(ticket => !ticket.archived || ticket.status !== STATUS.CLOSED);
+  const archivedTickets = tickets.filter(ticket => ticket.archived && ticket.status === STATUS.CLOSED);
   const showActionsColumn = currentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (

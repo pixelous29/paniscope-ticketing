@@ -77,8 +77,8 @@ export default function DeveloperDashboardPage() {
     return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
   }
 
-  const currentTickets = tickets.filter(ticket => !ticket.archived);
-  const archivedTickets = tickets.filter(ticket => ticket.archived);
+  const currentTickets = tickets.filter(ticket => !ticket.archived || ticket.status !== STATUS.CLOSED);
+  const archivedTickets = tickets.filter(ticket => ticket.archived && ticket.status === STATUS.CLOSED);
   const showActionsColumn = currentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (

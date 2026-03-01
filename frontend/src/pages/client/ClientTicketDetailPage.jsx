@@ -12,6 +12,7 @@ import { Reply, X } from 'lucide-react';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
 import ImageModal from '../../components/shared/ImageModal';
 import MessageBubble from '../../components/shared/MessageBubble';
+import MentionTextarea from '../../components/shared/MentionTextarea';
 
 export default function ClientTicketDetailPage() {
     const { ticketId } = useParams();
@@ -73,13 +74,31 @@ export default function ClientTicketDetailPage() {
 
     useEffect(() => {
         if (localLastRead !== null && !autoScrolled.current) {
-            setTimeout(() => {
+            const scrollToLastMessage = () => {
                 const firstUnread = document.getElementById('first-unread-msg');
                 if (firstUnread) {
                     firstUnread.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    autoScrolled.current = true;
+                    return true;
                 }
-                autoScrolled.current = true; // Empêche de rescroller à chaque ajout de message
-            }, 500);
+                const allMessages = document.querySelectorAll('.list-group-item');
+                if (allMessages.length > 0) {
+                    const lastMsg = allMessages[allMessages.length - 1];
+                    lastMsg.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    autoScrolled.current = true;
+                    return true;
+                }
+                return false;
+            };
+
+            setTimeout(() => {
+                if (!scrollToLastMessage()) {
+                    setTimeout(() => {
+                        scrollToLastMessage();
+                        autoScrolled.current = true;
+                    }, 1000);
+                }
+            }, 800);
         }
     }, [localLastRead, ticket]);
 
@@ -301,13 +320,13 @@ export default function ClientTicketDetailPage() {
                                 </div>
                             )}
                             <Form.Group className="mb-4" controlId="clientResponse">
-                                <Form.Control
-                                    as="textarea"
+                                <MentionTextarea
                                     rows={4}
-                                    placeholder="Tapez votre message ici..."
+                                    placeholder="Tapez votre message ici... (utilisez @ pour mentionner)"
                                     value={replyText}
                                     onChange={(e) => setReplyText(e.target.value)}
                                     className="border-primary"
+                                    ticket={ticket}
                                 />
                             </Form.Group>
 

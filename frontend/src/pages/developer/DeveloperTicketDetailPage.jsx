@@ -12,6 +12,7 @@ import { Reply, X } from 'lucide-react';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
 import ImageModal from '../../components/shared/ImageModal';
 import MessageBubble from '../../components/shared/MessageBubble';
+import MentionTextarea from '../../components/shared/MentionTextarea';
 
 const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': 'success', 'Faible': 'secondary' };
 
@@ -79,13 +80,40 @@ export default function DeveloperTicketDetailPage() {
 
     useEffect(() => {
         if (localLastRead !== null && !autoScrolled.current) {
-            setTimeout(() => {
+            const scrollContainerToBottom = (containerId) => {
+                const container = document.getElementById(containerId);
+                if (container) {
+                    container.scrollTo({
+                        top: container.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                    return true;
+                }
+                return false;
+            };
+
+            const doScroll = () => {
                 const firstUnread = document.getElementById('first-unread-msg');
                 if (firstUnread) {
                     firstUnread.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    // Pas de messages non lus → scroller les deux conteneurs en bas
+                    scrollContainerToBottom('conversation-list');
+                    scrollContainerToBottom('internal-notes-list');
                 }
                 autoScrolled.current = true;
-            }, 500);
+            };
+
+            // Première tentative après 800ms
+            setTimeout(() => {
+                const container = document.getElementById('conversation-list');
+                if (container) {
+                    doScroll();
+                } else {
+                    // Retry si pas encore rendu
+                    setTimeout(doScroll, 1000);
+                }
+            }, 800);
         }
     }, [localLastRead, ticket]);
 
@@ -275,19 +303,32 @@ export default function DeveloperTicketDetailPage() {
     };
 
     const handleMarkAsDone = async () => {
-        showConfirmation('Terminer le ticket', 'Confirmez-vous que le travail sur ce ticket est terminé et prêt pour validation ?', async () => {
+        if (ticket.status === STATUS.PENDING_VALIDATION) {
             const docRef = doc(db, "tickets", ticketId);
             try {
                 await updateDoc(docRef, {
-                    status: STATUS.PENDING_VALIDATION,
+                    status: STATUS.IN_PROGRESS,
                     lastUpdate: serverTimestamp(),
-                    // On ne touche pas aux read status ici, le manager sera notifié
                 });
             } catch (err) {
-                console.error("Erreur lors de la finalisation du ticket: ", err);
-                showAlert('Erreur', 'Une erreur est survenue.');
+                console.error("Erreur lors de l'annulation: ", err);
+                showAlert('Erreur', 'Une erreur est survenue lors de l\'annulation.');
             }
-        });
+        } else {
+            showConfirmation('Terminer le ticket', 'Confirmez-vous que le travail sur ce ticket est terminé et prêt pour validation ?', async () => {
+                const docRef = doc(db, "tickets", ticketId);
+                try {
+                    await updateDoc(docRef, {
+                        status: STATUS.PENDING_VALIDATION,
+                        lastUpdate: serverTimestamp(),
+                        // On ne touche pas aux read status ici, le manager sera notifié
+                    });
+                } catch (err) {
+                    console.error("Erreur lors de la finalisation du ticket: ", err);
+                    showAlert('Erreur', 'Une erreur est survenue.');
+                }
+            });
+        }
     };
 
     if (loading) {
@@ -331,7 +372,7 @@ export default function DeveloperTicketDetailPage() {
                             <h5 className="mb-0">Conversation Client</h5>
                         </Card.Header>
                         <Card.Body>
-                            <ListGroup variant="flush" className="mb-3" style={{ maxHeight: '450px', overflowY: 'auto' }}>
+                            <ListGroup variant="flush" className="mb-3" id="conversation-list" style={{ maxHeight: '450px', overflowY: 'auto' }}>
                                 {sortedConversation?.map((msg, index, arr) => {
                                     let msgToRender = msg;
                                     if (index === 0 && !msg.attachmentUrls && !msg.attachmentUrl) {
@@ -365,7 +406,7 @@ export default function DeveloperTicketDetailPage() {
                                 })}
                             </ListGroup>
 
-                            {!isTicketClosed && !isPendingValidation && (
+                            {!isTicketClosed && (
                                 <>
                                     <hr />
                                     <h5>Répondre directement au client</h5>
@@ -392,13 +433,13 @@ export default function DeveloperTicketDetailPage() {
                                             </div>
                                         )}
                                         <Form.Group className="mb-4" controlId="devClientResponse">
-                                            <Form.Control 
-                                                as="textarea" 
+                                            <MentionTextarea 
                                                 rows={4} 
-                                                placeholder="Bonjour, merci pour votre retour d'information..." 
+                                                placeholder="Bonjour, merci pour votre retour d'information... (utilisez @ pour mentionner)" 
                                                 value={replyText}
                                                 onChange={(e) => setReplyText(e.target.value)}
                                                 className="border-primary"
+                                                ticket={ticket}
                                             />
                                         </Form.Group>
                                         
@@ -428,7 +469,7 @@ export default function DeveloperTicketDetailPage() {
                             <h5 className="mb-0 text-secondary">Discussion Interne (Manager)</h5>
                         </Card.Header>
                         <Card.Body>
-                            <ListGroup variant="flush" className="mb-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                            <ListGroup variant="flush" className="mb-3" id="internal-notes-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                                 {sortedInternalNotes?.map((note, index, arr) => {
                                     const msgMs = note.timestamp?.toMillis ? note.timestamp.toMillis() : new Date(note.timestamp).getTime();
                                     const isNew = localLastRead !== null && msgMs > localLastRead;
@@ -452,7 +493,7 @@ export default function DeveloperTicketDetailPage() {
                                 })}
                             </ListGroup>
 
-                            {!isTicketClosed && !isPendingValidation && (
+                            {!isTicketClosed && (
                                 <>
                                     <hr />
                                     <h5>Ajouter une note interne</h5>
@@ -479,14 +520,14 @@ export default function DeveloperTicketDetailPage() {
                                             </div>
                                         )}
                                         <Form.Group className="mb-4" controlId="devInternalNote">
-                                            <Form.Control 
-                                                as="textarea" 
+                                            <MentionTextarea 
                                                 name="devInternalNote"
                                                 rows={4} 
-                                                placeholder="Problème technique trouvé..." 
+                                                placeholder="Problème technique trouvé... (utilisez @ pour mentionner)" 
                                                 value={internalNoteText}
                                                 onChange={(e) => setInternalNoteText(e.target.value)}
                                                 className="border-secondary"
+                                                ticket={ticket}
                                             />
                                         </Form.Group>
 
@@ -525,8 +566,12 @@ export default function DeveloperTicketDetailPage() {
                             </div>
                             <hr />
                             <div className="d-grid gap-2">
-                                <Button variant="success" onClick={handleMarkAsDone} disabled={isTicketClosed || isPendingValidation}>
-                                    {isPendingValidation ? 'En attente de validation' : 'Terminé, prêt pour validation'}
+                                <Button 
+                                    variant={isPendingValidation ? "secondary" : "success"} 
+                                    onClick={handleMarkAsDone} 
+                                    disabled={isTicketClosed}
+                                >
+                                    {isPendingValidation ? 'Annuler l\'attente de validation' : 'Terminé, prêt pour validation'}
                                 </Button>
                             </div>
                         </Card.Body>
