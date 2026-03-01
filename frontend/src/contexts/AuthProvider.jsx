@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
   };
 
   // Inscription avec email/password
-  const signup = async (email, password, displayName) => {
+  const signup = async (email, password, userData) => {
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email,
@@ -51,9 +51,14 @@ export function AuthProvider({ children }) {
     );
     const user = userCredential.user;
 
+    const displayName = `${userData.firstName} ${userData.lastName}`.trim();
+
     // Créer le document utilisateur dans Firestore
     await setDoc(doc(db, "users", user.uid), {
       email: user.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      company: userData.company || '',
       displayName: displayName || email.split("@")[0],
       role: "client", // Rôle par défaut
       status: "pending", // Statut en attente d'approbation

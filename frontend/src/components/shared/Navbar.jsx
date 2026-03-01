@@ -115,6 +115,11 @@ export default function AppNavbar() {
                   <NavDropdown.Divider />
                 </>
               )}
+              <NavDropdown.Item as={NavLink} to="/mon-compte">
+                <User size={16} className="me-2" />
+                Mon compte
+              </NavDropdown.Item>
+              <NavDropdown.Divider />
               <NavDropdown.Item onClick={handleLogout}>
                 <LogOut size={16} className="me-2" />
                 Déconnexion

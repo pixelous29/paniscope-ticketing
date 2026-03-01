@@ -5,12 +5,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 
-import { Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Mail, Lock, User, UserPlus, Briefcase } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
 const signupSchema = z.object({
-  displayName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
+  firstName: z.string().min(2, 'Le prénom doit contenir au moins 2 caractères'),
+  lastName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
+  company: z.string().min(2, 'La société doit contenir au moins 2 caractères'),
   email: z.string().email('Email invalide'),
   password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
   confirmPassword: z.string()
@@ -41,7 +43,11 @@ export default function SignupPage() {
     setError('');
     
     try {
-      await signup(data.email, data.password, data.displayName);
+      await signup(data.email, data.password, {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        company: data.company
+      });
       toast.success('Compte créé avec succès !');
       // La redirection se fera automatiquement (vers pending-approval ou dashboard)
       // Note: on ne réinitialise pas isLoading ici car la redirection va se faire
@@ -93,19 +99,56 @@ export default function SignupPage() {
             {error && <Alert variant="danger">{error}</Alert>}
 
             <Form onSubmit={handleSubmit(onSubmit)}>
+              <div className="row">
+                <div className="col-md-6">
+                  <Form.Group className="mb-3">
+                    <Form.Label>
+                      <User size={16} className="me-2" />
+                      Prénom
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Jean"
+                      {...register('firstName')}
+                      isInvalid={!!errors.firstName}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {errors.firstName?.message}
+                    </Form.Control.Feedback>
+                  </Form.Group>
+                </div>
+                <div className="col-md-6">
+                  <Form.Group className="mb-3">
+                    <Form.Label>
+                      <User size={16} className="me-2" />
+                      Nom
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="Dupont"
+                      {...register('lastName')}
+                      isInvalid={!!errors.lastName}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {errors.lastName?.message}
+                    </Form.Control.Feedback>
+                  </Form.Group>
+                </div>
+              </div>
+
               <Form.Group className="mb-3">
                 <Form.Label>
-                  <User size={16} className="me-2" />
-                  Nom complet
+                  <Briefcase size={16} className="me-2" />
+                  Société
                 </Form.Label>
                 <Form.Control
                   type="text"
-                  placeholder="Jean Dupont"
-                  {...register('displayName')}
-                  isInvalid={!!errors.displayName}
+                  placeholder="Nom de votre société"
+                  {...register('company')}
+                  isInvalid={!!errors.company}
                 />
                 <Form.Control.Feedback type="invalid">
-                  {errors.displayName?.message}
+                  {errors.company?.message}
                 </Form.Control.Feedback>
               </Form.Group>
 

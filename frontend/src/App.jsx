@@ -12,6 +12,7 @@ import ManagerTicketDetailPage from './pages/manager/ManagerTicketDetailPage';
 import DeveloperDashboardPage from './pages/developer/DeveloperDashboardPage';
 import DeveloperTicketDetailPage from './pages/developer/DeveloperTicketDetailPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
+import MyAccountPage from './pages/shared/MyAccountPage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
@@ -75,6 +76,9 @@ export default function App() {
           <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
             {/* Route racine - Redirection automatique selon le rôle */}
             <Route path="/" element={<RoleRedirect />} />
+            
+            {/* Route profil utilisateur */}
+            <Route path="/mon-compte" element={<MyAccountPage />} />
             
             {/* Routes Client */}
             <Route 
