@@ -145,6 +145,8 @@ export default function AdminUsersPage() {
             <thead>
               <tr>
                 <th>Nom</th>
+                <th>Prénom</th>
+                <th>Société</th>
                 <th>Email</th>
                 <th>Statut</th>
                 <th>Rôle actuel</th>
@@ -178,12 +180,24 @@ export default function AdminUsersPage() {
                             style={{ width: '32px', height: '32px' }}
                           >
                             <span className="text-white fw-bold">
-                              {user.displayName?.charAt(0).toUpperCase() || 'U'}
+                              {user.lastName?.charAt(0).toUpperCase() || user.displayName?.charAt(0).toUpperCase() || 'U'}
                             </span>
                           </div>
                         )}
-                        <span>{user.displayName || 'Sans nom'}</span>
+                        <span className="fw-bold">
+                          {user.lastName || (user.displayName ? user.displayName.split(' ').pop() : 'Sans nom')}
+                        </span>
                       </div>
+                    </td>
+                    <td className="align-middle">
+                      {user.firstName || (user.displayName ? user.displayName.split(' ').slice(0, -1).join(' ') : '')}
+                    </td>
+                    <td className="align-middle">
+                      {user.company ? (
+                        user.company
+                      ) : (
+                        <span className="text-muted fst-italic">Non renseignée</span>
+                      )}
                     </td>
                     <td className="align-middle">{user.email}</td>
                     <td className="align-middle">

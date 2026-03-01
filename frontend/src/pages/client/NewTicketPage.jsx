@@ -21,6 +21,12 @@ export default function NewTicketPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
+  React.useEffect(() => {
+    if (currentUser && !currentUser.company) {
+      navigate('/');
+    }
+  }, [currentUser, navigate]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));

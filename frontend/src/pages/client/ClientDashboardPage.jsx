@@ -87,9 +87,19 @@ export default function ClientDashboardPage() {
         <Card.Header className="position-relative">
           <h4 className="mb-3 text-center">Tableau de bord Client</h4>
           <div className="position-absolute top-0 end-0 mt-1">
-            <LinkContainer to="/nouveau-ticket">
-              <Button variant="success">+ Nouvelle demande</Button>
-            </LinkContainer>
+            {!currentUser.company ? (
+              <OverlayTrigger placement="left" overlay={(props) => renderTooltip(props, 'Vous devez renseigner votre société avant de créer un ticket.')}>
+                <span className="d-inline-block">
+                  <LinkContainer to="/mon-compte">
+                    <Button variant="warning">Compléter mon profil</Button>
+                  </LinkContainer>
+                </span>
+              </OverlayTrigger>
+            ) : (
+              <LinkContainer to="/nouveau-ticket">
+                <Button variant="success">+ Nouvelle demande</Button>
+              </LinkContainer>
+            )}
           </div>
           <Nav variant="tabs" activeKey={view} onSelect={(k) => setView(k)}>
             <Nav.Item>

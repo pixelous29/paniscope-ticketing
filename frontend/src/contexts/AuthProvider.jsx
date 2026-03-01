@@ -116,7 +116,8 @@ export function AuthProvider({ children }) {
             const enrichedUser = {
               ...user,
               displayName: userData.displayName || user.displayName,
-              photoURL: userData.photoURL || user.photoURL
+              photoURL: userData.photoURL || user.photoURL,
+              company: userData.company || ''
             };
             setCurrentUser(enrichedUser);
             setUserRole(userData.role || 'client');

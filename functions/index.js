@@ -31,11 +31,36 @@ exports.notifyZapierOnNewTicket = functions.firestore
         return;
       }
 
+      let clientName = ticket.clientName || ticket.client || ticket.clientUid;
+      let companyName = "";
+
+      if (ticket.clientUid) {
+        try {
+          const userDoc = await db
+            .collection("users")
+            .doc(ticket.clientUid)
+            .get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            if (userData.company) {
+              companyName = userData.company;
+              clientName = `${clientName} de chez ${companyName}`;
+            }
+          }
+        } catch (err) {
+          console.error(
+            "Erreur lors de la récupération de la société de l'utilisateur:",
+            err,
+          );
+        }
+      }
+
       // Préparation du "paquet cadeau" (Payload Json) pour Zapier
       const payload = {
         ticket_id: ticketId,
         subject: ticket.subject,
-        client_name: ticket.clientName || ticket.client || ticket.clientUid,
+        client_name: clientName,
+        company_name: companyName,
         priority: ticket.priority || "Normale",
         ticket_url: `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`,
         created_at: new Date().toISOString(),
