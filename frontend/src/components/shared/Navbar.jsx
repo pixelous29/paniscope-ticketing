@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navbar, Nav, Container, NavDropdown } from 'react-bootstrap';
+import { Navbar, Nav, Container, NavDropdown, Badge } from 'react-bootstrap';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { LogOut, User, Shield, Code } from 'lucide-react';
@@ -56,21 +56,21 @@ export default function AppNavbar() {
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
             {userRole === 'client' && (
-              <Nav.Link as={NavLink} to="/" end>
-                <User size={16} className="me-1" />
+              <Nav.Link as={NavLink} to="/" end className="nav-action-btn d-flex align-items-center text-white">
+                <User size={16} className="me-2" />
                 Mes Tickets
               </Nav.Link>
             )}
             {userRole === 'manager' && (
-              <Nav.Link as={NavLink} to="/manager">
-                <Shield size={16} className="me-1" />
-                Gestion
+              <Nav.Link as={NavLink} to="/manager" className="nav-action-btn d-flex align-items-center text-white">
+                <Shield size={16} className="me-2" />
+                Gestion des Tickets
               </Nav.Link>
             )}
             {userRole === 'developer' && (
-              <Nav.Link as={NavLink} to="/dev">
-                <Code size={16} className="me-1" />
-                Développement
+              <Nav.Link as={NavLink} to="/dev" className="nav-action-btn d-flex align-items-center text-white">
+                <Code size={16} className="me-2" />
+                Mes Tickets
               </Nav.Link>
             )}
           </Nav>
@@ -78,6 +78,10 @@ export default function AppNavbar() {
             <NavDropdown
               title={
                 <span className="d-inline-flex align-items-center">
+                  <Badge bg={roleBadge.variant} className="me-3 d-flex align-items-center">
+                    <RoleIcon size={14} className="me-1" />
+                    {roleBadge.text}
+                  </Badge>
                   {currentUser?.photoURL ? (
                     <img
                       src={currentUser.photoURL}
@@ -101,11 +105,6 @@ export default function AppNavbar() {
               id="user-dropdown"
               align="end"
             >
-              <NavDropdown.Item disabled>
-                <RoleIcon size={16} className="me-2" />
-                {roleBadge.text}
-              </NavDropdown.Item>
-              <NavDropdown.Divider />
               {userRole === 'manager' && (
                 <>
                   <NavDropdown.Item as={NavLink} to="/admin/users">
