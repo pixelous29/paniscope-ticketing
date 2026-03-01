@@ -50,16 +50,14 @@ export default function ResetPasswordPage() {
       <div style={{ width: '100%', maxWidth: '450px' }}>
         <Card className="shadow-lg">
           <Card.Body className="p-5">
-            <div className="text-center mb-4">
+            <div className="text-center mb-5">
+              <h1 className="h2 fw-bold mb-4">Support Paniscope</h1>
               <img
-                src="/logo36x36.png"
-                alt="Support Paniscope"
-                style={{ width: '64px', height: '64px', marginBottom: '1rem' }}
+                src="/pwa-192x192.png"
+                alt="Support Paniscope Logo"
+                style={{ width: '192px', height: 'auto', marginBottom: '2rem' }}
               />
-              <h2 className="fw-bold">Mot de passe oublié ?</h2>
-              <p className="text-muted">
-                Entrez votre email pour recevoir un lien de réinitialisation
-              </p>
+              <h4 className="fw-bold mb-0">Mot de passe oublié ?</h4>
             </div>
 
             {error && <Alert variant="danger">{error}</Alert>}
