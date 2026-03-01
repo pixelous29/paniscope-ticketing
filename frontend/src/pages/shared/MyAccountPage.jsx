@@ -32,8 +32,25 @@ export default function MyAccountPage() {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
-          setFirstName(data.firstName || '');
-          setLastName(data.lastName || '');
+          
+          let fetchedFirstName = data.firstName || '';
+          let fetchedLastName = data.lastName || '';
+
+          // Si on n'a pas de prénom/nom mais qu'on a un displayName (surtout pour Google)
+          if ((!fetchedFirstName || !fetchedLastName) && (data.displayName || currentUser.displayName)) {
+            const fullName = data.displayName || currentUser.displayName;
+            const nameParts = fullName.split(' ');
+            
+            if (!fetchedLastName) {
+              fetchedLastName = nameParts.length > 1 ? nameParts.pop() : ''; 
+            }
+            if (!fetchedFirstName) {
+              fetchedFirstName = nameParts.join(' ');
+            }
+          }
+
+          setFirstName(fetchedFirstName);
+          setLastName(fetchedLastName);
           setCompany(data.company || '');
           setPhotoPreview(data.photoURL || currentUser.photoURL || null);
         }
