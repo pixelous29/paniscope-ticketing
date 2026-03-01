@@ -132,8 +132,8 @@ export default function AdminUsersPage() {
           </Alert>
 
           <div className="mb-3">
-            <Form.Label>Filtrer par statut :</Form.Label>
-            <Form.Select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: '200px' }}>
+            <Form.Label htmlFor="statusFilter">Filtrer par statut :</Form.Label>
+            <Form.Select id="statusFilter" name="statusFilter" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: '200px' }}>
               <option value="all">Tous les utilisateurs</option>
               <option value="pending">En attente ({users.filter(u => u.status === 'pending').length})</option>
               <option value="approved">Approuvés ({users.filter(u => u.status === 'approved').length})</option>
@@ -203,6 +203,9 @@ export default function AdminUsersPage() {
                         <span className="text-muted fst-italic">Super Admin</span>
                       ) : (
                         <Form.Select
+                          id={`role-select-${user.id}`}
+                          name={`role-select-${user.id}`}
+                          aria-label={`Modifier le rôle de ${user.displayName || 'cet utilisateur'}`}
                           value={user.role}
                           onChange={(e) => handleRoleChange(user.id, e.target.value)}
                           style={{ maxWidth: '200px' }}
