@@ -89,7 +89,7 @@ export default function LoginPage() {
             {error && <Alert variant="danger">{error}</Alert>}
 
             <Form onSubmit={handleSubmit(onSubmit)}>
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-3" controlId="loginEmail">
                 <Form.Label>
                   <Mail size={16} className="me-2" />
                   Email
@@ -99,13 +99,14 @@ export default function LoginPage() {
                   placeholder="votre@email.com"
                   {...register('email')}
                   isInvalid={!!errors.email}
+                  autoComplete="email"
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors.email?.message}
                 </Form.Control.Feedback>
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-3" controlId="loginPassword">
                 <Form.Label>
                   <Lock size={16} className="me-2" />
                   Mot de passe
@@ -116,6 +117,7 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     {...register('password')}
                     isInvalid={!!errors.password}
+                    autoComplete="current-password"
                   />
                   <Button
                     variant="link"
@@ -133,7 +135,7 @@ export default function LoginPage() {
               </Form.Group>
 
               <div className="d-flex justify-content-between align-items-center mb-4">
-                <Form.Check type="checkbox" label="Se souvenir de moi" />
+                <Form.Check type="checkbox" id="loginRememberMe" label="Se souvenir de moi" />
                 <Link to="/reset-password" className="text-decoration-none">
                   Mot de passe oublié ?
                 </Link>

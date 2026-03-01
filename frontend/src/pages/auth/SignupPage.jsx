@@ -101,7 +101,7 @@ export default function SignupPage() {
             <Form onSubmit={handleSubmit(onSubmit)}>
               <div className="row">
                 <div className="col-md-6">
-                  <Form.Group className="mb-3">
+                  <Form.Group className="mb-3" controlId="signupFirstName">
                     <Form.Label>
                       <User size={16} className="me-2" />
                       Prénom
@@ -111,6 +111,7 @@ export default function SignupPage() {
                       placeholder="Jean"
                       {...register('firstName')}
                       isInvalid={!!errors.firstName}
+                      autoComplete="given-name"
                     />
                     <Form.Control.Feedback type="invalid">
                       {errors.firstName?.message}
@@ -118,7 +119,7 @@ export default function SignupPage() {
                   </Form.Group>
                 </div>
                 <div className="col-md-6">
-                  <Form.Group className="mb-3">
+                  <Form.Group className="mb-3" controlId="signupLastName">
                     <Form.Label>
                       <User size={16} className="me-2" />
                       Nom
@@ -128,6 +129,7 @@ export default function SignupPage() {
                       placeholder="Dupont"
                       {...register('lastName')}
                       isInvalid={!!errors.lastName}
+                      autoComplete="family-name"
                     />
                     <Form.Control.Feedback type="invalid">
                       {errors.lastName?.message}
@@ -136,7 +138,7 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-3" controlId="signupCompany">
                 <Form.Label>
                   <Briefcase size={16} className="me-2" />
                   Société
@@ -146,13 +148,14 @@ export default function SignupPage() {
                   placeholder="Nom de votre société"
                   {...register('company')}
                   isInvalid={!!errors.company}
+                  autoComplete="organization"
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors.company?.message}
                 </Form.Control.Feedback>
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-3" controlId="signupEmail">
                 <Form.Label>
                   <Mail size={16} className="me-2" />
                   Email
@@ -162,13 +165,14 @@ export default function SignupPage() {
                   placeholder="votre@email.com"
                   {...register('email')}
                   isInvalid={!!errors.email}
+                  autoComplete="email"
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors.email?.message}
                 </Form.Control.Feedback>
               </Form.Group>
 
-              <Form.Group className="mb-3">
+              <Form.Group className="mb-3" controlId="signupPassword">
                 <Form.Label>
                   <Lock size={16} className="me-2" />
                   Mot de passe
@@ -178,13 +182,14 @@ export default function SignupPage() {
                   placeholder="••••••••"
                   {...register('password')}
                   isInvalid={!!errors.password}
+                  autoComplete="new-password"
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors.password?.message}
                 </Form.Control.Feedback>
               </Form.Group>
 
-              <Form.Group className="mb-4">
+              <Form.Group className="mb-4" controlId="signupConfirmPassword">
                 <Form.Label>
                   <Lock size={16} className="me-2" />
                   Confirmer le mot de passe
@@ -194,6 +199,7 @@ export default function SignupPage() {
                   placeholder="••••••••"
                   {...register('confirmPassword')}
                   isInvalid={!!errors.confirmPassword}
+                  autoComplete="new-password"
                 />
                 <Form.Control.Feedback type="invalid">
                   {errors.confirmPassword?.message}

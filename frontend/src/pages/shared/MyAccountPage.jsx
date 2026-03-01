@@ -173,7 +173,7 @@ export default function MyAccountPage() {
 
                 <Row>
                   <Col md={6}>
-                    <Form.Group className="mb-3">
+                    <Form.Group className="mb-3" controlId="accFirstName">
                       <Form.Label>Prénom</Form.Label>
                       <div className="input-group">
                         <span className="input-group-text bg-light text-muted border-end-0">
@@ -191,7 +191,7 @@ export default function MyAccountPage() {
                     </Form.Group>
                   </Col>
                   <Col md={6}>
-                    <Form.Group className="mb-3">
+                    <Form.Group className="mb-3" controlId="accLastName">
                       <Form.Label>Nom</Form.Label>
                       <div className="input-group">
                         <span className="input-group-text bg-light text-muted border-end-0">
@@ -210,7 +210,7 @@ export default function MyAccountPage() {
                   </Col>
                 </Row>
 
-                <Form.Group className="mb-4">
+                <Form.Group className="mb-4" controlId="accCompany">
                   <Form.Label>Société</Form.Label>
                   <div className="input-group">
                     <span className="input-group-text bg-light text-muted border-end-0">

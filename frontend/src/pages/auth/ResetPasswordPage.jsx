@@ -72,7 +72,7 @@ export default function ResetPasswordPage() {
 
             {!success && (
               <Form onSubmit={handleSubmit(onSubmit)}>
-                <Form.Group className="mb-4">
+                <Form.Group className="mb-4" controlId="resetEmail">
                   <Form.Label>
                     <Mail size={16} className="me-2" />
                     Email
@@ -82,6 +82,7 @@ export default function ResetPasswordPage() {
                     placeholder="votre@email.com"
                     {...register('email')}
                     isInvalid={!!errors.email}
+                    autoComplete="email"
                   />
                   <Form.Control.Feedback type="invalid">
                     {errors.email?.message}
