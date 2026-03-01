@@ -31,6 +31,33 @@ exports.notifyZapierOnNewTicket = functions.firestore
         return;
       }
 
+      // Vérifier si un manager a désactivé les notifications Zapier/Wimi
+      try {
+        const managersSnapshot = await db
+          .collection("users")
+          .where("role", "==", "manager")
+          .get();
+
+        let wimiEnabledByManagers = true;
+        managersSnapshot.forEach((doc) => {
+          if (doc.data().wimiNotificationsEnabled === false) {
+            wimiEnabledByManagers = false;
+          }
+        });
+
+        if (!wimiEnabledByManagers) {
+          console.log(
+            "Notification Zapier annulée : désactivée dans les paramètres d'un compte manager.",
+          );
+          return;
+        }
+      } catch (err) {
+        console.error(
+          "Erreur lors de la vérification des paramètres managers:",
+          err,
+        );
+      }
+
       let clientName = ticket.clientName || ticket.client || ticket.clientUid;
       let companyName = "";
 
@@ -94,9 +121,7 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
 
   const bb = busboy({ headers: req.headers });
   const fields = {};
-  let fileData = null;
-  let fileMimeType = null;
-  let fileName = null;
+  const files = [];
 
   bb.on("field", (name, val) => {
     fields[name] = val;
@@ -106,15 +131,20 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
     console.log(
       `Fichier détecté -> param: ${name}, filename: ${info.filename}, mime: ${info.mimeType}`,
     );
-    fileName = info.filename || `piece_jointe_${Date.now()}`;
-    fileMimeType = info.mimeType || "application/octet-stream";
-
+    const fileName = info.filename || `piece_jointe_${Date.now()}`;
+    const fileMimeType = info.mimeType || "application/octet-stream";
     let chunks = [];
+
     file.on("data", (data) => {
       chunks.push(data);
     });
+
     file.on("end", () => {
-      fileData = Buffer.concat(chunks);
+      files.push({
+        fileName: fileName,
+        fileMimeType: fileMimeType,
+        fileData: Buffer.concat(chunks),
+      });
     });
   });
 
@@ -125,7 +155,6 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       const plain = fields.text || "";
 
       // Extraction de l'email avec une RegEx robuste qui trouve le texte format email
-      // Même si Make envoie '{"address":"jean@truc.com"}' ou 'Jean <jean@truc.com>'
       const emailMatch = fromHeader.match(
         /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
       );
@@ -152,32 +181,53 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       const userData = userQuery.docs[0].data();
       const userId = userQuery.docs[0].id;
 
-      // 2. Gérer la pièce jointe (si présente et non vide)
-      let attachmentUrl = null;
-      if (fileData && fileData.length > 0) {
-        console.log(
-          `Traitement de la pièce jointe (taille: ${fileData.length} octets) : ${fileName}`,
-        );
-        const bucket = storage.bucket(
-          "paniscope-ticketing.firebasestorage.app",
-        );
-        const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_"); // sécuriser le nom
-        const storedFileName = `attachments/email_${Date.now()}_${safeName}`;
-        const storageFile = bucket.file(storedFileName);
+      // 2. Gérer les pièces jointes (jusqu'à 4)
+      const attachmentUrls = [];
+      const bucket = storage.bucket("paniscope-ticketing.firebasestorage.app");
 
-        const token = require("crypto").randomUUID();
+      // On limite le traitement à 4 fichiers maximum
+      const filesToProcess = files.slice(0, 4);
 
-        await storageFile.save(fileData, {
-          metadata: {
-            contentType: fileMimeType,
+      for (const fileObj of filesToProcess) {
+        if (fileObj.fileData && fileObj.fileData.length > 0) {
+          console.log(
+            `Traitement de la pièce jointe (taille: ${fileObj.fileData.length} octets) : ${fileObj.fileName}`,
+          );
+          const safeName = fileObj.fileName.replace(/[^a-zA-Z0-9.-]/g, "_"); // sécuriser le nom
+          const storedFileName = `attachments/email_${Date.now()}_${safeName}`;
+          const storageFile = bucket.file(storedFileName);
+
+          const token = require("crypto").randomUUID();
+
+          await storageFile.save(fileObj.fileData, {
             metadata: {
-              firebaseStorageDownloadTokens: token,
+              contentType: fileObj.fileMimeType,
+              metadata: {
+                firebaseStorageDownloadTokens: token,
+              },
             },
-          },
-        });
+          });
 
-        attachmentUrl = `https://firebasestorage.googleapis.com/v0/b/paniscope-ticketing.firebasestorage.app/o/${encodeURIComponent(storedFileName)}?alt=media&token=${token}`;
-        console.log(`Fichier uploadé avec succès : ${attachmentUrl}`);
+          const attachmentUrl = `https://firebasestorage.googleapis.com/v0/b/paniscope-ticketing.firebasestorage.app/o/${encodeURIComponent(
+            storedFileName,
+          )}?alt=media&token=${token}`;
+
+          attachmentUrls.push(attachmentUrl);
+          console.log(`Fichier uploadé avec succès : ${attachmentUrl}`);
+        }
+      }
+
+      const initialMessage = {
+        author: "Client",
+        uid: userId,
+        text: plain,
+        timestamp: new Date(),
+        displayName: userData.displayName || from,
+        photoURL: userData.photoURL || null,
+      };
+
+      if (attachmentUrls.length > 0) {
+        initialMessage.attachmentUrls = attachmentUrls;
       }
 
       // 3. Créer le ticket dans Firestore
@@ -189,18 +239,12 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
         priority: "Normale",
         submittedAt: admin.firestore.FieldValue.serverTimestamp(),
         lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-        conversation: [
-          {
-            author: "Client (Email)",
-            text: plain,
-            timestamp: new Date(),
-          },
-        ],
+        conversation: [initialMessage],
         hasNewClientMessage: true,
       };
 
-      if (attachmentUrl) {
-        newTicket.attachmentUrl = attachmentUrl;
+      if (attachmentUrls.length > 0) {
+        newTicket.attachmentUrls = attachmentUrls;
       }
 
       const docRef = await db.collection("tickets").add(newTicket);

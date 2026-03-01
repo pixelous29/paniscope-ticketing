@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import { User, Image as ImageIcon, Briefcase, Building } from 'lucide-react';
 
 export default function MyAccountPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, userRole } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -20,6 +20,7 @@ export default function MyAccountPage() {
   const [company, setCompany] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [wimiNotificationsEnabled, setWimiNotificationsEnabled] = useState(true);
 
   const isGoogleUser = currentUser?.providerData?.some(
     (provider) => provider.providerId === 'google.com'
@@ -53,6 +54,7 @@ export default function MyAccountPage() {
           setLastName(fetchedLastName);
           setCompany(data.company || '');
           setPhotoPreview(data.photoURL || currentUser.photoURL || null);
+          setWimiNotificationsEnabled(data.wimiNotificationsEnabled !== false);
         }
       } catch (err) {
         console.error('Erreur lors de la récupération des données utilisateur:', err);
@@ -91,13 +93,19 @@ export default function MyAccountPage() {
       const newDisplayName = `${firstName} ${lastName}`.trim();
 
       // Mettre à jour dans Firestore
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      const updateData = {
         firstName,
         lastName,
         company,
         ...(newDisplayName && { displayName: newDisplayName }),
         ...(!isGoogleUser && photoFile && { photoURL: finalPhotoURL })
-      });
+      };
+
+      if (userRole === 'manager') {
+        updateData.wimiNotificationsEnabled = wimiNotificationsEnabled;
+      }
+
+      await updateDoc(doc(db, 'users', currentUser.uid), updateData);
 
       // Mettre à jour le profil d'authentification s'il y a des changements importants
       if (auth.currentUser) {
@@ -243,6 +251,23 @@ export default function MyAccountPage() {
                     />
                   </div>
                 </Form.Group>
+
+                {userRole === 'manager' && (
+                  <Form.Group className="mb-4" controlId="accWimiNotifs">
+                    <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                      <div>
+                        <Form.Label className="mb-0 fw-bold">Notifications Wimi (via Zapier)</Form.Label>
+                        <small className="d-block text-muted">Active ou désactive l'envoi de notifications sur Wimi à la création d'un nouveau ticket.</small>
+                      </div>
+                      <Form.Check 
+                        type="switch"
+                        id="wimi-notif-switch"
+                        checked={wimiNotificationsEnabled}
+                        onChange={(e) => setWimiNotificationsEnabled(e.target.checked)}
+                      />
+                    </div>
+                  </Form.Group>
+                )}
 
                 <Button 
                   variant="primary" 

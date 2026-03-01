@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { collection, addDoc, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -6,7 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
 import { STATUS } from '../../constants/status';
 import { Container, Card, Form, Button, FloatingLabel, Spinner, Alert } from 'react-bootstrap';
-import { Image as ImageIcon, X, Upload } from 'lucide-react';
+import MultiImageUpload from '../../components/shared/MultiImageUpload';
 
 export default function NewTicketPage() {
   const { currentUser } = useAuth();
@@ -14,12 +14,15 @@ export default function NewTicketPage() {
     subject: '',
     description: ''
   });
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  
+  // Nouveaux états pour MultiImageUpload
+  const [images, setImages] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [imageError, setImageError] = useState('');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
 
   React.useEffect(() => {
     if (currentUser && !currentUser.company) {
@@ -32,34 +35,30 @@ export default function NewTicketPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        setError("Veuillez sélectionner uniquement des fichiers image.");
-        return;
-      }
-      // Limite à 5Mo par exemple
-      if (file.size > 5 * 1024 * 1024) {
-        setError("L'image est trop volumineuse (max 5 Mo).");
-        return;
-      }
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-      setError(null);
+  const handleAddImage = (file) => {
+    if (!file.type.startsWith('image/')) {
+      setImageError("Veuillez sélectionner uniquement des fichiers image.");
+      return;
     }
+    // Limite à 5Mo par image
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError("L'image est trop volumineuse (max 5 Mo).");
+      return;
+    }
+
+    setImages(prev => [...prev, file]);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviews(prev => [...prev, reader.result]);
+    };
+    reader.readAsDataURL(file);
+    setImageError('');
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const handleRemoveImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+    setImageError('');
   };
 
   const handleSubmit = async (e) => {
@@ -73,20 +72,21 @@ export default function NewTicketPage() {
     setError(null);
 
     try {
-      let imageUrl = null;
+      const attachmentUrls = [];
 
-      // 1. Upload de l'image si présente
-      if (imageFile) {
-        const fileExtension = imageFile.name.split('.').pop();
-        const fileName = `${Date.now()}_${currentUser.uid}.${fileExtension}`;
+      // 1. Upload de toutes les images
+      for (let i = 0; i < images.length; i++) {
+        const fileExtension = images[i].name.split('.').pop();
+        const fileName = `ticket_${Date.now()}_img${i}_${currentUser.uid}.${fileExtension}`;
         const storageRef = ref(storage, `tickets/${fileName}`);
         
-        const snapshot = await uploadBytes(storageRef, imageFile);
-        imageUrl = await getDownloadURL(snapshot.ref);
+        const snapshot = await uploadBytes(storageRef, images[i]);
+        const url = await getDownloadURL(snapshot.ref);
+        attachmentUrls.push(url);
       }
 
       // 2. Création du ticket
-      const docRef = await addDoc(collection(db, "tickets"), {
+      const ticketData = {
         subject: formData.subject,
         clientUid: currentUser.uid,
         clientEmail: currentUser.email,
@@ -98,15 +98,27 @@ export default function NewTicketPage() {
         hasNewClientMessage: false,
         hasNewDeveloperMessage: false,
         hasNewManagerMessage: false,
-        attachmentUrl: imageUrl // URL de la capture d'écran
-      });
+      };
+
+      if (attachmentUrls.length > 0) {
+        ticketData.attachmentUrls = attachmentUrls;
+      }
+
+      const docRef = await addDoc(collection(db, "tickets"), ticketData);
 
       // 3. Message initial dans la conversation
       const initialMessage = {
         author: 'Client',
+        uid: currentUser.uid,
+        displayName: currentUser.displayName || formData.clientName || 'Client',
+        photoURL: currentUser.photoURL || null,
         text: formData.description,
         timestamp: new Date() 
       };
+
+      if (attachmentUrls.length > 0) {
+        initialMessage.attachmentUrls = attachmentUrls;
+      }
 
       await updateDoc(docRef, {
         conversation: arrayUnion(initialMessage)
@@ -154,55 +166,14 @@ export default function NewTicketPage() {
               />
             </FloatingLabel>
             
-            <Form.Group className="mb-4">
-              <Form.Label className="fw-bold mb-2">Capture d'écran en lien avec le problème décrit</Form.Label>
-              
-              <div 
-                className="border rounded-3 p-4 text-center bg-light position-relative"
-                style={{ 
-                  borderStyle: 'dashed !important',
-                  borderWidth: '2px !important',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s'
-                }}
-                onClick={() => !imagePreview && fileInputRef.current.click()}
-              >
-                {!imagePreview ? (
-                  <div className="py-2">
-                    <Upload className="text-primary mb-2" size={32} />
-                    <p className="mb-1 text-dark fw-medium">Cliquez pour ajouter une capture d'écran</p>
-                    <p className="text-muted small mb-0">Formats acceptés : PNG, JPG, JPEG (Max 5Mo)</p>
-                  </div>
-                ) : (
-                  <div className="position-relative d-inline-block">
-                    <img 
-                      src={imagePreview} 
-                      alt="Aperçu" 
-                      className="img-fluid rounded border shadow-sm"
-                      style={{ maxHeight: '250px' }}
-                    />
-                    <Button 
-                      variant="danger" 
-                      size="sm" 
-                      className="position-absolute top-0 end-0 m-2 rounded-circle shadow-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeImage();
-                      }}
-                    >
-                      <X size={16} />
-                    </Button>
-                  </div>
-                )}
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  onChange={handleImageChange}
-                  accept="image/*"
-                  className="d-none"
-                />
-              </div>
-            </Form.Group>
+            <MultiImageUpload 
+              images={images}
+              previews={previews}
+              onAddImage={handleAddImage}
+              onRemoveImage={handleRemoveImage}
+              error={imageError}
+              maxImages={4}
+            />
 
             <div className="d-grid mt-5">
               <Button variant="primary" type="submit" size="lg" disabled={isSubmitting}>
