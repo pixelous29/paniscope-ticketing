@@ -87,8 +87,8 @@ export default function ClientDashboardPage() {
         <Card.Header className="position-relative">
           <h4 className="mb-3 text-center">Tableau de bord Client</h4>
           <div className="position-absolute top-0 end-0 mt-1">
-            {!currentUser.company ? (
-              <OverlayTrigger placement="left" overlay={(props) => renderTooltip(props, 'Vous devez renseigner votre société avant de créer un ticket.')}>
+            {(!currentUser.company || !currentUser.firstName || !currentUser.lastName) ? (
+              <OverlayTrigger placement="left" overlay={(props) => renderTooltip(props, 'Vous devez renseigner votre nom, prénom et société avant de créer un ticket.')}>
                 <span className="d-inline-block">
                   <LinkContainer to="/mon-compte">
                     <Button variant="warning">Compléter mon profil</Button>

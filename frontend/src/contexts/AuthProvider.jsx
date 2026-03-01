@@ -117,7 +117,9 @@ export function AuthProvider({ children }) {
               ...user,
               displayName: userData.displayName || user.displayName,
               photoURL: userData.photoURL || user.photoURL,
-              company: userData.company || ''
+              company: userData.company || '',
+              firstName: userData.firstName || '',
+              lastName: userData.lastName || ''
             };
             setCurrentUser(enrichedUser);
             setUserRole(userData.role || 'client');
