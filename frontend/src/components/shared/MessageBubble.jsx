@@ -331,6 +331,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                             alt={`Avatar de ${displayName}`} 
                             roundedCircle 
                             loading="lazy"
+                            referrerPolicy="no-referrer"
                             style={{ width: '38px', height: '38px', objectFit: 'cover', border: `2px solid ${borderColor}` }}
                         />
                     ) : (

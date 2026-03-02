@@ -46,11 +46,11 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <Container className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+    <Container className="d-flex align-items-center justify-content-center px-3 px-md-0 py-3" style={{ minHeight: '100dvh' }}>
       <div style={{ width: '100%', maxWidth: '450px' }}>
-        <Card className="shadow-lg">
-          <Card.Body className="p-5">
-            <div className="text-center mb-5">
+        <Card className="shadow-sm shadow-md-lg border-0 border-md">
+          <Card.Body className="p-4 p-md-5">
+            <div className="text-center mb-4 mb-md-5">
               <h1 className="h2 fw-bold mb-4">Support Paniscope</h1>
               <img
                 src="/pwa-192x192.png"

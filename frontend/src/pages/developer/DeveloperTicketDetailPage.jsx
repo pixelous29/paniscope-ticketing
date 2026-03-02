@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
-import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Breadcrumb } from 'react-bootstrap';
+import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Breadcrumb, Tabs, Tab } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
 import { STATUS } from '../../constants/status';
 import { LinkContainer } from 'react-router-bootstrap';
@@ -44,6 +44,7 @@ export default function DeveloperTicketDetailPage() {
     // États pour la modale d'image
     const [showImageModal, setShowImageModal] = useState(false);
     const [currentImageUrl, setCurrentImageUrl] = useState('');
+    const [activeTab, setActiveTab] = useState('client');
 
     const [localLastRead, setLocalLastRead] = useState(null);
     const maxSeenRef = React.useRef(0);
@@ -79,43 +80,42 @@ export default function DeveloperTicketDetailPage() {
     };
 
     useEffect(() => {
-        if (localLastRead !== null && !autoScrolled.current) {
-            const scrollContainerToBottom = (containerId) => {
-                const container = document.getElementById(containerId);
-                if (container) {
-                    container.scrollTo({
-                        top: container.scrollHeight,
-                        behavior: 'smooth'
-                    });
-                    return true;
-                }
-                return false;
-            };
-
+        if (localLastRead !== null) {
             const doScroll = () => {
                 const firstUnread = document.getElementById('first-unread-msg');
                 if (firstUnread) {
                     firstUnread.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                    // Pas de messages non lus → scroller les deux conteneurs en bas
-                    scrollContainerToBottom('conversation-list');
-                    scrollContainerToBottom('internal-notes-list');
+                    autoScrolled.current = true;
+                    return true;
                 }
-                autoScrolled.current = true;
+
+                let selector = '';
+                if (activeTab === 'client') {
+                    selector = '#conversation-list .list-group-item';
+                } else {
+                    selector = '#internal-notes-list .list-group-item';
+                }
+
+                const items = document.querySelectorAll(selector);
+                if (items.length > 0) {
+                    items[items.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    autoScrolled.current = true;
+                    return true;
+                }
+
+                return false;
             };
 
-            // Première tentative après 800ms
-            setTimeout(() => {
-                const container = document.getElementById('conversation-list');
-                if (container) {
-                    doScroll();
-                } else {
-                    // Retry si pas encore rendu
-                    setTimeout(doScroll, 1000);
+            const delay = autoScrolled.current ? 100 : 800;
+            const timer = setTimeout(() => {
+                if (!doScroll()) {
+                    setTimeout(doScroll, 500);
                 }
-            }, 800);
+            }, delay);
+
+            return () => clearTimeout(timer);
         }
-    }, [localLastRead, ticket]);
+    }, [localLastRead, ticket, activeTab]);
 
     useEffect(() => {
         const docRef = doc(db, "tickets", ticketId);
@@ -356,206 +356,227 @@ export default function DeveloperTicketDetailPage() {
 
     return (
         <>
-        <Container className="mt-4 pb-5">
-            <Breadcrumb>
+        <Container className="mt-2 mt-md-4 pb-5 px-2 px-md-3">
+            <Breadcrumb className="d-none d-md-flex">
                 <LinkContainer to="/dev">
                     <Breadcrumb.Item>Tableau de bord</Breadcrumb.Item>
                 </LinkContainer>
                 <Breadcrumb.Item active>Ticket #{ticket.id}</Breadcrumb.Item>
             </Breadcrumb>
             
+            {/* Bouton retour mobile */}
+            <div className="d-md-none mb-3">
+                <Link to="/dev" className="text-decoration-none bg-white px-3 py-2 rounded shadow-sm text-primary fw-bold border d-inline-block">
+                    <i className="bi bi-arrow-left me-2"></i> Retour aux tickets
+                </Link>
+            </div>
+
             <Row>
                 <Col md={7}>
-                    {/* Block Conversation Client */}
-                    <Card className="mb-4">
-                        <Card.Header className="d-flex justify-content-between align-items-center">
-                            <h5 className="mb-0">Conversation Client</h5>
-                        </Card.Header>
-                        <Card.Body>
-                            <ListGroup variant="flush" className="mb-3" id="conversation-list" style={{ maxHeight: '450px', overflowY: 'auto' }}>
-                                {sortedConversation?.map((msg, index, arr) => {
-                                    let msgToRender = msg;
-                                    if (index === 0 && !msg.attachmentUrls && !msg.attachmentUrl) {
-                                        if (ticket.attachmentUrls && ticket.attachmentUrls.length > 0) {
-                                            msgToRender = { ...msg, attachmentUrls: ticket.attachmentUrls };
-                                        } else if (ticket.attachmentUrl) {
-                                            msgToRender = { ...msg, attachmentUrls: [ticket.attachmentUrl] };
-                                        }
-                                    }
-                                    
-                                    const msgMs = msgToRender.timestamp?.toMillis ? msgToRender.timestamp.toMillis() : new Date(msgToRender.timestamp).getTime();
-                                    const isNew = localLastRead !== null && msgMs > localLastRead;
-                                    
-                                    const isFirstUnread = isNew && index === arr.findIndex((m) => {
-                                        const ms = m.timestamp?.toMillis ? m.timestamp.toMillis() : new Date(m.timestamp).getTime();
-                                        return ms > localLastRead;
-                                    });
+                    <Card className="shadow-sm border-0 mb-3 overflow-hidden">
+                        <Tabs
+                            id="ticket-conversation-tabs"
+                            activeKey={activeTab}
+                            onSelect={(k) => setActiveTab(k)}
+                            className="custom-tabs bg-white px-3 pt-2"
+                            justify
+                        >
+                            <Tab eventKey="client" title={
+                                <span className="d-flex align-items-center justify-content-center py-2">
+                                    Conversation Client
+                                    {ticket.hasNewClientMessage && <Badge bg="danger" pill className="ms-2">!</Badge>}
+                                </span>
+                            }>
+                                <Card.Body className="p-3 p-md-4">
+                                    <ListGroup variant="flush" className="mb-3 border rounded shadow-sm p-2 bg-light mobile-expand-list desktop-fixed-list" id="conversation-list">
+                                        {sortedConversation?.map((msg, index, arr) => {
+                                            let msgToRender = msg;
+                                            if (index === 0 && !msg.attachmentUrls && !msg.attachmentUrl) {
+                                                if (ticket.attachmentUrls && ticket.attachmentUrls.length > 0) {
+                                                    msgToRender = { ...msg, attachmentUrls: ticket.attachmentUrls };
+                                                } else if (ticket.attachmentUrl) {
+                                                    msgToRender = { ...msg, attachmentUrls: [ticket.attachmentUrl] };
+                                                }
+                                            }
+                                            
+                                            const msgMs = msgToRender.timestamp?.toMillis ? msgToRender.timestamp.toMillis() : new Date(msgToRender.timestamp).getTime();
+                                            const isNew = localLastRead !== null && msgMs > localLastRead;
+                                            
+                                            const isFirstUnread = isNew && index === arr.findIndex((m) => {
+                                                const ms = m.timestamp?.toMillis ? m.timestamp.toMillis() : new Date(m.timestamp).getTime();
+                                                return ms > localLastRead;
+                                            });
 
-                                    return (
-                                        <MessageBubble 
-                                            key={index} 
-                                            msg={msgToRender} 
-                                            renderImages={renderImages} 
-                                            ticket={ticket} 
-                                            isNew={isNew}
-                                            onVisible={handleMessageVisible}
-                                            id={isFirstUnread ? "first-unread-msg" : undefined}
-                                            onReply={(msg) => setReplyingTo(msg)}
-                                        />
-                                    );
-                                })}
-                            </ListGroup>
+                                            return (
+                                                <MessageBubble 
+                                                    key={index} 
+                                                    msg={msgToRender} 
+                                                    renderImages={renderImages} 
+                                                    ticket={ticket} 
+                                                    isNew={isNew}
+                                                    onVisible={handleMessageVisible}
+                                                    id={isFirstUnread ? "first-unread-msg" : undefined}
+                                                    onReply={(msg) => setReplyingTo(msg)}
+                                                />
+                                            );
+                                        })}
+                                    </ListGroup>
 
-                            {!isTicketClosed && (
-                                <>
-                                    <hr />
-                                    <h5>Répondre directement au client</h5>
-                                    <Form onSubmit={handleReplySubmit} className="bg-light p-3 rounded shadow-sm border">
-                                        {replyingTo && (
-                                            <div className="mb-3 p-2 bg-white rounded border-start border-3 border-primary shadow-sm d-flex justify-content-between align-items-start position-relative">
-                                                <div className="text-muted" style={{ fontSize: '0.85rem' }}>
-                                                    <div className="fw-bold mb-1 text-primary">
-                                                        <Reply size={14} className="me-1 mb-1" />
-                                                        En réponse à {replyingTo.displayName || replyingTo.author}
+                                    {!isTicketClosed && (
+                                        <>
+                                            <hr />
+                                            <h5>Répondre directement au client</h5>
+                                            <Form onSubmit={handleReplySubmit} className="bg-light p-3 rounded shadow-sm border">
+                                                {replyingTo && (
+                                                    <div className="mb-3 p-2 bg-white rounded border-start border-3 border-primary shadow-sm d-flex justify-content-between align-items-start position-relative">
+                                                        <div className="text-muted" style={{ fontSize: '0.85rem', paddingRight: '2rem' }}>
+                                                            <div className="fw-bold mb-1 text-primary">
+                                                                <Reply size={14} className="me-1 mb-1" />
+                                                                En réponse à {replyingTo.displayName || replyingTo.author}
+                                                            </div>
+                                                            <div className="text-truncate" style={{ maxWidth: '90%' }}>
+                                                                {replyingTo.text || "Message avec pièce jointe"}
+                                                            </div>
+                                                        </div>
+                                                        <Button 
+                                                            variant="link" 
+                                                            className="p-0 text-muted position-absolute top-0 end-0 m-2" 
+                                                            onClick={() => setReplyingTo(null)}
+                                                            title="Annuler la réponse"
+                                                        >
+                                                            <X size={16} />
+                                                        </Button>
                                                     </div>
-                                                    <div className="text-truncate" style={{ maxWidth: '90%' }}>
-                                                        {replyingTo.text || "Message avec pièce jointe"}
-                                                    </div>
+                                                )}
+                                                <Form.Group className="mb-4" controlId="devClientResponse">
+                                                    <MentionTextarea 
+                                                        rows={4} 
+                                                        placeholder="Bonjour, merci pour votre retour d'information... (utilisez @ pour mentionner)" 
+                                                        value={replyText}
+                                                        onChange={(e) => setReplyText(e.target.value)}
+                                                        className="border-primary"
+                                                        ticket={ticket}
+                                                    />
+                                                </Form.Group>
+                                                
+                                                <MultiImageUpload 
+                                                    images={replyImages}
+                                                    previews={replyPreviews}
+                                                    onAddImage={(file) => handleAddImage(file, setReplyImages, setReplyPreviews, setReplyImageError)}
+                                                    onRemoveImage={(idx) => handleRemoveImage(idx, setReplyImages, setReplyPreviews, setReplyImageError)}
+                                                    error={replyImageError}
+                                                    maxImages={4}
+                                                />
+
+                                                <div className="d-flex justify-content-end border-top pt-3">
+                                                    <Button variant="primary" type="submit" disabled={isReplySubmitting} className="px-4">
+                                                        {isReplySubmitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />Envoi en cours...</> : 'Envoyer la réponse'}
+                                                    </Button>
                                                 </div>
-                                                <Button 
-                                                    variant="link" 
-                                                    className="p-0 text-muted position-absolute top-0 end-0 m-2" 
-                                                    onClick={() => setReplyingTo(null)}
-                                                    title="Annuler la réponse"
-                                                >
-                                                    <X size={16} />
-                                                </Button>
-                                            </div>
-                                        )}
-                                        <Form.Group className="mb-4" controlId="devClientResponse">
-                                            <MentionTextarea 
-                                                rows={4} 
-                                                placeholder="Bonjour, merci pour votre retour d'information... (utilisez @ pour mentionner)" 
-                                                value={replyText}
-                                                onChange={(e) => setReplyText(e.target.value)}
-                                                className="border-primary"
-                                                ticket={ticket}
-                                            />
-                                        </Form.Group>
-                                        
-                                        <MultiImageUpload 
-                                            images={replyImages}
-                                            previews={replyPreviews}
-                                            onAddImage={(file) => handleAddImage(file, setReplyImages, setReplyPreviews, setReplyImageError)}
-                                            onRemoveImage={(idx) => handleRemoveImage(idx, setReplyImages, setReplyPreviews, setReplyImageError)}
-                                            error={replyImageError}
-                                            maxImages={4}
-                                        />
+                                            </Form>
+                                        </>
+                                    )}
+                                </Card.Body>
+                            </Tab>
+                            <Tab eventKey="internal" title={
+                                <span className="d-flex align-items-center justify-content-center py-2">
+                                    Discussion Interne
+                                    {ticket.hasNewManagerMessage && <Badge bg="danger" pill className="ms-2">!</Badge>}
+                                </span>
+                            }>
+                                <Card.Body className="p-3 p-md-4">
+                                    <ListGroup variant="flush" className="mb-3 border rounded shadow-sm p-2 bg-light mobile-expand-list desktop-fixed-list" id="internal-notes-list">
+                                        {sortedInternalNotes?.map((note, index, arr) => {
+                                            const msgMs = note.timestamp?.toMillis ? note.timestamp.toMillis() : new Date(note.timestamp).getTime();
+                                            const isNew = localLastRead !== null && msgMs > localLastRead;
+                                            
+                                            const isFirstUnread = isNew && index === arr.findIndex((m) => {
+                                                const ms = m.timestamp?.toMillis ? m.timestamp.toMillis() : new Date(m.timestamp).getTime();
+                                                return ms > localLastRead;
+                                            });
+                                            return (
+                                                <MessageBubble 
+                                                    key={`note-${index}`} 
+                                                    msg={note} 
+                                                    renderImages={renderImages} 
+                                                    ticket={ticket} 
+                                                    isNew={isNew}
+                                                    onVisible={handleMessageVisible}
+                                                    id={isFirstUnread ? "first-unread-msg" : undefined}
+                                                    onReply={(msg) => setNoteReplyingTo(msg)}
+                                                />
+                                            );
+                                        })}
+                                    </ListGroup>
 
-                                        <div className="d-flex justify-content-end border-top pt-3">
-                                            <Button variant="primary" type="submit" disabled={isReplySubmitting} className="px-4">
-                                                {isReplySubmitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />Envoi en cours...</> : 'Envoyer la réponse'}
-                                            </Button>
-                                        </div>
-                                    </Form>
-                                </>
-                            )}
-                        </Card.Body>
-                    </Card>
-
-                    {/* Block Discussion Interne (Dev/Manager) */}
-                    <Card>
-                        <Card.Header className="d-flex justify-content-between align-items-center bg-light">
-                            <h5 className="mb-0 text-secondary">Discussion Interne (Manager)</h5>
-                        </Card.Header>
-                        <Card.Body>
-                            <ListGroup variant="flush" className="mb-3" id="internal-notes-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                {sortedInternalNotes?.map((note, index, arr) => {
-                                    const msgMs = note.timestamp?.toMillis ? note.timestamp.toMillis() : new Date(note.timestamp).getTime();
-                                    const isNew = localLastRead !== null && msgMs > localLastRead;
-                                    
-                                    const isFirstUnread = isNew && index === arr.findIndex((m) => {
-                                        const ms = m.timestamp?.toMillis ? m.timestamp.toMillis() : new Date(m.timestamp).getTime();
-                                        return ms > localLastRead;
-                                    });
-                                    return (
-                                        <MessageBubble 
-                                            key={`note-${index}`} 
-                                            msg={note} 
-                                            renderImages={renderImages} 
-                                            ticket={ticket} 
-                                            isNew={isNew}
-                                            onVisible={handleMessageVisible}
-                                            id={isFirstUnread && !document.getElementById('first-unread-msg') ? "first-unread-msg" : undefined}
-                                            onReply={(msg) => setNoteReplyingTo(msg)}
-                                        />
-                                    );
-                                })}
-                            </ListGroup>
-
-                            {!isTicketClosed && (
-                                <>
-                                    <hr />
-                                    <h5>Ajouter une note interne</h5>
-                                    <Form onSubmit={handleInternalNoteSubmit} className="bg-light p-3 rounded shadow-sm border">
-                                        {noteReplyingTo && (
-                                            <div className="mb-3 p-2 bg-white rounded border-start border-3 border-secondary shadow-sm d-flex justify-content-between align-items-start position-relative">
-                                                <div className="text-muted" style={{ fontSize: '0.85rem' }}>
-                                                    <div className="fw-bold mb-1 text-secondary">
-                                                        <Reply size={14} className="me-1 mb-1" />
-                                                        En réponse à {noteReplyingTo.displayName || noteReplyingTo.author}
+                                    {!isTicketClosed && (
+                                        <>
+                                            <Form onSubmit={handleInternalNoteSubmit} className="bg-light p-3 rounded shadow-sm border mt-4">
+                                                {noteReplyingTo && (
+                                                    <div className="mb-3 p-2 bg-white rounded border-start border-3 border-secondary shadow-sm d-flex justify-content-between align-items-start position-relative">
+                                                        <div className="text-muted" style={{ fontSize: '0.85rem', paddingRight: '2rem' }}>
+                                                            <div className="fw-bold mb-1 text-secondary">
+                                                                <Reply size={14} className="me-1 mb-1" />
+                                                                En réponse à {noteReplyingTo.displayName || noteReplyingTo.author}
+                                                            </div>
+                                                            <div className="text-truncate" style={{ maxWidth: '90%' }}>
+                                                                {noteReplyingTo.text || "Message avec pièce jointe"}
+                                                            </div>
+                                                        </div>
+                                                        <Button 
+                                                            variant="link" 
+                                                            className="p-0 text-muted position-absolute top-0 end-0 m-2" 
+                                                            onClick={() => setNoteReplyingTo(null)}
+                                                            title="Annuler la réponse"
+                                                        >
+                                                            <X size={16} />
+                                                        </Button>
                                                     </div>
-                                                    <div className="text-truncate" style={{ maxWidth: '90%' }}>
-                                                        {noteReplyingTo.text || "Message avec pièce jointe"}
-                                                    </div>
+                                                )}
+                                                <Form.Group className="mb-4" controlId="devInternalNote">
+                                                    <Form.Label className="h5 mb-3 d-block">Ajouter une note interne</Form.Label>
+                                                    <MentionTextarea 
+                                                        name="devInternalNote"
+                                                        rows={4} 
+                                                        placeholder="Problème technique trouvé... (utilisez @ pour mentionner)" 
+                                                        value={internalNoteText}
+                                                        onChange={(e) => setInternalNoteText(e.target.value)}
+                                                        className="border-secondary"
+                                                        ticket={ticket}
+                                                    />
+                                                </Form.Group>
+
+                                                <Form.Group className="mb-4">
+                                                    <Form.Label htmlFor="developer-note-images" className="fw-bold mb-2">Captures d'écran en lien avec le message (Max 4 images)</Form.Label>
+                                                    <MultiImageUpload 
+                                                        id="developer-note-images"
+                                                        images={noteImages}
+                                                        previews={notePreviews}
+                                                        onAddImage={(file) => handleAddImage(file, setNoteImages, setNotePreviews, setNoteImageError)}
+                                                        onRemoveImage={(idx) => handleRemoveImage(idx, setNoteImages, setNotePreviews, setNoteImageError)}
+                                                        error={noteImageError}
+                                                        maxImages={4}
+                                                    />
+                                                </Form.Group>
+
+                                                <div className="d-flex justify-content-end border-top pt-3">
+                                                    <Button variant="secondary" type="submit" disabled={isNoteSubmitting} className="px-4">
+                                                        {isNoteSubmitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />Envoi en cours...</> : 'Envoyer la note'}
+                                                    </Button>
                                                 </div>
-                                                <Button 
-                                                    variant="link" 
-                                                    className="p-0 text-muted position-absolute top-0 end-0 m-2" 
-                                                    onClick={() => setNoteReplyingTo(null)}
-                                                    title="Annuler la réponse"
-                                                >
-                                                    <X size={16} />
-                                                </Button>
-                                            </div>
-                                        )}
-                                        <Form.Group className="mb-4" controlId="devInternalNote">
-                                            <MentionTextarea 
-                                                name="devInternalNote"
-                                                rows={4} 
-                                                placeholder="Problème technique trouvé... (utilisez @ pour mentionner)" 
-                                                value={internalNoteText}
-                                                onChange={(e) => setInternalNoteText(e.target.value)}
-                                                className="border-secondary"
-                                                ticket={ticket}
-                                            />
-                                        </Form.Group>
-
-                                        <MultiImageUpload 
-                                            images={noteImages}
-                                            previews={notePreviews}
-                                            onAddImage={(file) => handleAddImage(file, setNoteImages, setNotePreviews, setNoteImageError)}
-                                            onRemoveImage={(idx) => handleRemoveImage(idx, setNoteImages, setNotePreviews, setNoteImageError)}
-                                            error={noteImageError}
-                                            maxImages={4}
-                                        />
-
-                                        <div className="d-flex justify-content-end border-top pt-3">
-                                            <Button variant="secondary" type="submit" disabled={isNoteSubmitting} className="px-4">
-                                                {isNoteSubmitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />Envoi en cours...</> : 'Envoyer la note'}
-                                            </Button>
-                                        </div>
-                                    </Form>
-                                </>
-                            )}
-                        </Card.Body>
+                                            </Form>
+                                        </>
+                                    )}
+                                </Card.Body>
+                            </Tab>
+                        </Tabs>
                     </Card>
                 </Col>
                 
                 <Col md={5}>
-                    <Card>
-                        <Card.Header as="h5">Informations Clés</Card.Header>
-                        <Card.Body>
+                    <Card className="shadow-sm border-0 mb-4">
+                        <Card.Body className="p-3 p-md-4">
+                            <Card.Title className="mb-3 pb-2 border-bottom">Informations Clés</Card.Title>
                             <div>
                                 <strong>Priorité :</strong>{' '}
                                 <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'}>{ticket.priority}</Badge>

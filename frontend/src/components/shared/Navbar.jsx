@@ -87,6 +87,7 @@ export default function AppNavbar() {
                       src={currentUser.photoURL}
                       alt="Avatar"
                       className="rounded-circle me-2"
+                      referrerPolicy="no-referrer"
                       style={{ width: '32px', height: '32px' }}
                     />
                   ) : (

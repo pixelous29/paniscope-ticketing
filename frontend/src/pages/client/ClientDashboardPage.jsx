@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
 import { STATUS, STATUS_VARIANT } from '../../constants/status';
+import TicketCardMobile from '../../components/shared/TicketCardMobile';
 
 export default function ClientDashboardPage() {
   const [tickets, setTickets] = useState([]);
@@ -86,7 +87,7 @@ export default function ClientDashboardPage() {
       <Card>
         <Card.Header className="position-relative">
           <h4 className="mb-3 text-center">Tableau de bord Client</h4>
-          <div className="position-absolute top-0 end-0 mt-1">
+          <div className="position-absolute top-0 end-0 mt-1 d-none d-md-block">
             {(!currentUser.company || !currentUser.firstName || !currentUser.lastName) ? (
               <OverlayTrigger placement="left" overlay={(props) => renderTooltip(props, 'Vous devez renseigner votre nom, prénom et société avant de créer un ticket.')}>
                 <span className="d-inline-block">
@@ -112,78 +113,140 @@ export default function ClientDashboardPage() {
         </Card.Header>
         <Card.Body>
           {view === 'current' ? (
-            <Table striped bordered hover responsive className="m-0">
-              <thead>
-                <tr>
-                  <th>Sujet</th>
-                  <th>Dernière mise à jour</th>
-                  <th>Statut</th>
-                  {showActionsColumn && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Vue Mobile (< md) */}
+              <div className="d-md-none p-2 bg-light">
                 {currentTickets.length > 0 ? (
                   currentTickets.map(ticket => (
-                    <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
-                      <td className="fw-bold align-middle">{ticket.subject}</td>
-                      <td className="align-middle">{ticket.lastUpdate}</td>
-                      <td className="align-middle">
-                        <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>
-                          {ticket.status}
-                        </Badge>
-                      </td>
-                      {showActionsColumn && (
-                        <td className="align-middle text-center">
-                          {ticket.status === STATUS.CLOSED && (
-                            <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
-                              <Button variant="outline-secondary" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)}>
-                                <i className="bi bi-archive-fill"></i>
-                              </Button>
-                            </OverlayTrigger>
-                          )}
-                        </td>
-                      )}
-                    </tr>
+                    <TicketCardMobile 
+                      key={ticket.id} 
+                      ticket={ticket} 
+                      role="client" 
+                      onArchive={handleArchiveTicket} 
+                    />
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan={showActionsColumn ? 4 : 3} className="text-center">Aucun ticket en cours.</td>
-                  </tr>
+                  <div className="text-center p-4 text-muted border rounded bg-white">
+                    Aucun ticket en cours.
+                  </div>
                 )}
-              </tbody>
-            </Table>
+              </div>
+
+              {/* Vue Desktop (>= md) */}
+              <Table striped bordered hover responsive className="m-0 d-none d-md-table">
+                <thead>
+                  <tr>
+                    <th>Sujet</th>
+                    <th>Dernière mise à jour</th>
+                    <th>Statut</th>
+                    {showActionsColumn && <th>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentTickets.length > 0 ? (
+                    currentTickets.map(ticket => (
+                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
+                        <td className="fw-bold align-middle">{ticket.subject}</td>
+                        <td className="align-middle">{ticket.lastUpdate}</td>
+                        <td className="align-middle">
+                          <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>
+                            {ticket.status}
+                          </Badge>
+                        </td>
+                        {showActionsColumn && (
+                          <td className="align-middle text-center">
+                            {ticket.status === STATUS.CLOSED && (
+                              <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
+                                <Button variant="outline-secondary" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)}>
+                                  <i className="bi bi-archive-fill"></i>
+                                </Button>
+                              </OverlayTrigger>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={showActionsColumn ? 4 : 3} className="text-center">Aucun ticket en cours.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </Table>
+            </>
           ) : (
-            <Table striped bordered hover responsive className="m-0">
-              <thead>
-                <tr>
-                  <th>Sujet</th>
-                  <th>Dernière mise à jour</th>
-                  <th>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Vue Mobile (< md) */}
+              <div className="d-md-none p-2 bg-light">
                 {archivedTickets.length > 0 ? (
                   archivedTickets.map(ticket => (
-                    <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
-                      <td className="fw-bold align-middle">{ticket.subject}</td>
-                      <td className="align-middle">{ticket.lastUpdate}</td>
-                      <td className="align-middle">
-                        <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>
-                          {ticket.status}
-                        </Badge>
-                      </td>
-                    </tr>
+                    <TicketCardMobile 
+                      key={ticket.id} 
+                      ticket={ticket} 
+                      role="client" 
+                    />
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan="3" className="text-center">Aucun ticket archivé.</td>
-                  </tr>
+                  <div className="text-center p-4 text-muted border rounded bg-white">
+                    Aucun ticket archivé.
+                  </div>
                 )}
-              </tbody>
-            </Table>
+              </div>
+
+              {/* Vue Desktop (>= md) */}
+              <Table striped bordered hover responsive className="m-0 d-none d-md-table">
+                <thead>
+                  <tr>
+                    <th>Sujet</th>
+                    <th>Dernière mise à jour</th>
+                    <th>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archivedTickets.length > 0 ? (
+                    archivedTickets.map(ticket => (
+                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
+                        <td className="fw-bold align-middle">{ticket.subject}</td>
+                        <td className="align-middle">{ticket.lastUpdate}</td>
+                        <td className="align-middle">
+                          <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>
+                            {ticket.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="3" className="text-center">Aucun ticket archivé.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </Table>
+            </>
           )}
         </Card.Body>
       </Card>
+
+      {/* Bouton d'action flottant pour mobile */}
+      <div className="d-md-none position-fixed" style={{ bottom: '24px', right: '24px', zIndex: 1050 }}>
+        {(!currentUser.company || !currentUser.firstName || !currentUser.lastName) ? (
+          <OverlayTrigger placement="left" overlay={(props) => renderTooltip(props, 'Complétez votre profil pour créer un ticket.')}>
+            <span className="d-inline-block">
+              <LinkContainer to="/mon-compte">
+                <Button variant="warning" className="rounded-circle shadow d-flex align-items-center justify-content-center p-0" style={{ width: '85px', height: '85px' }}>
+                  <i className="bi bi-person-fill" style={{ fontSize: '2.5rem', lineHeight: 1 }}></i>
+                </Button>
+              </LinkContainer>
+            </span>
+          </OverlayTrigger>
+        ) : (
+          <LinkContainer to="/nouveau-ticket">
+            <Button variant="success" className="rounded-circle shadow d-flex align-items-center justify-content-center p-0" style={{ width: '85px', height: '85px' }}>
+              <i className="bi bi-plus" style={{ fontSize: '3.5rem', lineHeight: 1 }}></i>
+            </Button>
+          </LinkContainer>
+        )}
+      </div>
     </Container>
   );
 }

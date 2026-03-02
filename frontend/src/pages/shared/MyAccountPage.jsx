@@ -187,6 +187,7 @@ export default function MyAccountPage() {
                         src={currentUser?.photoURL} 
                         alt="Avatar Google" 
                         roundedCircle 
+                        referrerPolicy="no-referrer"
                         style={{ width: '100px', height: '100px', objectFit: 'cover' }}
                       />
                     </div>
@@ -256,7 +257,9 @@ export default function MyAccountPage() {
                   <Form.Group className="mb-4" controlId="accWimiNotifs">
                     <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
                       <div>
-                        <Form.Label className="mb-0 fw-bold">Notifications Wimi (via Zapier)</Form.Label>
+                        <Form.Label htmlFor="wimi-notif-switch" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                          Notifications Wimi (via Zapier)
+                        </Form.Label>
                         <small className="d-block text-muted">Active ou désactive l'envoi de notifications sur Wimi à la création d'un nouveau ticket.</small>
                       </div>
                       <Form.Check 

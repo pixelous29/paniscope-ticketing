@@ -238,22 +238,30 @@ export default function ClientTicketDetailPage() {
     const isTicketClosed = ticket.status === STATUS.CLOSED;
     
     return (
-        <Container className="mt-4 pb-5">
-            <Breadcrumb>
+        <Container className="mt-2 mt-md-4 pb-5 px-2 px-md-3">
+            <Breadcrumb className="d-none d-md-flex">
                 <LinkContainer to="/">
                     <Breadcrumb.Item>Tableau de bord</Breadcrumb.Item>
                 </LinkContainer>
                 <Breadcrumb.Item active>Ticket #{ticket?.id}</Breadcrumb.Item>
             </Breadcrumb>
-            <Card>
-                <Card.Header className="d-flex justify-content-between align-items-center">
+            
+            {/* Bouton retour mobile */}
+            <div className="d-md-none mb-3">
+                <Link to="/" className="text-decoration-none bg-white px-3 py-2 rounded shadow-sm text-primary fw-bold border d-inline-block">
+                    <i className="bi bi-arrow-left me-2"></i> Retour aux tickets
+                </Link>
+            </div>
+
+            <Card className="shadow-sm border-0 mb-3">
+                <Card.Header className="d-flex justify-content-between align-items-center bg-white border-bottom pt-3 pb-3">
                     <h4 className="mb-0">{ticket.subject}</h4>
                     <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge>
                 </Card.Header>
-                <Card.Body className="p-4">
-                    <h5 className="mb-4">Conversation</h5>
+                <Card.Body className="p-3 p-md-4">
+                    <h5 className="mb-3 d-none d-md-block">Conversation</h5>
                     
-                    <ListGroup variant="flush" className="mb-4 border rounded shadow-sm p-2" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                    <ListGroup variant="flush" className="mb-4 border rounded shadow-sm p-2 bg-light mobile-expand-list desktop-fixed-list">
                         
                         {ticket.conversation?.slice().sort((a, b) => {
                             const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
@@ -296,8 +304,7 @@ export default function ClientTicketDetailPage() {
                     
                     {!isTicketClosed && (
                         <>
-                        <h5 className="mt-4 mb-3">Répondre</h5>
-                        <Form onSubmit={handleReplySubmit} className="bg-light p-3 rounded shadow-sm border">
+                        <Form onSubmit={handleReplySubmit} className="bg-light p-3 rounded shadow-sm border mt-4">
                             {replyingTo && (
                                 <div className="mb-3 p-2 bg-white rounded border-start border-3 border-primary shadow-sm d-flex justify-content-between align-items-start position-relative">
                                     <div className="text-muted" style={{ fontSize: '0.85rem' }}>
@@ -320,6 +327,7 @@ export default function ClientTicketDetailPage() {
                                 </div>
                             )}
                             <Form.Group className="mb-4" controlId="clientResponse">
+                                <Form.Label className="h5 mb-3 d-block">Répondre</Form.Label>
                                 <MentionTextarea
                                     rows={4}
                                     placeholder="Tapez votre message ici... (utilisez @ pour mentionner)"
@@ -330,14 +338,18 @@ export default function ClientTicketDetailPage() {
                                 />
                             </Form.Group>
 
-                            <MultiImageUpload 
+                            <Form.Group className="mb-4">
+                                <Form.Label htmlFor="reply-images" className="fw-bold mb-2">Captures d'écran en lien avec le message (Max 4 images)</Form.Label>
+                                <MultiImageUpload 
+                                    id="reply-images"
                                 images={images}
-                                previews={previews}
-                                onAddImage={handleAddImage}
-                                onRemoveImage={handleRemoveImage}
-                                error={imageError}
-                                maxImages={4}
-                            />
+                                    previews={previews}
+                                    onAddImage={handleAddImage}
+                                    onRemoveImage={handleRemoveImage}
+                                    error={imageError}
+                                    maxImages={4}
+                                />
+                            </Form.Group>
 
                             <div className="d-flex justify-content-end border-top pt-3">
                                 <Button variant="primary" type="submit" disabled={isSubmitting} className="px-4">

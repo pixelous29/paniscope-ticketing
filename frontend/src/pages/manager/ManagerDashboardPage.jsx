@@ -5,6 +5,7 @@ import { Container, Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigge
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { STATUS, STATUS_VARIANT } from '../../constants/status';
+import TicketCardMobile from '../../components/shared/TicketCardMobile';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
@@ -85,106 +86,147 @@ export default function ManagerDashboardPage() {
         </Card.Header>
         <Card.Body>
           {view === 'current' ? (
-            <Table striped bordered hover responsive className="m-0">
-              <thead>
-                <tr>
-                  <th>Priorité</th>
-                  <th>Sujet</th>
-                  <th>Client</th>
-                  <th>Assigné à</th>
-                  <th>Tags</th>
-                  <th>Statut</th>
-                  {showActionsColumn && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Vue Mobile (< md) */}
+              <div className="d-md-none p-2 bg-light">
                 {currentTickets.length > 0 ? (
                   currentTickets.map(ticket => (
-                    <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
-                      <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge></td>
-                      <td className="fw-bold align-middle">
-                        <div className="d-flex align-items-center">
-                          {ticket.hasNewClientMessage && (
-                             <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle réponse du client')}>
-                               <span className="me-2" style={{color: 'orange', fontSize: '1.2rem'}}>●</span>
-                             </OverlayTrigger>
-                          )}
-                          {ticket.hasNewManagerMessage && (
-                             <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle note du manager pour le dev')}>
-                              <span className="me-2" style={{color: '#0D6EFD', fontSize: '1.2rem'}}>●</span>
-                             </OverlayTrigger>
-                          )}
-                          {ticket.hasNewDeveloperMessage && (
-                             <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle note du développeur')}>
-                              <span className="me-2" style={{color: 'purple', fontSize: '1.2rem'}}>●</span>
-                             </OverlayTrigger>
-                          )}
-                          <span>{ticket.subject}</span>
-                        </div>
-                      </td>
-                      <td className="align-middle">{ticket.client || ticket.clientId}</td>
-                      <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
-                      <td className="align-middle">
-                        {ticket.tags?.map(tag => (
-                          <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
-                        ))}
-                      </td>
-                      <td className="align-middle"><Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
-                      {showActionsColumn && (
-                        <td className="align-middle text-center">
-                          {ticket.status === STATUS.CLOSED && (
-                            <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
-                              <Button variant="outline-secondary" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)}>
-                                <i className="bi bi-archive-fill"></i>
-                              </Button>
-                            </OverlayTrigger>
-                          )}
-                        </td>
-                      )}
-                    </tr>
+                    <TicketCardMobile 
+                      key={ticket.id} 
+                      ticket={ticket} 
+                      role="manager" 
+                      onArchive={handleArchiveTicket} 
+                    />
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan={showActionsColumn ? 7 : 6} className="text-center">Aucun ticket en cours.</td>
-                  </tr>
+                  <div className="text-center p-4 text-muted border rounded bg-white">
+                    Aucun ticket en cours.
+                  </div>
                 )}
-              </tbody>
-            </Table>
+              </div>
+
+              {/* Vue Desktop (>= md) */}
+              <Table striped bordered hover responsive className="m-0 d-none d-md-table">
+                <thead>
+                  <tr>
+                    <th>Priorité</th>
+                    <th>Sujet</th>
+                    <th>Client</th>
+                    <th>Assigné à</th>
+                    <th>Tags</th>
+                    <th>Statut</th>
+                    {showActionsColumn && <th>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentTickets.length > 0 ? (
+                    currentTickets.map(ticket => (
+                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
+                        <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge></td>
+                        <td className="fw-bold align-middle">
+                          <div className="d-flex align-items-center">
+                            {ticket.hasNewClientMessage && (
+                               <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle réponse du client')}>
+                                 <span className="me-2" style={{color: 'orange', fontSize: '1.2rem'}}>●</span>
+                               </OverlayTrigger>
+                            )}
+                            {ticket.hasNewManagerMessage && (
+                               <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle note du manager pour le dev')}>
+                                <span className="me-2" style={{color: '#0D6EFD', fontSize: '1.2rem'}}>●</span>
+                               </OverlayTrigger>
+                            )}
+                            {ticket.hasNewDeveloperMessage && (
+                               <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle note du développeur')}>
+                                <span className="me-2" style={{color: 'purple', fontSize: '1.2rem'}}>●</span>
+                               </OverlayTrigger>
+                            )}
+                            <span>{ticket.subject}</span>
+                          </div>
+                        </td>
+                        <td className="align-middle">{ticket.client || ticket.clientId}</td>
+                        <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
+                        <td className="align-middle">
+                          {ticket.tags?.map(tag => (
+                            <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
+                          ))}
+                        </td>
+                        <td className="align-middle"><Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
+                        {showActionsColumn && (
+                          <td className="align-middle text-center">
+                            {ticket.status === STATUS.CLOSED && (
+                              <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
+                                <Button variant="outline-secondary" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)}>
+                                  <i className="bi bi-archive-fill"></i>
+                                </Button>
+                              </OverlayTrigger>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={showActionsColumn ? 7 : 6} className="text-center">Aucun ticket en cours.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </Table>
+            </>
           ) : (
-            <Table striped bordered hover responsive className="m-0">
-              <thead>
-                <tr>
-                  <th>Priorité</th>
-                  <th>Sujet</th>
-                  <th>Client</th>
-                  <th>Assigné à</th>
-                  <th>Tags</th>
-                  <th>Statut</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* Vue Mobile (< md) */}
+              <div className="d-md-none p-2 bg-light">
                 {archivedTickets.length > 0 ? (
                   archivedTickets.map(ticket => (
-                    <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
-                      <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge></td>
-                      <td className="fw-bold align-middle">{ticket.subject}</td>
-                      <td className="align-middle">{ticket.client || ticket.clientId}</td>
-                      <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
-                      <td className="align-middle">
-                        {ticket.tags?.map(tag => (
-                          <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
-                        ))}
-                      </td>
-                      <td className="align-middle"><Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
-                    </tr>
+                    <TicketCardMobile 
+                      key={ticket.id} 
+                      ticket={ticket} 
+                      role="manager" 
+                    />
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan="6" className="text-center">Aucun ticket archivé.</td>
-                  </tr>
+                  <div className="text-center p-4 text-muted border rounded bg-white">
+                    Aucun ticket archivé.
+                  </div>
                 )}
-              </tbody>
-            </Table>
+              </div>
+
+              {/* Vue Desktop (>= md) */}
+              <Table striped bordered hover responsive className="m-0 d-none d-md-table">
+                <thead>
+                  <tr>
+                    <th>Priorité</th>
+                    <th>Sujet</th>
+                    <th>Client</th>
+                    <th>Assigné à</th>
+                    <th>Tags</th>
+                    <th>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archivedTickets.length > 0 ? (
+                    archivedTickets.map(ticket => (
+                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
+                        <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge></td>
+                        <td className="fw-bold align-middle">{ticket.subject}</td>
+                        <td className="align-middle">{ticket.client || ticket.clientId}</td>
+                        <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
+                        <td className="align-middle">
+                          {ticket.tags?.map(tag => (
+                            <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
+                          ))}
+                        </td>
+                        <td className="align-middle"><Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="text-center">Aucun ticket archivé.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </Table>
+            </>
           )}
         </Card.Body>
       </Card>
