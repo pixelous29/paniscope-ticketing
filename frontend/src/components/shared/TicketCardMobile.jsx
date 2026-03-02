@@ -61,7 +61,7 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
           {role !== "client" && (
             <div className="mb-1">
               <i className="bi bi-person me-1"></i>{" "}
-              {ticket.client || ticket.clientId}
+              {ticket.clientName || ticket.client || ticket.clientId}
             </div>
           )}
           <div className="d-flex justify-content-between">

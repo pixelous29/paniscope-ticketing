@@ -123,6 +123,7 @@ export default function DeveloperDashboardPage() {
                   <tr>
                     <th>Priorité</th>
                     <th>Sujet</th>
+                    <th>Client</th>
                     <th>Tags</th>
                     {showActionsColumn && <th>Actions</th>}
                   </tr>
@@ -142,6 +143,7 @@ export default function DeveloperDashboardPage() {
                             <span>{ticket.subject}</span>
                           </div>
                         </td>
+                        <td className="align-middle">{ticket.clientName || ticket.client || ticket.clientId}</td>
                         <td className="align-middle">
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
@@ -193,6 +195,7 @@ export default function DeveloperDashboardPage() {
                   <tr>
                     <th>Priorité</th>
                     <th>Sujet</th>
+                    <th>Client</th>
                     <th>Tags</th>
                   </tr>
                 </thead>
@@ -202,6 +205,7 @@ export default function DeveloperDashboardPage() {
                       <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
                         <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'}>{ticket.priority}</Badge></td>
                         <td className="fw-bold align-middle">{ticket.subject}</td>
+                        <td className="align-middle">{ticket.clientName || ticket.client || ticket.clientId}</td>
                         <td className="align-middle">
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>

@@ -143,7 +143,7 @@ export default function ManagerDashboardPage() {
                             <span>{ticket.subject}</span>
                           </div>
                         </td>
-                        <td className="align-middle">{ticket.client || ticket.clientId}</td>
+                        <td className="align-middle">{ticket.clientName || ticket.client || ticket.clientId}</td>
                         <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
                         <td className="align-middle">
                           {ticket.tags?.map(tag => (
@@ -209,7 +209,7 @@ export default function ManagerDashboardPage() {
                       <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
                         <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge></td>
                         <td className="fw-bold align-middle">{ticket.subject}</td>
-                        <td className="align-middle">{ticket.client || ticket.clientId}</td>
+                        <td className="align-middle">{ticket.clientName || ticket.client || ticket.clientId}</td>
                         <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
                         <td className="align-middle">
                           {ticket.tags?.map(tag => (

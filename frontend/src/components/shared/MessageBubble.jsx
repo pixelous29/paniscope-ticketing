@@ -94,7 +94,9 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                         }
                         
                         const profile = {
-                            displayName: fullName || data.displayName || msg.displayName || msg.author,
+                            displayName: (data.role === 'client' && data.company) 
+                                ? data.company 
+                                : (fullName || data.displayName || msg.displayName || msg.author),
                             photoURL: data.photoURL || msg.photoURL || null,
                             timestamp: now
                         };

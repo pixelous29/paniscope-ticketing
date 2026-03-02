@@ -710,7 +710,7 @@ export default function ManagerTicketDetailPage() {
                 <Card className="shadow-sm border-0 mb-4">
                     <Card.Body className="p-3 p-md-4">
                     <Card.Title className="mb-3 pb-2 border-bottom">Détails & Actions</Card.Title>
-                    <p><strong>Client:</strong> {ticket.client || ticket.clientId}</p>
+                    <p><strong>Client:</strong> {ticket.clientName || ticket.client || ticket.clientId}</p>
                     <p><strong>Soumis le:</strong> {ticket.submittedAt?.toDate ? ticket.submittedAt.toDate().toLocaleString('fr-FR') : 'Date inconnue'}</p>
                     <div>
                         <strong>Priorité:</strong>{' '}

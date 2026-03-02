@@ -577,6 +577,9 @@ export default function DeveloperTicketDetailPage() {
                     <Card className="shadow-sm border-0 mb-4">
                         <Card.Body className="p-3 p-md-4">
                             <Card.Title className="mb-3 pb-2 border-bottom">Informations Clés</Card.Title>
+                            <div className="mb-2">
+                                <strong>Client :</strong> {ticket.clientName || ticket.client || ticket.clientId}
+                            </div>
                             <div>
                                 <strong>Priorité :</strong>{' '}
                                 <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'}>{ticket.priority}</Badge>

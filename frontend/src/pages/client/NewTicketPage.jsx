@@ -90,7 +90,7 @@ export default function NewTicketPage() {
         subject: formData.subject,
         clientUid: currentUser.uid,
         clientEmail: currentUser.email,
-        clientName: currentUser.displayName || currentUser.email,
+        clientName: currentUser.company || currentUser.displayName || currentUser.email,
         status: STATUS.NEW,
         priority: 'Normale',
         submittedAt: serverTimestamp(),
