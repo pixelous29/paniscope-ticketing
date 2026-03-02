@@ -28,7 +28,7 @@ export default function DeveloperDashboardPage() {
     
     const ticketsCollectionQuery = query(
       collection(db, "tickets"),
-      where("assignedTo", "==", developerName)
+      where("assignedTo", "array-contains", developerName)
     );
 
     const unsubscribe = onSnapshot(ticketsCollectionQuery, (querySnapshot) => {

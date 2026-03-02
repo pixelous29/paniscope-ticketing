@@ -344,12 +344,26 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                     )}
                     
                     <div className="d-flex flex-column lh-1 ms-1">
-                        <strong className="text-dark" style={{ fontSize: '1rem' }}>
+                        <strong className="text-dark" style={{ fontSize: '1rem', marginBottom: '4px' }}>
                             {displayName}
                         </strong>
-                        <small className={textColor} style={{ fontSize: '0.8rem', marginTop: '4px', fontWeight: '500' }}>
-                           <IconComponent size={14} className="me-1 mb-1" /> {displayAuthor}
-                        </small>
+                        <div className="d-flex align-items-center">
+                            <Badge 
+                                bg="none" 
+                                className={`px-2 py-1 d-flex align-items-center ${textColor}`} 
+                                style={{ 
+                                    fontSize: '0.7rem', 
+                                    fontWeight: '700', 
+                                    letterSpacing: '0.5px',
+                                    textTransform: 'uppercase',
+                                    border: `1px solid ${borderColor}`,
+                                    backgroundColor: `${borderColor}15`,
+                                    borderRadius: '4px'
+                                }}
+                            >
+                                <IconComponent size={10} className="me-1" /> {displayAuthor}
+                            </Badge>
+                        </div>
                     </div>
                 </div>
                 

@@ -203,7 +203,7 @@ export default function ManagerTicketDetailPage() {
             setTicket(data);
             setEditFormData({
             priority: data.priority,
-            assignedTo: data.assignedTo || '',
+            assignedTo: Array.isArray(data.assignedTo) ? data.assignedTo : (data.assignedTo ? [data.assignedTo] : []),
             tags: data.tags ? data.tags.join(', ') : ''
             });
             updateStatusIfNeeded(data);
@@ -223,8 +223,21 @@ export default function ManagerTicketDetailPage() {
     const handleEditModalClose = () => setShowEditModal(false);
 
     const handleEditFormChange = (e) => {
-        const { name, value } = e.target;
-        setEditFormData(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        if (type === 'checkbox' && name === 'assignedTo') {
+            setEditFormData(prev => {
+                const currentAssigned = [...prev.assignedTo];
+                if (checked) {
+                    if (!currentAssigned.includes(value)) currentAssigned.push(value);
+                } else {
+                    const idx = currentAssigned.indexOf(value);
+                    if (idx > -1) currentAssigned.splice(idx, 1);
+                }
+                return { ...prev, assignedTo: currentAssigned };
+            });
+        } else {
+            setEditFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleEditSubmit = async (e) => {
@@ -707,7 +720,14 @@ export default function ManagerTicketDetailPage() {
                         <strong>Tags:</strong>{' '}
                         {ticket.tags?.map(tag => <Badge key={tag} pill bg="info" className="me-1">{tag}</Badge>)}
                     </div>
-                    <p className="mt-2"><strong>Assigné à:</strong> {ticket.assignedTo || 'Personne'}</p>
+                    <div className="mt-2">
+                        <strong>Assigné à :</strong>{' '}
+                        {Array.isArray(ticket.assignedTo) ? (
+                            ticket.assignedTo.length > 0 ? (
+                                ticket.assignedTo.map(dev => <Badge key={dev} bg="light" text="dark" className="border me-1">{dev}</Badge>)
+                            ) : 'Personne'
+                        ) : (ticket.assignedTo || 'Personne')}
+                    </div>
                     <hr />
                     {isPendingValidation ? (
                         <div className="d-grid gap-2">
@@ -745,14 +765,25 @@ export default function ManagerTicketDetailPage() {
                     <option value="Critique">Critique</option>
                 </Form.Select>
                 </FloatingLabel>
-                <FloatingLabel controlId="assignedToInput" label="Assigner à" className="mb-3">
-                <Form.Select name="assignedTo" value={editFormData.assignedTo} onChange={handleEditFormChange}>
-                    <option value="">Non assigné / Sélectionner...</option>
-                    {developers.map(dev => (
-                        <option key={dev.id} value={dev.name}>{dev.name}</option>
-                    ))}
-                </Form.Select>
-                </FloatingLabel>
+                <Form.Group className="mb-3 border p-3 rounded bg-light">
+                    <Form.Label className="fw-bold mb-2">Assigner à (plusieurs possibles)</Form.Label>
+                    <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                        {developers.length === 0 && <small className="text-muted d-block">Aucun développeur trouvé.</small>}
+                        {developers.map(dev => (
+                            <Form.Check 
+                                key={dev.id}
+                                type="checkbox"
+                                id={`dev-${dev.id}`}
+                                label={dev.name}
+                                name="assignedTo"
+                                value={dev.name}
+                                checked={editFormData.assignedTo.includes(dev.name)}
+                                onChange={handleEditFormChange}
+                                className="mb-1"
+                            />
+                        ))}
+                    </div>
+                </Form.Group>
                 <FloatingLabel controlId="tagsInput" label="Tags (séparés par des virgules)">
                 <Form.Control type="text" placeholder="tag1, tag2, tag3" name="tags" value={editFormData.tags} onChange={handleEditFormChange} />
                 </FloatingLabel>
