@@ -80,7 +80,7 @@ export default function ManagerDashboardPage() {
             <Nav.Item>
               <Nav.Link eventKey="current">Tickets en cours</Nav.Link>
             </Nav.Item>
-            <Nav.Item>
+            <Nav.Item className="d-none d-md-block">
               <Nav.Link eventKey="board">
                 <i className="bi bi-kanban me-2"></i>Tableau de développement
               </Nav.Link>
