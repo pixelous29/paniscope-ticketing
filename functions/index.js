@@ -259,3 +259,99 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
 
   bb.end(req.rawBody);
 });
+
+/**
+ * 3. NOTIFICATION EMAIL - NOUVELLE INSCRIPTION
+ * Se déclenche quand un nouveau document utilisateur est créé dans Firestore
+ * Envoie un email de notification à l'admin pour gérer la demande
+ */
+const nodemailer = require("nodemailer");
+
+const smtpTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "ssl0.ovh.net",
+  port: parseInt(process.env.SMTP_PORT || "465"),
+  secure: true, // SSL
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+exports.notifyAdminOnNewUser = functions.firestore
+  .document("users/{userId}")
+  .onCreate(async (snap, context) => {
+    const userData = snap.data();
+    const userId = context.params.userId;
+
+    // Ne notifier que pour les comptes en attente de validation
+    if (userData.status !== "pending") {
+      console.log(
+        `Utilisateur ${userId} créé avec le statut "${userData.status}", pas de notification.`,
+      );
+      return;
+    }
+
+    const adminEmail =
+      process.env.ADMIN_NOTIFICATION_EMAIL || "yves@paniscope.fr";
+    const fromEmail = process.env.SMTP_FROM || "noreply@paniscope.fr";
+
+    const displayName =
+      userData.displayName ||
+      `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
+      userData.email;
+    const company = userData.company ? ` (${userData.company})` : "";
+
+    console.log(
+      `Nouvelle inscription détectée : ${displayName} - Email: ${userData.email}`,
+    );
+
+    try {
+      await smtpTransporter.sendMail({
+        from: `"Support Paniscope" <${fromEmail}>`,
+        to: adminEmail,
+        subject: `🆕 Nouvelle demande de compte - ${displayName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #0d6efd, #6f42c1); padding: 20px; border-radius: 10px 10px 0 0; color: white;">
+              <h2 style="margin: 0;">🆕 Nouvelle demande de compte</h2>
+              <p style="margin: 5px 0 0; opacity: 0.9;">Support Paniscope</p>
+            </div>
+            <div style="background: #f8f9fa; padding: 20px; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 10px 10px;">
+              <p>Bonjour,</p>
+              <p><strong>${displayName}${company}</strong> a fait une demande de création de compte sur <strong>Support Paniscope</strong>.</p>
+              <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold; width: 120px;">Nom</td>
+                  <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${displayName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;">Email</td>
+                  <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${userData.email}</td>
+                </tr>
+                ${userData.company ? `<tr><td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;">Société</td><td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${userData.company}</td></tr>` : ""}
+              </table>
+              <p>Merci de gérer cette demande en vous rendant sur le panneau d'administration :</p>
+              <p style="text-align: center;">
+                <a href="https://paniscope-ticketing.web.app/admin" 
+                   style="display: inline-block; background: #0d6efd; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                  Gérer les utilisateurs
+                </a>
+              </p>
+              <p style="color: #6c757d; font-size: 0.85rem; margin-top: 20px;">
+                Cet email a été envoyé automatiquement par Support Paniscope.
+              </p>
+            </div>
+          </div>
+        `,
+      });
+
+      console.log(
+        `✅ Email de notification envoyé à ${adminEmail} pour l'inscription de ${displayName}`,
+      );
+    } catch (error) {
+      console.error(
+        `❌ Erreur lors de l'envoi de l'email de notification :`,
+        error.message,
+      );
+    }
+  });
