@@ -6,6 +6,7 @@ import { db, storage } from '../../firebaseConfig';
 import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Breadcrumb, Tabs, Tab } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
 import { STATUS } from '../../constants/status';
+import { DEV_PHASE_LABELS, DEV_PHASE_COLORS } from '../../constants/phases';
 import { LinkContainer } from 'react-router-bootstrap';
 import { useAuth } from '../../hooks/useAuth';
 import { Reply, X } from 'lucide-react';
@@ -302,6 +303,17 @@ export default function DeveloperTicketDetailPage() {
         }
     };
 
+    const handleDevPhaseChange = async (e) => {
+        const newPhase = e.target.value;
+        const docRef = doc(db, "tickets", ticketId);
+        try {
+            await updateDoc(docRef, { devPhase: newPhase });
+        } catch (err) {
+            console.error("Erreur lors de la mise à jour de la phase: ", err);
+            showAlert('Erreur', 'Impossible de mettre à jour la phase de développement.');
+        }
+    };
+
     const handleMarkAsDone = async () => {
         if (ticket.status === STATUS.PENDING_VALIDATION) {
             const docRef = doc(db, "tickets", ticketId);
@@ -579,6 +591,20 @@ export default function DeveloperTicketDetailPage() {
                             <Card.Title className="mb-3 pb-2 border-bottom">Informations Clés</Card.Title>
                             <div className="mb-2">
                                 <strong>Client :</strong> {ticket.clientName || ticket.client || ticket.clientId}
+                            </div>
+                            <div className="mb-2">
+                                <strong>Phase de développement :</strong>
+                                <Form.Select 
+                                    size="sm" 
+                                    value={ticket.devPhase || 'PLANNING'} 
+                                    onChange={handleDevPhaseChange}
+                                    disabled={isTicketClosed}
+                                    className="mt-1"
+                                >
+                                    {Object.entries(DEV_PHASE_LABELS).map(([key, label]) => (
+                                        <option key={key} value={key}>{label}</option>
+                                    ))}
+                                </Form.Select>
                             </div>
                             <div>
                                 <strong>Priorité :</strong>{' '}

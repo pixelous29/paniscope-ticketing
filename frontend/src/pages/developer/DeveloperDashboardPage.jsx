@@ -7,6 +7,8 @@ import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
 import { STATUS } from '../../constants/status';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
+import InternalKanbanBoard from '../../components/shared/InternalKanbanBoard';
+import { List, Kanban } from 'lucide-react';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
@@ -16,6 +18,7 @@ export default function DeveloperDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState('current'); // 'current' or 'archived'
+  const [boardView, setBoardView] = useState('list'); // 'list' or 'kanban'
   const navigate = useNavigate();
   const { showAlert } = useModal();
   const { currentUser } = useAuth();
@@ -84,9 +87,33 @@ export default function DeveloperDashboardPage() {
 
   return (
     <Container className="mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h4 className="m-0">Tableau de bord Développeur</h4>
+        <div className="btn-group" role="group" aria-label="Toggle view">
+          <Button 
+            variant={boardView === 'list' ? 'primary' : 'outline-primary'} 
+            onClick={() => setBoardView('list')}
+            title="Vue Liste"
+            className="d-flex align-items-center"
+          >
+            <List size={18} className="me-1" /> Liste
+          </Button>
+          <Button 
+            variant={boardView === 'kanban' ? 'primary' : 'outline-primary'} 
+            onClick={() => setBoardView('kanban')}
+            title="Vue Kanban"
+            className="d-flex align-items-center"
+          >
+            <Kanban size={18} className="me-1" /> Kanban
+          </Button>
+        </div>
+      </div>
+      
+      {boardView === 'kanban' ? (
+         <InternalKanbanBoard role="developer" developerName={currentUser?.displayName || currentUser?.email} />
+      ) : (
       <Card>
         <Card.Header>
-          <h4 className="mb-3">Tableau de bord Développeur</h4>
           <Nav variant="tabs" activeKey={view} onSelect={(k) => setView(k)}>
             <Nav.Item>
               <Nav.Link eventKey="current">Tickets en cours</Nav.Link>
@@ -224,6 +251,7 @@ export default function DeveloperDashboardPage() {
           )}
         </Card.Body>
       </Card>
+      )}
     </Container>
   );
 }

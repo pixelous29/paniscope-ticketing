@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { STATUS, STATUS_VARIANT } from '../../constants/status';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
+import InternalKanbanBoard from '../../components/shared/InternalKanbanBoard';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
@@ -14,7 +15,7 @@ export default function ManagerDashboardPage() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [view, setView] = useState('current'); // 'current' or 'archived'
+  const [view, setView] = useState('current'); // 'current' or 'archived' or 'board'
   const navigate = useNavigate();
   const { showAlert } = useModal();
 
@@ -80,12 +81,21 @@ export default function ManagerDashboardPage() {
               <Nav.Link eventKey="current">Tickets en cours</Nav.Link>
             </Nav.Item>
             <Nav.Item>
+              <Nav.Link eventKey="board">
+                <i className="bi bi-kanban me-2"></i>Tableau de développement
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
               <Nav.Link eventKey="archived">Tickets Archivés</Nav.Link>
             </Nav.Item>
           </Nav>
         </Card.Header>
         <Card.Body>
-          {view === 'current' ? (
+          {view === 'board' ? (
+              <div className="pt-3">
+                  <InternalKanbanBoard isDeveloperMode={false} />
+              </div>
+          ) : view === 'current' ? (
             <>
               {/* Vue Mobile (< md) */}
               <div className="d-md-none p-2 bg-light">

@@ -7,6 +7,7 @@ import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinn
 import { useModal } from '../../hooks/useModal';
 import { LinkContainer } from 'react-router-bootstrap';
 import { STATUS } from '../../constants/status';
+import { DEV_PHASE_LABELS, DEV_PHASE_COLORS } from '../../constants/phases';
 import { useAuth } from '../../hooks/useAuth';
 import { Reply, X } from 'lucide-react';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
@@ -23,7 +24,7 @@ export default function ManagerTicketDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showEditModal, setShowEditModal] = useState(false);
-    const [editFormData, setEditFormData] = useState({ priority: '', assignedTo: '', tags: '' });
+    const [editFormData, setEditFormData] = useState({ priority: '', assignedTo: '', tags: '', devPhase: '' });
     const [replyText, setReplyText] = useState('');
     const [internalNoteText, setInternalNoteText] = useState('');
     const [replyingTo, setReplyingTo] = useState(null);
@@ -204,7 +205,8 @@ export default function ManagerTicketDetailPage() {
             setEditFormData({
             priority: data.priority,
             assignedTo: Array.isArray(data.assignedTo) ? data.assignedTo : (data.assignedTo ? [data.assignedTo] : []),
-            tags: data.tags ? data.tags.join(', ') : ''
+            tags: data.tags ? data.tags.join(', ') : '',
+            devPhase: data.devPhase || 'PLANNING'
             });
             updateStatusIfNeeded(data);
         } else {
@@ -248,7 +250,8 @@ export default function ManagerTicketDetailPage() {
         await updateDoc(docRef, {
             priority: editFormData.priority,
             assignedTo: editFormData.assignedTo || null,
-            tags: tagsArray
+            tags: tagsArray,
+            devPhase: editFormData.devPhase || 'PLANNING'
         });
         handleEditModalClose();
         } catch (err) {
@@ -712,6 +715,12 @@ export default function ManagerTicketDetailPage() {
                     <Card.Title className="mb-3 pb-2 border-bottom">Détails & Actions</Card.Title>
                     <p><strong>Client:</strong> {ticket.clientName || ticket.client || ticket.clientId}</p>
                     <p><strong>Soumis le:</strong> {ticket.submittedAt?.toDate ? ticket.submittedAt.toDate().toLocaleString('fr-FR') : 'Date inconnue'}</p>
+                    <div className="mb-2">
+                        <strong>Phase de développement:</strong>{' '}
+                        <Badge bg={DEV_PHASE_COLORS[ticket.devPhase] || DEV_PHASE_COLORS.PLANNING}>
+                            {DEV_PHASE_LABELS[ticket.devPhase] || DEV_PHASE_LABELS.PLANNING}
+                        </Badge>
+                    </div>
                     <div>
                         <strong>Priorité:</strong>{' '}
                         <Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge>
@@ -738,7 +747,9 @@ export default function ManagerTicketDetailPage() {
                     ) : (
                         <div className="d-grid gap-2">
                             <Card.Title>Actions Manager</Card.Title>
-                            <Button variant="outline-secondary" onClick={handleEditModalOpen} disabled={isTicketClosed}>Modifier Tags / Priorité / Assignation</Button>
+                            <Button variant="outline-secondary" onClick={handleEditModalOpen} disabled={isTicketClosed}>
+                                Modifier Phase dev / Tags / Priorité / Assignation
+                            </Button>
                             {isTicketClosed ? (
                                 <Button variant="warning" onClick={handleReopenTicket}>Réouvrir le ticket</Button>
                             ) : (
@@ -757,6 +768,13 @@ export default function ManagerTicketDetailPage() {
             </Modal.Header>
             <Form onSubmit={handleEditSubmit}>
             <Modal.Body>
+                <FloatingLabel controlId="devPhaseSelect" label="Phase de développement" className="mb-3">
+                    <Form.Select name="devPhase" value={editFormData.devPhase} onChange={handleEditFormChange}>
+                        {Object.entries(DEV_PHASE_LABELS).map(([key, label]) => (
+                            <option key={key} value={key}>{label}</option>
+                        ))}
+                    </Form.Select>
+                </FloatingLabel>
                 <FloatingLabel controlId="prioritySelect" label="Priorité" className="mb-3">
                 <Form.Select name="priority" value={editFormData.priority} onChange={handleEditFormChange}>
                     <option value="Faible">Faible</option>
