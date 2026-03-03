@@ -1,4 +1,15 @@
-/* Supprimer tout le contenu existant et le remplacer par ceci */
+/* Cache la scrollbar tout en gardant le scroll actif */
+html,
+body {
+  -ms-overflow-style: none;  /* IE et Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none; /* Chrome, Safari et Opera */
+}
+
 body {
   margin: 0;
   font-family:
@@ -69,7 +80,7 @@ code {
 }
 
 .custom-tabs .nav-link::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -2px;
   left: 0;

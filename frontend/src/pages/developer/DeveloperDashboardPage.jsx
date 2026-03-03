@@ -8,7 +8,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { STATUS } from '../../constants/status';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
 import InternalKanbanBoard from '../../components/shared/InternalKanbanBoard';
-import { List, Kanban } from 'lucide-react';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
@@ -17,8 +16,7 @@ export default function DeveloperDashboardPage() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [view, setView] = useState('current'); // 'current' or 'archived'
-  const [boardView, setBoardView] = useState('list'); // 'list' or 'kanban'
+  const [view, setView] = useState('current'); // 'current', 'board', or 'archived'
   const navigate = useNavigate();
   const { showAlert } = useModal();
   const { currentUser } = useAuth();
@@ -87,36 +85,17 @@ export default function DeveloperDashboardPage() {
 
   return (
     <Container className="mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="m-0">Tableau de bord Développeur</h4>
-        <div className="btn-group" role="group" aria-label="Toggle view">
-          <Button 
-            variant={boardView === 'list' ? 'primary' : 'outline-primary'} 
-            onClick={() => setBoardView('list')}
-            title="Vue Liste"
-            className="d-flex align-items-center"
-          >
-            <List size={18} className="me-1" /> Liste
-          </Button>
-          <Button 
-            variant={boardView === 'kanban' ? 'primary' : 'outline-primary'} 
-            onClick={() => setBoardView('kanban')}
-            title="Vue Kanban"
-            className="d-flex align-items-center"
-          >
-            <Kanban size={18} className="me-1" /> Kanban
-          </Button>
-        </div>
-      </div>
-      
-      {boardView === 'kanban' ? (
-         <InternalKanbanBoard role="developer" developerName={currentUser?.displayName || currentUser?.email} />
-      ) : (
       <Card>
         <Card.Header>
+          <h4 className="mb-3">Tableau de bord Développeur</h4>
           <Nav variant="tabs" activeKey={view} onSelect={(k) => setView(k)}>
             <Nav.Item>
               <Nav.Link eventKey="current">Tickets en cours</Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="board">
+                <i className="bi bi-kanban me-2"></i>Tableau de développement
+              </Nav.Link>
             </Nav.Item>
             <Nav.Item>
               <Nav.Link eventKey="archived">Tickets Archivés</Nav.Link>
@@ -124,7 +103,11 @@ export default function DeveloperDashboardPage() {
           </Nav>
         </Card.Header>
         <Card.Body>
-          {view === 'current' ? (
+          {view === 'board' ? (
+              <div className="pt-3">
+                  <InternalKanbanBoard role="developer" developerName={currentUser?.displayName || currentUser?.email} />
+              </div>
+          ) : view === 'current' ? (
             <>
               {/* Vue Mobile (< md) */}
               <div className="d-md-none p-2 bg-light">
@@ -191,7 +174,7 @@ export default function DeveloperDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={showActionsColumn ? 4 : 3} className="text-center">Aucun ticket en cours.</td>
+                      <td colSpan={showActionsColumn ? 5 : 4} className="text-center">Aucun ticket en cours.</td>
                     </tr>
                   )}
                 </tbody>
@@ -242,7 +225,7 @@ export default function DeveloperDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="3" className="text-center">Aucun ticket archivé.</td>
+                      <td colSpan="4" className="text-center">Aucun ticket archivé.</td>
                     </tr>
                   )}
                 </tbody>
@@ -251,7 +234,6 @@ export default function DeveloperDashboardPage() {
           )}
         </Card.Body>
       </Card>
-      )}
     </Container>
   );
 }

@@ -26,7 +26,7 @@ import { useNavigate } from 'react-router-dom';
 
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
 
-export default function InternalKanbanBoard({ isDeveloperMode = false }) {
+export default function InternalKanbanBoard({ role, isDeveloperMode = false }) {
   const [columns, setColumns] = useState({});
   const [activeTicket, setActiveTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -220,7 +220,8 @@ export default function InternalKanbanBoard({ isDeveloperMode = false }) {
   };
 
   const handleCardClick = (ticketId) => {
-      const route = isDeveloperMode ? `/developpeur/ticket/${ticketId}` : `/manager/ticket/${ticketId}`;
+      const isDev = role === 'developer' || isDeveloperMode;
+      const route = isDev ? `/dev/ticket/${ticketId}` : `/manager/ticket/${ticketId}`;
       navigate(route);
   };
 
