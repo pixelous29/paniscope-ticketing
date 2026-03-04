@@ -2,7 +2,7 @@ import React from 'react';
 import { Navbar, Nav, Container, NavDropdown, Badge } from 'react-bootstrap';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { LogOut, User, Shield, Code } from 'lucide-react';
+import { LogOut, User, Shield, Code, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AppNavbar() {
@@ -111,6 +111,10 @@ export default function AppNavbar() {
                   <NavDropdown.Item as={NavLink} to="/admin/users">
                     <Shield size={16} className="me-2" />
                     Gestion des utilisateurs
+                  </NavDropdown.Item>
+                  <NavDropdown.Item as={NavLink} to="/admin/add-client">
+                    <UserPlus size={16} className="me-2" />
+                    Ajouter un client
                   </NavDropdown.Item>
                   <NavDropdown.Divider />
                 </>

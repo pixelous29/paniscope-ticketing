@@ -4,9 +4,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { db, storage, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, reauthenticateWithCredential, EmailAuthProvider, updateEmail, updatePassword } from 'firebase/auth';
 import toast from 'react-hot-toast';
-import { User, Image as ImageIcon, Briefcase, Building } from 'lucide-react';
+import { User, Image as ImageIcon, Briefcase, Building, Mail, Lock } from 'lucide-react';
 
 export default function MyAccountPage() {
   const { currentUser, userRole } = useAuth();
@@ -18,6 +18,9 @@ export default function MyAccountPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [company, setCompany] = useState('');
+  const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [wimiNotificationsEnabled, setWimiNotificationsEnabled] = useState(true);
@@ -53,6 +56,7 @@ export default function MyAccountPage() {
           setFirstName(fetchedFirstName);
           setLastName(fetchedLastName);
           setCompany(data.company || '');
+          setEmail(currentUser.email || '');
           setPhotoPreview(data.photoURL || currentUser.photoURL || null);
           setWimiNotificationsEnabled(data.wimiNotificationsEnabled !== false);
         }
@@ -83,6 +87,45 @@ export default function MyAccountPage() {
     try {
       let finalPhotoURL = currentUser.photoURL;
 
+      // Re-authentication if changing email/password
+      if (!isGoogleUser && (email !== currentUser.email || newPassword)) {
+        if (!currentPassword) {
+          setError('Veuillez entrer votre mot de passe actuel pour modifier votre email ou mot de passe.');
+          setSaving(false);
+          return;
+        }
+
+        const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+        try {
+          await reauthenticateWithCredential(auth.currentUser, credential);
+        } catch (reauthErr) {
+          console.error("Erreur de ré-authentification :", reauthErr);
+          setError('Mot de passe actuel incorrect.');
+          setSaving(false);
+          return;
+        }
+
+        if (email !== currentUser.email) {
+          try {
+            await updateEmail(auth.currentUser, email);
+          } catch (err) {
+             setError('Erreur lors de la mise à jour de l\'email (' + err.message + ')');
+             setSaving(false);
+             return;
+          }
+        }
+
+        if (newPassword) {
+          try {
+            await updatePassword(auth.currentUser, newPassword);
+          } catch (err) {
+             setError('Erreur lors de la mise à jour du mot de passe (' + err.message + ')');
+             setSaving(false);
+             return;
+          }
+        }
+      }
+
       // Uniquement si l'utilisateur n'est pas connecté avec Google
       if (!isGoogleUser && photoFile) {
         const fileRef = ref(storage, `avatars/${currentUser.uid}_${Date.now()}`);
@@ -97,6 +140,7 @@ export default function MyAccountPage() {
         firstName,
         lastName,
         company,
+        ...(email !== currentUser.email && { email }),
         ...(newDisplayName && { displayName: newDisplayName }),
         ...(!isGoogleUser && photoFile && { photoURL: finalPhotoURL })
       };
@@ -252,6 +296,69 @@ export default function MyAccountPage() {
                     />
                   </div>
                 </Form.Group>
+
+                {!isGoogleUser && (
+                  <div className="border-top pt-4 mt-4 mb-4">
+                    <h5 className="mb-3">Informations de connexion</h5>
+                    <Form.Group className="mb-3" controlId="accEmail">
+                      <Form.Label>Adresse email</Form.Label>
+                      <div className="input-group">
+                        <span className="input-group-text bg-light text-muted border-end-0">
+                          <Mail size={18} />
+                        </span>
+                        <Form.Control
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="Votre email"
+                          className="border-start-0"
+                          autoComplete="email"
+                        />
+                      </div>
+                    </Form.Group>
+                    
+                    <Form.Group className="mb-3" controlId="accNewPassword">
+                      <Form.Label>Nouveau mot de passe (optionnel)</Form.Label>
+                      <div className="input-group">
+                        <span className="input-group-text bg-light text-muted border-end-0">
+                          <Lock size={18} />
+                        </span>
+                        <Form.Control
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Laisser vide pour ne pas modifier"
+                          className="border-start-0"
+                          autoComplete="new-password"
+                          minLength="6"
+                        />
+                      </div>
+                    </Form.Group>
+
+                    {(email !== currentUser.email || newPassword) && (
+                      <Form.Group className="mb-3 p-3 bg-light rounded border border-warning" controlId="accCurrentPassword">
+                        <Form.Label className="text-warning fw-bold">Mot de passe actuel requis</Form.Label>
+                        <Form.Text className="d-block text-muted mb-2">
+                          Pour des raisons de sécurité, veuillez confirmer votre mot de passe actuel pour valider ces modifications.
+                        </Form.Text>
+                        <div className="input-group">
+                          <span className="input-group-text bg-white text-muted border-end-0">
+                            <Lock size={18} />
+                          </span>
+                          <Form.Control
+                            type="password"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="Votre mot de passe actuel"
+                            className="border-start-0"
+                            autoComplete="current-password"
+                            required={(email !== currentUser.email || newPassword)}
+                          />
+                        </div>
+                      </Form.Group>
+                    )}
+                  </div>
+                )}
 
                 {userRole === 'manager' && (
                   <Form.Group className="mb-4" controlId="accWimiNotifs">

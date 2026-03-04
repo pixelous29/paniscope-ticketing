@@ -12,6 +12,7 @@ import ManagerTicketDetailPage from './pages/manager/ManagerTicketDetailPage';
 import DeveloperDashboardPage from './pages/developer/DeveloperDashboardPage';
 import DeveloperTicketDetailPage from './pages/developer/DeveloperTicketDetailPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AddClientPage from './pages/admin/AddClientPage';
 import MyAccountPage from './pages/shared/MyAccountPage';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
@@ -128,6 +129,14 @@ export default function App() {
               element={
                 <RoleBasedRoute allowedRoles={['manager']}>
                   <AdminUsersPage />
+                </RoleBasedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/add-client" 
+              element={
+                <RoleBasedRoute allowedRoles={['manager']}>
+                  <AddClientPage />
                 </RoleBasedRoute>
               } 
             />

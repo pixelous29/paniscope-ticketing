@@ -355,3 +355,144 @@ exports.notifyAdminOnNewUser = functions.firestore
       );
     }
   });
+
+/**
+ * 4. CREATION DE COMPTE CLIENT (par un Manager)
+ * Permet à un Manager de créer un compte client sans être déconnecté
+ */
+exports.createClientAccount = functions.https.onCall(async (data, context) => {
+  // Vérifier que l'appelant est authentifié
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Vous devez être connecté pour effectuer cette action.",
+    );
+  }
+
+  // Vérifier que l'appelant est un manager
+  const callerId = context.auth.uid;
+  const callerDoc = await db.collection("users").doc(callerId).get();
+  if (!callerDoc.exists || callerDoc.data().role !== "manager") {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Seuls les managers peuvent créer de nouveaux comptes.",
+    );
+  }
+
+  const { email, password, firstName, lastName, company } = data;
+
+  if (!email || !password || !firstName || !lastName) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "Tous les champs obligatoires (email, password, prénom, nom) doivent être fournis.",
+    );
+  }
+
+  try {
+    // 1. Création de l'utilisateur dans Firebase Auth
+    const userRecord = await admin.auth().createUser({
+      email: email,
+      password: password,
+      displayName: `${firstName} ${lastName}`.trim(),
+    });
+
+    // 2. Création du document utilisateur correspondant dans Firestore
+    await db
+      .collection("users")
+      .doc(userRecord.uid)
+      .set({
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        company: company || "",
+        displayName: userRecord.displayName,
+        role: "client",
+        status: "approved", // Le compte est directement approuvé puisque créé par un manager
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        photoURL: null,
+      });
+
+    // 3. Envoi de l'email de bienvenue (si activé)
+    if (data.sendWelcomeEmail) {
+      const fromEmail = process.env.SMTP_FROM || "noreply@paniscope.fr";
+      try {
+        await smtpTransporter.sendMail({
+          from: `"Support Paniscope" <${fromEmail}>`,
+          to: email,
+          subject: `Bienvenue sur le Support Paniscope`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B1B2B;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <img src="https://support.paniscope.fr/paniscope.png" alt="Paniscope" style="height: auto; max-width: 200px; max-height: 60px;">
+              </div>
+              
+              <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                  <img src="https://support.paniscope.fr/pwa-192x192.png" alt="Support" style="width: 32px; height: 32px; border-radius: 6px; vertical-align: middle; margin-right: 12px;">
+                  <h2 style="color: #0B1B2B; margin: 0; display: inline-block; vertical-align: middle; font-size: 22px;">Bienvenue sur le Support Paniscope !</h2>
+                </div>
+                <p>Bonjour <strong>${firstName} ${lastName}</strong>,</p>
+                <p>Votre compte d'assistance a été créé avec succès. Vous pouvez dès à présent vous connecter pour soumettre et suivre vos tickets de support.</p>
+                
+                <div style="background: #e9ecef; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                  <h3 style="margin-top: 0; font-size: 16px; color: #495057;">Vos identifiants de connexion :</h3>
+                  <p style="margin: 5px 0;"><strong>Lien d'accès :</strong> <a href="https://support.paniscope.fr/" style="color: #0d6efd;">https://support.paniscope.fr</a></p>
+                  <p style="margin: 5px 0;"><strong>Identifiant :</strong> ${email}</p>
+                  <p style="margin: 5px 0;"><strong>Mot de passe provisoire :</strong> ${password}</p>
+                </div>
+                
+                <p style="color: #dc3545; font-weight: bold; font-size: 0.9em;">
+                  ⚠️ Important : Dès votre première connexion, nous vous invitons fortement à modifier ce mot de passe provisoire en vous rendant dans la rubrique "Mon compte".
+                </p>
+                
+                <p style="margin-top: 30px; text-align: center;">
+                  <a href="https://support.paniscope.fr/" style="display: inline-block; background: #0B1B2B; color: #D9AC5F; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    Accéder au support
+                  </a>
+                </p>
+              </div>
+              
+              <p style="text-align: center; color: white; font-size: 0.85rem; margin-top: 20px;">
+                Cet email a été envoyé automatiquement merci de ne pas y répondre
+              </p>
+            </div>
+          `,
+        });
+        console.log(`✅ Email de bienvenue envoyé à ${email}`);
+      } catch (err) {
+        console.error(
+          "❌ Erreur lors de l'envoi de l'email de bienvenue :",
+          err.message,
+        );
+      }
+    }
+
+    return {
+      success: true,
+      message: "Compte client créé avec succès",
+      uid: userRecord.uid,
+    };
+  } catch (error) {
+    console.error(
+      "Erreur Firebase Auth lors de la création du compte :",
+      error,
+    );
+    // Gestion des erreurs courantes Firebase Auth
+    if (error.code === "auth/email-already-exists") {
+      throw new functions.https.HttpsError(
+        "already-exists",
+        "L'adresse email est déjà utilisée par un autre compte.",
+      );
+    }
+    if (error.code === "auth/invalid-password") {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Le mot de passe doit contenir au moins 6 caractères.",
+      );
+    }
+    throw new functions.https.HttpsError(
+      "internal",
+      error.message || "Une erreur est survenue lors de la création du compte.",
+    );
+  }
+});
