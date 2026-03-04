@@ -190,9 +190,10 @@ export default function ManagerTicketDetailPage() {
         fetchDevelopers();
 
         const updateStatusIfNeeded = async (ticketData) => {
-            if (ticketData.status === STATUS.NEW) {
+            const validStatuses = Object.values(STATUS);
+            if (ticketData.status === STATUS.NEW || !validStatuses.includes(ticketData.status)) {
                 try {
-                    await updateDoc(docRef, { status: STATUS.IN_PROGRESS });
+                    await updateDoc(docRef, { status: STATUS.IN_PROGRESS, archived: false });
                 } catch (err) {
                     console.error("Erreur lors du changement de statut: ", err);
                 }

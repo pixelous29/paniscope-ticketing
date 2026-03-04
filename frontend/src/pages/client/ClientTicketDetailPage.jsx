@@ -108,7 +108,17 @@ export default function ClientTicketDetailPage() {
 
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
-                setTicket({ id: docSnap.id, ...docSnap.data() });
+                const data = { id: docSnap.id, ...docSnap.data() };
+                
+                // Auto-heal invalid statuses
+                const validStatuses = Object.values(STATUS);
+                if (data.status === STATUS.NEW || !validStatuses.includes(data.status)) {
+                    updateDoc(docRef, { status: STATUS.IN_PROGRESS, archived: false }).catch(err => 
+                        console.error("Erreur lors de l'auto-correction du statut: ", err)
+                    );
+                }
+
+                setTicket(data);
             } else {
                 setError("Ticket non trouvé.");
             }

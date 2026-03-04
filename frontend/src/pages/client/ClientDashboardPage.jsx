@@ -38,6 +38,18 @@ export default function ClientDashboardPage() {
       });
       
       setTickets(ticketsData);
+      
+      // Auto-heal invalid statuses (e.g., devPhases leaked into status previously)
+      const validStatuses = Object.values(STATUS);
+      ticketsData.forEach(ticket => {
+        if (!validStatuses.includes(ticket.status)) {
+          console.warn(`Auto-healing ticket ${ticket.id} status from ${ticket.status} to IN_PROGRESS`);
+          updateDoc(doc(db, "tickets", ticket.id), { status: STATUS.IN_PROGRESS, archived: false }).catch(err => 
+            console.error("Erreur lors de l'auto-correction du statut:", err)
+          );
+        }
+      });
+      
       setLoading(false);
       setError(null); // Réinitialiser l'erreur en cas de succès
     }, (err) => {
