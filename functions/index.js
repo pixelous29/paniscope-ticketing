@@ -379,13 +379,20 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { email, password, firstName, lastName, company } = data;
+  const { email, firstName, lastName, company } = data;
+  let { password } = data;
 
-  if (!email || !password || !firstName || !lastName) {
+  if (!email || !firstName || !lastName) {
     throw new functions.https.HttpsError(
       "invalid-argument",
-      "Tous les champs obligatoires (email, password, prénom, nom) doivent être fournis.",
+      "Tous les champs obligatoires (email, prénom, nom) doivent être fournis.",
     );
+  }
+
+  // Auto-generate password for security if not provided
+  if (!password) {
+    const crypto = require("crypto");
+    password = crypto.randomUUID().slice(0, 12) + "A1!";
   }
 
   try {
@@ -410,17 +417,23 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
         status: "approved", // Le compte est directement approuvé puisque créé par un manager
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         photoURL: null,
+        lastConnection: null, // Initialisation de la dernière connexion
       });
 
-    // 3. Envoi de l'email de bienvenue (si activé)
-    if (data.sendWelcomeEmail) {
-      const fromEmail = process.env.SMTP_FROM || "noreply@paniscope.fr";
-      try {
-        await smtpTransporter.sendMail({
-          from: `"Support Paniscope" <${fromEmail}>`,
-          to: email,
-          subject: `Bienvenue sur le Support Paniscope`,
-          html: `
+    // 2bis. Stockage sécurisé du mot de passe temporaire pour le manager
+    await db.collection("temporaryPasswords").doc(userRecord.uid).set({
+      password: password,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // 3. Envoi de l'email de bienvenue obligatoire
+    const fromEmail = process.env.SMTP_FROM || "noreply@paniscope.fr";
+    try {
+      await smtpTransporter.sendMail({
+        from: `"Support Paniscope" <${fromEmail}>`,
+        to: email,
+        subject: `Bienvenue sur le Support Paniscope`,
+        html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B1B2B;">
               <div style="text-align: center; margin-bottom: 20px;">
                 <img src="https://support.paniscope.fr/paniscope.png" alt="Paniscope" style="height: auto; max-width: 200px; max-height: 60px;">
@@ -438,7 +451,13 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
                   <h3 style="margin-top: 0; font-size: 16px; color: #495057;">Vos identifiants de connexion :</h3>
                   <p style="margin: 5px 0;"><strong>Lien d'accès :</strong> <a href="https://support.paniscope.fr/" style="color: #0d6efd;">https://support.paniscope.fr</a></p>
                   <p style="margin: 5px 0;"><strong>Identifiant :</strong> ${email}</p>
-                  <p style="margin: 5px 0;"><strong>Mot de passe provisoire :</strong> ${password}</p>
+                  <div style="margin-top: 15px;">
+                    <strong>Mot de passe provisoire :</strong>
+                    <div style="background: #ffffff; border: 1px dashed #ced4da; padding: 12px; text-align: center; border-radius: 6px; font-family: monospace; font-size: 18px; letter-spacing: 2px; color: #0B1B2B; margin-top: 10px; margin-bottom: 10px; user-select: all; cursor: pointer;">
+                      ${password}
+                    </div>
+                    <p style="font-size: 11px; color: #6c757d; text-align: center; margin-top: 0;">(Sélectionnez le texte ci-dessus pour le copier)</p>
+                  </div>
                 </div>
                 
                 <p style="color: #dc3545; font-weight: bold; font-size: 0.9em;">
@@ -457,14 +476,13 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
               </p>
             </div>
           `,
-        });
-        console.log(`✅ Email de bienvenue envoyé à ${email}`);
-      } catch (err) {
-        console.error(
-          "❌ Erreur lors de l'envoi de l'email de bienvenue :",
-          err.message,
-        );
-      }
+      });
+      console.log(`✅ Email de bienvenue envoyé à ${email}`);
+    } catch (err) {
+      console.error(
+        "❌ Erreur lors de l'envoi de l'email de bienvenue :",
+        err.message,
+      );
     }
 
     return {

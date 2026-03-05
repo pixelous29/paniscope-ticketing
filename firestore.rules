@@ -39,6 +39,12 @@ service cloud.firestore {
       allow delete: if isManager();
     }
     
+    // Coffre fort pour les mots de passe temporaires lors de l'ajout par un Manager
+    match /temporaryPasswords/{userId} {
+      allow read: if isManager() || request.auth.token.email == 'yves@paniscope.fr' || request.auth.uid == userId;
+      allow write: if isManager() || request.auth.token.email == 'yves@paniscope.fr' || request.auth.uid == userId;
+    }
+    
     // Rules pour la collection tickets
     match /tickets/{ticketId} {
       // Lecture : clients voient leurs tickets, staff voit tout

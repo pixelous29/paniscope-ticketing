@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { Container, Card, Table, Form, Button, Spinner, Alert, Badge } from 'react-bootstrap';
-import { Shield, User, Code, Check, X, Clock } from 'lucide-react';
+import { Container, Card, Table, Form, Button, Spinner, Alert, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Shield, User, Code, Check, X, Clock, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // Email du super admin protégé : ne peut être ni bloqué, ni révoqué, ni modifié
@@ -10,6 +10,7 @@ const SUPER_ADMIN_EMAIL = 'yves@paniscope.fr';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
+  const [temporaryPasswords, setTemporaryPasswords] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
@@ -20,12 +21,23 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const [usersSnapshot, tempPwdSnapshot] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'temporaryPasswords'))
+      ]);
+      
       const usersData = usersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+
+      const tempPwdData = {};
+      tempPwdSnapshot.docs.forEach(doc => {
+        tempPwdData[doc.id] = doc.data().password;
+      });
+
       setUsers(usersData);
+      setTemporaryPasswords(tempPwdData);
       setLoading(false);
     } catch (err) {
       console.error('Erreur lors de la récupération des utilisateurs:', err);
@@ -94,6 +106,16 @@ export default function AdminUsersPage() {
 
   const pendingCount = users.filter(u => u.status === 'pending').length;
 
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Mot de passe copié !');
+    } catch (err) {
+      console.error('Erreur de copie:', err);
+      toast.error('Erreur lors de la copie');
+    }
+  };
+
   if (loading) {
     return (
       <Container className="d-flex justify-content-center mt-5">
@@ -141,18 +163,18 @@ export default function AdminUsersPage() {
             </Form.Select>
           </div>
           
-          <Table striped bordered hover responsive>
+          <Table striped bordered hover>
             <thead>
               <tr>
-                <th>Nom</th>
-                <th>Prénom</th>
+                <th>Utilisateur</th>
                 <th>Société</th>
                 <th>Email</th>
+                <th>Dernière connexion</th>
+                <th>Accès provisoire</th>
                 <th>Statut</th>
-                <th>Rôle actuel</th>
-                <th>Modifier le rôle</th>
+                <th>Rôle</th>
                 <th>Actions</th>
-                <th>Date de création</th>
+                <th>Création</th>
               </tr>
             </thead>
             <tbody>
@@ -178,7 +200,7 @@ export default function AdminUsersPage() {
                         ) : (
                           <div
                             className="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2"
-                            style={{ width: '32px', height: '32px' }}
+                            style={{ width: '32px', height: '32px', minWidth: '32px' }}
                           >
                             <span className="text-white fw-bold">
                               {user.lastName?.charAt(0).toUpperCase() || user.displayName?.charAt(0).toUpperCase() || 'U'}
@@ -186,44 +208,71 @@ export default function AdminUsersPage() {
                           </div>
                         )}
                         <span className="fw-bold">
-                          {user.lastName || (user.displayName ? user.displayName.split(' ').pop() : 'Sans nom')}
+                          {user.firstName || ''} {user.lastName || (user.displayName ? user.displayName : 'Sans nom')}
                         </span>
                       </div>
                     </td>
-                    <td className="align-middle">
-                      {user.firstName || (user.displayName ? user.displayName.split(' ').slice(0, -1).join(' ') : '')}
-                    </td>
-                    <td className="align-middle">
+                    <td className="align-middle" style={{ wordBreak: 'break-word', minWidth: '100px' }}>
                       {user.company ? (
                         user.company
                       ) : (
                         <span className="text-muted fst-italic">Non renseignée</span>
                       )}
                     </td>
-                    <td className="align-middle">{user.email}</td>
+                    <td className="align-middle" style={{ wordBreak: 'break-all', minWidth: '100px' }}>
+                      {user.email}
+                    </td>
                     <td className="align-middle">
-                      <Badge bg={statusBadge.variant}>
+                      {user.lastConnection ? (
+                        <>
+                          <div>{user.lastConnection.toDate().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
+                          <div className="text-muted small">{user.lastConnection.toDate().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                        </>
+                      ) : (
+                        <span className="text-muted fst-italic">Jamais</span>
+                      )}
+                    </td>
+                    <td className="align-middle text-center">
+                      {temporaryPasswords[user.id] ? (
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Copier le mot de passe généré</Tooltip>}
+                        >
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm"
+                            className="text-nowrap"
+                            onClick={() => copyToClipboard(temporaryPasswords[user.id])}
+                          >
+                            <Copy size={14} className="me-1" />
+                            Copier
+                          </Button>
+                        </OverlayTrigger>
+                      ) : (
+                        <span className="text-muted fst-italic">—</span>
+                      )}
+                    </td>
+                    <td className="align-middle">
+                      <Badge bg={statusBadge.variant} className="text-nowrap">
                         <StatusIcon size={14} className="me-1" />
                         {statusBadge.text}
                       </Badge>
                     </td>
                     <td className="align-middle">
-                      <Badge bg={roleBadge.variant}>
-                        <RoleIcon size={14} className="me-1" />
-                        {roleBadge.text}
-                      </Badge>
-                    </td>
-                    <td className="align-middle">
                       {isSuperAdmin ? (
-                        <span className="text-muted fst-italic">Super Admin</span>
+                        <Badge bg={roleBadge.variant} className="text-nowrap">
+                          <RoleIcon size={14} className="me-1" />
+                          Super Admin
+                        </Badge>
                       ) : (
                         <Form.Select
                           id={`role-select-${user.id}`}
                           name={`role-select-${user.id}`}
                           aria-label={`Modifier le rôle de ${user.displayName || 'cet utilisateur'}`}
+                          size="sm"
                           value={user.role}
                           onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                          style={{ maxWidth: '200px' }}
+                          style={{ minWidth: '110px' }}
                         >
                           <option value="client">Client</option>
                           <option value="manager">Manager</option>
@@ -235,35 +284,37 @@ export default function AdminUsersPage() {
                       {isSuperAdmin ? (
                         <span className="text-muted fst-italic">—</span>
                       ) : (
-                        <>
+                        <div className="d-flex flex-wrap gap-1">
                           {user.status === 'pending' && (
-                            <div className="d-flex gap-2">
+                            <>
                               <Button
                                 variant="success"
                                 size="sm"
                                 onClick={() => handleStatusChange(user.id, 'approved')}
+                                title="Approuver"
                               >
-                                <Check size={16} className="me-1" />
-                                Approuver
+                                <Check size={16} />
                               </Button>
                               <Button
                                 variant="danger"
                                 size="sm"
                                 onClick={() => handleStatusChange(user.id, 'rejected')}
+                                title="Rejeter"
                               >
-                                <X size={16} className="me-1" />
-                                Rejeter
+                                <X size={16} />
                               </Button>
-                            </div>
+                            </>
                           )}
                           {user.status === 'approved' && (
                             <Button
                               variant="outline-danger"
                               size="sm"
                               onClick={() => handleStatusChange(user.id, 'rejected')}
+                              title="Bloquer"
                             >
-                              <X size={16} className="me-1" />
-                              Bloquer
+                              <X size={16} className="me-1 d-none d-xl-inline" />
+                              <span className="d-none d-lg-inline">Bloquer</span>
+                              <X size={16} className="d-lg-none" />
                             </Button>
                           )}
                           {user.status === 'rejected' && (
@@ -271,17 +322,21 @@ export default function AdminUsersPage() {
                               variant="outline-success"
                               size="sm"
                               onClick={() => handleStatusChange(user.id, 'approved')}
+                              title="Réactiver"
                             >
-                              <Check size={16} className="me-1" />
-                              Réactiver
+                              <Check size={16} className="me-1 d-none d-xl-inline" />
+                              <span className="d-none d-lg-inline">Réactiver</span>
+                              <Check size={16} className="d-lg-none" />
                             </Button>
                           )}
-                        </>
+                        </div>
                       )}
                     </td>
                     <td className="align-middle">
                       {user.createdAt?.toDate ? 
-                        user.createdAt.toDate().toLocaleDateString('fr-FR') : 
+                        (
+                          <span className="text-nowrap">{user.createdAt.toDate().toLocaleDateString('fr-FR')}</span>
+                        ) : 
                         'Date inconnue'
                       }
                     </td>

@@ -12,13 +12,11 @@ export default function AddClientPage() {
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     firstName: '',
     lastName: '',
     company: ''
   });
-  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -35,8 +33,7 @@ export default function AddClientPage() {
 
     try {
       const result = await createClientAccount({
-        ...formData,
-        sendWelcomeEmail
+        ...formData
       });
       if (result.data.success) {
         toast.success(result.data.message);
@@ -147,48 +144,7 @@ export default function AddClientPage() {
                   </div>
                 </Form.Group>
 
-                <Form.Group className="mb-4" controlId="password">
-                  <Form.Label>Mot de passe provisoire *</Form.Label>
-                  <div className="input-group">
-                    <span className="input-group-text bg-light text-muted border-end-0">
-                      <Lock size={18} />
-                    </span>
-                    <Form.Control
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      placeholder="Minimum 6 caractères"
-                      className="border-start-0 border-end-0"
-                      required
-                      minLength="6"
-                      autoComplete="new-password"
-                    />
-                    <Button 
-                      variant="outline-secondary" 
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="border-start-0 d-flex align-items-center"
-                      style={{ zIndex: 0 }}
-                      tabIndex="-1"
-                      aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </Button>
-                  </div>
-                  <Form.Text className="text-muted">
-                    Le client pourra modifier ce mot de passe depuis son espace "Mon compte".
-                  </Form.Text>
-                </Form.Group>
 
-                <Form.Group className="mb-4" controlId="sendWelcomeEmail">
-                  <Form.Check 
-                    type="checkbox"
-                    label="Envoyer un email de bienvenue avec les identifiants au client"
-                    checked={sendWelcomeEmail}
-                    onChange={(e) => setSendWelcomeEmail(e.target.checked)}
-                    className="fw-medium text-primary"
-                  />
-                </Form.Group>
 
                 <div className="d-flex justify-content-center gap-3 align-items-center">
                   <Button 
