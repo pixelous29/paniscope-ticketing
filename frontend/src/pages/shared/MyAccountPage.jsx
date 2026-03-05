@@ -3,10 +3,11 @@ import { Container, Card, Form, Button, Alert, Row, Col, Image } from 'react-boo
 import { useAuth } from '../../hooks/useAuth';
 import { db, storage, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { updateProfile, reauthenticateWithCredential, EmailAuthProvider, updateEmail, updatePassword } from 'firebase/auth';
 import toast from 'react-hot-toast';
 import { User, Image as ImageIcon, Briefcase, Building, Mail, Lock } from 'lucide-react';
+import { resizeImage } from '../../utils/imageResize';
 
 export default function MyAccountPage() {
   const { currentUser, userRole } = useAuth();
@@ -71,11 +72,26 @@ export default function MyAccountPage() {
     fetchUserData();
   }, [currentUser]);
 
-  const handlePhotoChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError("L'image ne doit pas dépasser 5 Mo.");
+        return;
+      }
+      
+      try {
+        // Retaille l'image en 150x150 max avec qualité WebP 0.8 pour un chargement instantané
+        const resizedDataUrl = await resizeImage(file, 150, 150, 0.8);
+        setPhotoFile(resizedDataUrl); // Base64 string
+        setPhotoPreview(resizedDataUrl); // Base64 string preview
+      } catch (err) {
+        console.error("Erreur de redimensionnement de l'image :", err);
+        setError("Impossible de traiter cette image. Veuillez essayer un autre fichier.");
+      }
+    } else {
+      setPhotoFile(null);
+      setPhotoPreview(null);
     }
   };
 
@@ -127,9 +143,9 @@ export default function MyAccountPage() {
       }
 
       // Uniquement si l'utilisateur n'est pas connecté avec Google
-      if (!isGoogleUser && photoFile) {
+      if (!isGoogleUser && photoFile && typeof photoFile === 'string' && photoFile.startsWith('data:image')) {
         const fileRef = ref(storage, `avatars/${currentUser.uid}_${Date.now()}`);
-        await uploadBytes(fileRef, photoFile);
+        await uploadString(fileRef, photoFile, 'data_url');
         finalPhotoURL = await getDownloadURL(fileRef);
       }
       
@@ -142,7 +158,8 @@ export default function MyAccountPage() {
         company,
         ...(email !== currentUser.email && { email }),
         ...(newDisplayName && { displayName: newDisplayName }),
-        ...(!isGoogleUser && photoFile && { photoURL: finalPhotoURL })
+        ...(!isGoogleUser && photoFile && { photoURL: finalPhotoURL }),
+        ...(!isGoogleUser && photoFile && typeof photoFile === 'string' && photoFile.startsWith('data:image') && { photoBase64: photoFile })
       };
 
       if (userRole === 'manager') {
@@ -361,7 +378,7 @@ export default function MyAccountPage() {
                 )}
 
                 {userRole === 'manager' && (
-                  <Form.Group className="mb-4" controlId="accWimiNotifs">
+                  <Form.Group className="mb-4">
                     <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
                       <div>
                         <Form.Label htmlFor="wimi-notif-switch" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>

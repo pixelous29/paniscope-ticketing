@@ -118,7 +118,8 @@ export function AuthProvider({ children }) {
             const enrichedUser = {
               ...user,
               displayName: userData.displayName || user.displayName,
-              photoURL: userData.photoURL || user.photoURL,
+              photoURL: userData.photoBase64 || userData.photoURL || user.photoURL,
+              photoBase64: userData.photoBase64 || null,
               company: userData.company || '',
               firstName: userData.firstName || '',
               lastName: userData.lastName || '',

@@ -82,9 +82,9 @@ export default function AppNavbar() {
                     <RoleIcon size={14} className="me-1" />
                     {roleBadge.text}
                   </Badge>
-                  {currentUser?.photoURL ? (
+                  {(currentUser?.photoBase64 || currentUser?.photoURL) ? (
                     <img
-                      src={currentUser.photoURL}
+                      src={currentUser.photoBase64 || currentUser.photoURL}
                       alt="Avatar"
                       className="rounded-circle me-2"
                       referrerPolicy="no-referrer"

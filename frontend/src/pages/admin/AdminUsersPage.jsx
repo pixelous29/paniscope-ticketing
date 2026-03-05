@@ -196,9 +196,9 @@ export default function AdminUsersPage() {
                   <tr key={user.id}>
                     <td className="align-middle">
                       <div className="d-flex align-items-center">
-                        {user.photoURL ? (
+                        {(user.photoBase64 || user.photoURL) ? (
                           <img
-                            src={user.photoURL}
+                            src={user.photoBase64 || user.photoURL}
                             alt="Avatar"
                             className="rounded-circle me-2"
                             referrerPolicy="no-referrer"

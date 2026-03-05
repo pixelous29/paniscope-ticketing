@@ -456,6 +456,7 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
         status: "approved", // Le compte est directement approuvé puisque créé par un manager
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         photoURL: finalPhotoURL,
+        photoBase64: photoBase64 || null, // Miniature base64 pour un chargement instantané
         lastConnection: null, // Initialisation de la dernière connexion
       });
 

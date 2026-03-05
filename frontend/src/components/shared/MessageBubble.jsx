@@ -15,7 +15,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
     const containerRef = useRef(null);
     const [userData, setUserData] = useState({
         displayName: msg.displayName || msg.author,
-        photoURL: msg.photoURL || null
+        photoURL: msg.photoBase64 || msg.photoURL || null
     });
 
     const AVAILABLE_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '👀', '✅'];
@@ -78,7 +78,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                         if (isMounted) {
                             setUserData({
                                 displayName: cached.displayName,
-                                photoURL: cached.photoURL
+                                photoURL: cached.photoBase64 || cached.photoURL
                             });
                         }
                         return;
@@ -97,7 +97,8 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                             displayName: (data.role === 'client' && data.company) 
                                 ? data.company 
                                 : (fullName || data.displayName || msg.displayName || msg.author),
-                            photoURL: data.photoURL || msg.photoURL || null,
+                            photoBase64: data.photoBase64 || null,
+                            photoURL: data.photoBase64 || data.photoURL || msg.photoURL || null,
                             timestamp: now
                         };
                         
@@ -332,7 +333,6 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                             src={userData.photoURL} 
                             alt={`Avatar de ${displayName}`} 
                             roundedCircle 
-                            loading="lazy"
                             referrerPolicy="no-referrer"
                             style={{ width: '38px', height: '38px', objectFit: 'cover', border: `2px solid ${borderColor}` }}
                         />

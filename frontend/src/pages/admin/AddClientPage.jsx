@@ -4,6 +4,7 @@ import { UserPlus, Mail, Lock, User, Briefcase, Eye, EyeOff, Image as ImageIcon 
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { resizeImage } from '../../utils/imageResize';
 
 export default function AddClientPage() {
   const [loading, setLoading] = useState(false);
@@ -25,20 +26,22 @@ export default function AddClientPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setError("L'image ne doit pas dépasser 2 Mo.");
+      if (file.size > 5 * 1024 * 1024) {
+        setError("L'image ne doit pas dépasser 5 Mo.");
         return;
       }
       
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoBase64(reader.result);
-        setPhotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const resizedDataUrl = await resizeImage(file, 150, 150, 0.8);
+        setPhotoBase64(resizedDataUrl);
+        setPhotoPreview(resizedDataUrl);
+      } catch (err) {
+        console.error("Erreur de redimensionnement de l'image :", err);
+        setError("Impossible de traiter cette image. Veuillez essayer un autre fichier.");
+      }
     } else {
       setPhotoBase64(null);
       setPhotoPreview(null);
