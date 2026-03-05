@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Card, Form, Button, Alert, Row, Col } from 'react-bootstrap';
-import { UserPlus, Mail, Lock, User, Briefcase, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Briefcase, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -16,11 +16,33 @@ export default function AddClientPage() {
     lastName: '',
     company: ''
   });
+  const [photoBase64, setPhotoBase64] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setError("L'image ne doit pas dépasser 2 Mo.");
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoBase64(reader.result);
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPhotoBase64(null);
+      setPhotoPreview(null);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -33,7 +55,8 @@ export default function AddClientPage() {
 
     try {
       const result = await createClientAccount({
-        ...formData
+        ...formData,
+        photoBase64
       });
       if (result.data.success) {
         toast.success(result.data.message);
@@ -106,6 +129,31 @@ export default function AddClientPage() {
                     </Form.Group>
                   </Col>
                 </Row>
+                
+                <Form.Group className="mb-3" controlId="photo">
+                  <Form.Label>Photo / Avatar (optionnel)</Form.Label>
+                  <div className="input-group">
+                    <span className="input-group-text bg-light text-muted border-end-0">
+                      <ImageIcon size={18} />
+                    </span>
+                    <Form.Control
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="border-start-0"
+                    />
+                  </div>
+                  {photoPreview && (
+                    <div className="mt-2 text-center">
+                      <img 
+                        src={photoPreview} 
+                        alt="Aperçu" 
+                        className="rounded-circle object-fit-cover shadow-sm" 
+                        style={{ width: '80px', height: '80px' }} 
+                      />
+                    </div>
+                  )}
+                </Form.Group>
 
                 <Form.Group className="mb-3" controlId="company">
                   <Form.Label>Société</Form.Label>

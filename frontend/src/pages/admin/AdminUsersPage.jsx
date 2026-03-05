@@ -102,6 +102,13 @@ export default function AdminUsersPage() {
   const filteredUsers = users.filter(user => {
     if (filter === 'all') return true;
     return user.status === filter;
+  }).sort((a, b) => {
+    if (a.email === SUPER_ADMIN_EMAIL) return -1;
+    if (b.email === SUPER_ADMIN_EMAIL) return 1;
+    
+    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+    return dateB - dateA;
   });
 
   const pendingCount = users.filter(u => u.status === 'pending').length;
@@ -170,11 +177,11 @@ export default function AdminUsersPage() {
                 <th>Société</th>
                 <th>Email</th>
                 <th>Dernière connexion</th>
-                <th>Accès provisoire</th>
                 <th>Statut</th>
                 <th>Rôle</th>
                 <th>Actions</th>
                 <th>Création</th>
+                <th style={{ width: '1%', textAlign: 'center', lineHeight: '1.2' }} className="align-middle">Accès<br />provisoire</th>
               </tr>
             </thead>
             <tbody>
@@ -232,26 +239,7 @@ export default function AdminUsersPage() {
                         <span className="text-muted fst-italic">Jamais</span>
                       )}
                     </td>
-                    <td className="align-middle text-center">
-                      {temporaryPasswords[user.id] ? (
-                        <OverlayTrigger
-                          placement="top"
-                          overlay={<Tooltip>Copier le mot de passe généré</Tooltip>}
-                        >
-                          <Button 
-                            variant="outline-primary" 
-                            size="sm"
-                            className="text-nowrap"
-                            onClick={() => copyToClipboard(temporaryPasswords[user.id])}
-                          >
-                            <Copy size={14} className="me-1" />
-                            Copier
-                          </Button>
-                        </OverlayTrigger>
-                      ) : (
-                        <span className="text-muted fst-italic">—</span>
-                      )}
-                    </td>
+
                     <td className="align-middle">
                       <Badge bg={statusBadge.variant} className="text-nowrap">
                         <StatusIcon size={14} className="me-1" />
@@ -339,6 +327,26 @@ export default function AdminUsersPage() {
                         ) : 
                         'Date inconnue'
                       }
+                    </td>
+                    <td className="align-middle text-center" style={{ width: '1%', whiteSpace: 'nowrap' }}>
+                      {temporaryPasswords[user.id] ? (
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Copier le mot de passe généré</Tooltip>}
+                        >
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm"
+                            className="text-nowrap"
+                            onClick={() => copyToClipboard(temporaryPasswords[user.id])}
+                          >
+                            <Copy size={14} className="me-1" />
+                            Copier
+                          </Button>
+                        </OverlayTrigger>
+                      ) : (
+                        <span className="text-muted fst-italic">—</span>
+                      )}
                     </td>
                   </tr>
                 );

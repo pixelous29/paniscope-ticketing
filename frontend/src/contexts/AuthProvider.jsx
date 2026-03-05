@@ -11,7 +11,6 @@ import {
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { AuthContext } from './AuthContext';
-import toast from 'react-hot-toast';
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -126,39 +125,18 @@ export function AuthProvider({ children }) {
               lastConnection: userData.lastConnection || null
             };
 
-            // Mettre à jour la date de dernière connexion (si absente ou plus vieille d'une heure)
-            const now = new Date();
-            const lastConn = userData.lastConnection?.toDate ? userData.lastConnection.toDate() : null;
-            const oneHour = 60 * 60 * 1000;
+            // Mettre à jour la date de dernière connexion et nettoyer le mdp provisoire
+            const isFirstConnection = !userData.lastConnection;
             
-            toast(`Debug - lastConn: ${lastConn ? lastConn.toISOString() : 'null'}`, { duration: 6000 });
+            // On met à jour lastConnection systématiquement lors d'un nouveau onAuthStateChanged (connexion fraîche)
+            updateDoc(userDocRef, {
+              lastConnection: serverTimestamp()
+            }).catch(e => console.error("Erreur maj lastConnection:", e));
             
-            if (!lastConn || (now - lastConn > oneHour)) {
-              toast(`Debug - Entrée dans le if de maj. lastConn=${lastConn}`, { duration: 6000 });
-              // Update last connection
-              updateDoc(userDocRef, {
-                lastConnection: serverTimestamp()
-              })
-              .then(() => {
-                if (!lastConn) toast.success("Première connexion détectée : profil mis à jour !");
-              })
-              .catch(e => {
-                console.error("Erreur maj lastConnection:", e);
-                toast.error("Erreur maj profil : " + e.message, { duration: 6000 });
-              });
-              
-              // If this is the very first connection, securely delete the temporary password!
-              if (!lastConn) {
-                const tempPwdRef = doc(db, 'temporaryPasswords', user.uid);
-                deleteDoc(tempPwdRef)
-                .then(() => toast.success("Le mot de passe provisoire a été supprimé de la base."))
-                .catch(e => {
-                  console.warn("Erreur suppression mdp provisoire:", e);
-                  toast.error("Erreur suppression mdp : " + e.message, { duration: 6000 });
-                });
-              }
-            } else {
-               toast(`Debug - Maj ignorée. Trop récent.`, { duration: 4000 });
+            // Si c'était la toute première connexion, on supprime le mot de passe du coffre-fort
+            if (isFirstConnection) {
+              const tempPwdRef = doc(db, 'temporaryPasswords', user.uid);
+              deleteDoc(tempPwdRef).catch(e => console.warn("Erreur suppression mdp provisoire:", e));
             }
 
             setCurrentUser(enrichedUser);

@@ -379,7 +379,7 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
     );
   }
 
-  const { email, firstName, lastName, company } = data;
+  const { email, firstName, lastName, company, photoBase64 } = data;
   let { password } = data;
 
   if (!email || !firstName || !lastName) {
@@ -389,9 +389,9 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
     );
   }
 
+  const crypto = require("crypto");
   // Auto-generate password for security if not provided
   if (!password) {
-    const crypto = require("crypto");
     password = crypto.randomUUID().slice(0, 12) + "A1!";
   }
 
@@ -402,6 +402,45 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
       password: password,
       displayName: `${firstName} ${lastName}`.trim(),
     });
+
+    let finalPhotoURL = null;
+
+    if (photoBase64) {
+      try {
+        const matches = photoBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const type = matches[1];
+          const buffer = Buffer.from(matches[2], "base64");
+          const extension = type.split("/")[1] || "jpeg";
+          const fileName = `avatars/${userRecord.uid}_${Date.now()}.${extension}`;
+
+          const bucket = storage.bucket(
+            "paniscope-ticketing.firebasestorage.app",
+          );
+          const file = bucket.file(fileName);
+
+          const downloadToken = crypto.randomUUID();
+
+          await file.save(buffer, {
+            metadata: {
+              contentType: type,
+              metadata: {
+                firebaseStorageDownloadTokens: downloadToken,
+              },
+            },
+          });
+
+          finalPhotoURL = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media&token=${downloadToken}`;
+
+          // Mettre à jour Firebase Auth avec la photo
+          await admin.auth().updateUser(userRecord.uid, {
+            photoURL: finalPhotoURL,
+          });
+        }
+      } catch (err) {
+        console.error("Erreur lors de l'upload de l'avatar:", err);
+      }
+    }
 
     // 2. Création du document utilisateur correspondant dans Firestore
     await db
@@ -416,7 +455,7 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
         role: "client",
         status: "approved", // Le compte est directement approuvé puisque créé par un manager
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        photoURL: null,
+        photoURL: finalPhotoURL,
         lastConnection: null, // Initialisation de la dernière connexion
       });
 
