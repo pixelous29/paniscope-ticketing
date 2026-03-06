@@ -15,7 +15,7 @@ const loginSchema = z.object({
 });
 
 export default function LoginPage() {
-  const { login, signInWithGoogle, currentUser, loading } = useAuth();
+  const { login, currentUser, loading } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,22 +51,6 @@ export default function LoginPage() {
       } else {
         setError('Une erreur est survenue lors de la connexion');
       }
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      await signInWithGoogle();
-      toast.success('Connexion réussie !');
-      // La redirection se fera automatiquement via ProtectedRoute
-      // Note: on ne réinitialise pas isLoading ici car la redirection va se faire
-    } catch (err) {
-      console.error('Erreur de connexion Google:', err);
-      setError('Erreur lors de la connexion avec Google');
       setIsLoading(false);
     }
   };
@@ -161,29 +145,7 @@ export default function LoginPage() {
                   )}
                 </Button>
 
-                <div className="position-relative my-3">
-                  <hr />
-                  <span 
-                    className="position-absolute top-50 start-50 translate-middle bg-white px-3 text-muted"
-                    style={{ fontSize: '0.875rem' }}
-                  >
-                    OU
-                  </span>
-                </div>
 
-                <Button
-                  variant="outline-secondary"
-                  size="lg"
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                >
-                  <img 
-                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                    alt="Google"
-                    style={{ width: '18px', marginRight: '8px' }}
-                  />
-                  Continuer avec Google
-                </Button>
               </div>
             </Form>
 

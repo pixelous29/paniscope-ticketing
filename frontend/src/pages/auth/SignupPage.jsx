@@ -22,7 +22,7 @@ const signupSchema = z.object({
 });
 
 export default function SignupPage() {
-  const { signup, signInWithGoogle, currentUser, loading } = useAuth();
+  const { signup, currentUser, loading } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -61,22 +61,6 @@ export default function SignupPage() {
       } else {
         setError('Une erreur est survenue lors de l\'inscription');
       }
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      await signInWithGoogle();
-      toast.success('Compte créé avec succès !');
-      // La redirection se fera automatiquement (vers pending-approval ou dashboard)
-      // Note: on ne réinitialise pas isLoading ici car la redirection va se faire
-    } catch (err) {
-      console.error('Erreur de connexion Google:', err);
-      setError('Erreur lors de la connexion avec Google');
       setIsLoading(false);
     }
   };
@@ -226,29 +210,7 @@ export default function SignupPage() {
                   )}
                 </Button>
 
-                <div className="position-relative my-3">
-                  <hr />
-                  <span 
-                    className="position-absolute top-50 start-50 translate-middle bg-white px-3 text-muted"
-                    style={{ fontSize: '0.875rem' }}
-                  >
-                    OU
-                  </span>
-                </div>
 
-                <Button
-                  variant="outline-secondary"
-                  size="lg"
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                >
-                  <img 
-                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" 
-                    alt="Google"
-                    style={{ width: '18px', marginRight: '8px' }}
-                  />
-                  Continuer avec Google
-                </Button>
               </div>
             </Form>
 
