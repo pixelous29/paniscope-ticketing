@@ -151,8 +151,33 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
   bb.on("finish", async () => {
     try {
       const fromHeader = fields.from || "";
-      const subject = fields.subject || "Sans objet";
-      const plain = fields.text || "";
+      let subject = fields.subject || "Sans objet";
+      let plain = fields.text || "";
+
+      // --- NOUVEAU: Extraction de l'ID du ticket et Nettoyage du corps ---
+      const ticketIdMatch = subject.match(/\[Ticket #([a-zA-Z0-9]+)\]/i);
+      const existingTicketId = ticketIdMatch ? ticketIdMatch[1] : null;
+
+      if (plain.includes("--- Répondez au-dessus de cette ligne ---")) {
+        plain = plain.split("--- Répondez au-dessus de cette ligne ---")[0];
+      }
+
+      const lines = plain.split("\n");
+      const cleanLines = [];
+      for (let line of lines) {
+        if (line.trim().startsWith(">")) continue;
+        if (line.match(/^On .* wrote:$/i) || line.match(/^Le .* a écrit :$/i))
+          break;
+        if (line.match(/_{10,}/)) break;
+        cleanLines.push(line);
+      }
+      plain = cleanLines.join("\n").trim();
+
+      if (!plain && files.length === 0) {
+        console.log("Email vide après nettoyage, on ignore.");
+        return res.status(200).send("Email vide ignoré.");
+      }
+      // -------------------------------------------------------------------
 
       // Extraction de l'email avec une RegEx robuste qui trouve le texte format email
       const emailMatch = fromHeader.match(
@@ -230,7 +255,73 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
         initialMessage.attachmentUrls = attachmentUrls;
       }
 
-      // 3. Créer le ticket dans Firestore
+      // 3. Gérer l'ajout au ticket existant ou création d'un nouveau
+      if (existingTicketId) {
+        const ticketRef = db.collection("tickets").doc(existingTicketId);
+        const ticketDoc = await ticketRef.get();
+
+        if (ticketDoc.exists) {
+          const ticketData = ticketDoc.data();
+
+          // Vérification si le ticket est clos
+          if (
+            ticketData.status === "Ticket Clôturé" ||
+            ticketData.status === "Fermé" ||
+            ticketData.status === "CLOSED" ||
+            ticketData.status === "Clôturé"
+          ) {
+            console.log(
+              `Tentative de réponse sur ticket clos ${existingTicketId} rejetée. Envoi d'un email d'information.`,
+            );
+
+            const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+            await smtpTransporter.sendMail({
+              from: `"Support Paniscope" <${fromEmail}>`,
+              to: from, // L'email de l'expéditeur
+              subject: `Re: [Ticket #${existingTicketId}] Ticket Clôturé`,
+              text: `Bonjour,\n\nVous avez tenté de répondre au ticket #${existingTicketId}, mais celui-ci est actuellement clôturé.\n\nSi votre problème persiste ou si vous avez une nouvelle demande, nous vous invitons à ouvrir un nouveau ticket en envoyant un nouvel e-mail à cette adresse (sans répondre à cet e-mail ci).\n\nL'équipe Support Paniscope.`,
+              html: `
+                  <div style="font-family: Arial, sans-serif; color: #333;">
+                    <p>Bonjour,</p>
+                    <p>Vous avez tenté de répondre au ticket <strong>#${existingTicketId}</strong>, mais celui-ci est actuellement <strong>clôturé</strong>.</p>
+                    <p>Si votre problème persiste ou si vous avez une nouvelle demande, nous vous invitons à ouvrir un nouveau ticket en envoyant un nouvel e-mail à cette adresse (sans utiliser la fonction "Répondre").</p>
+                    <br>
+                    <p>L'équipe Support Paniscope.</p>
+                  </div>
+                `,
+            });
+
+            return res
+              .status(200)
+              .send(
+                `Réponse ignorée (Ticket #${existingTicketId} clôturé) et notification envoyée.`,
+              );
+          }
+
+          await ticketRef.update({
+            conversation: admin.firestore.FieldValue.arrayUnion(initialMessage),
+            hasNewClientMessage: true,
+            lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+            status: "Nouveau", // On repasse en nouveau pour attirer l'attention du manager
+          });
+          console.log(
+            `Réponse ajoutée au ticket existant : ${existingTicketId}`,
+          );
+          return res
+            .status(200)
+            .send(`Réponse ajoutée au ticket #${existingTicketId}`);
+        } else {
+          console.log(
+            `Ticket ${existingTicketId} introuvable. Création d'un nouveau ticket.`,
+          );
+          subject = subject
+            .replace(/Re:\s*/i, "")
+            .replace(/\[Ticket #[a-zA-Z0-9]+\]\s*/i, "")
+            .trim();
+        }
+      }
+
+      // CAS 2 : CREATION D'UN NOUVEAU TICKET
       const newTicket = {
         subject: subject,
         clientUid: userId,
@@ -293,7 +384,7 @@ exports.notifyAdminOnNewUser = functions.firestore
 
     const adminEmail =
       process.env.ADMIN_NOTIFICATION_EMAIL || "yves@paniscope.fr";
-    const fromEmail = process.env.SMTP_FROM || "noreply@paniscope.fr";
+    const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
 
     const displayName =
       userData.displayName ||
@@ -467,7 +558,7 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
     });
 
     // 3. Envoi de l'email de bienvenue obligatoire
-    const fromEmail = process.env.SMTP_FROM || "noreply@paniscope.fr";
+    const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
     try {
       await smtpTransporter.sendMail({
         from: `"Support Paniscope" <${fromEmail}>`,
@@ -554,3 +645,173 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
     );
   }
 });
+
+/**
+ * 5. NOTIFICATION EMAIL - REPONSE AU CLIENT (Outbound)
+ * Se déclenche quand un manager/dev répond à un ticket,
+ * envoie un mail au client avec l'ID du ticket dans le sujet.
+ */
+exports.notifyClientOnNewMessage = functions.firestore
+  .document("tickets/{ticketId}")
+  .onUpdate(async (change, context) => {
+    const ticketId = context.params.ticketId;
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+
+    const beforeConv = beforeData.conversation || [];
+    const afterConv = afterData.conversation || [];
+
+    // CAS 1 : NOUVEAU MESSAGE (Le manager a répondu)
+    if (afterConv.length > beforeConv.length) {
+      const newMessage = afterConv[afterConv.length - 1];
+
+      // Si l'auteur n'est PAS le client (et pas le système), on notifie le client
+      if (newMessage.author !== "Client" && newMessage.author !== "Système") {
+        console.log(
+          `Nouveau message de ${newMessage.author} sur le ticket ${ticketId}. Préparation de l'email client...`,
+        );
+
+        try {
+          // 1. Récupérer l'email du client
+          let clientEmail = null;
+          if (afterData.clientUid) {
+            const userDoc = await db
+              .collection("users")
+              .doc(afterData.clientUid)
+              .get();
+            if (userDoc.exists) {
+              clientEmail = userDoc.data().email;
+            }
+          }
+
+          if (!clientEmail) {
+            console.warn(
+              `Impossible de trouver l'email du client pour le ticket ${ticketId}`,
+            );
+            return;
+          }
+
+          const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+          const ticketSubject = afterData.subject || "Sans objet";
+
+          // Nettoyer le HTML ou formatage texte
+          const messageText = newMessage.text || "";
+
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
+              <div style="color: #999; font-size: 12px; margin-bottom: 20px;">
+                --- Répondez au-dessus de cette ligne ---
+              </div>
+              
+              <p>Bonjour,</p>
+              <p><strong>${newMessage.displayName || newMessage.author}</strong> a répondu à votre ticket :</p>
+              
+              <div style="background-color: #f9f9f9; border-left: 4px solid #0d6efd; padding: 15px; margin: 20px 0; white-space: pre-wrap;">
+${messageText}
+              </div>
+              
+              ${
+                newMessage.attachmentUrls &&
+                newMessage.attachmentUrls.length > 0
+                  ? `<p><em>📎 Ce message contient des pièces jointes. <a href="https://paniscope-ticketing.web.app/client/ticket/${ticketId}">Connectez-vous à l'application</a> pour les consulter.</em></p>`
+                  : ""
+              }
+              
+              <p>Vous pouvez répondre directement à cet e-mail pour ajouter un commentaire à votre ticket, ou vous connecter sur votre espace client : <br>
+              <a href="https://paniscope-ticketing.web.app/client/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#fff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
+              
+              <hr style="border: none; border-top: 1px solid #eee; margin-top: 30px;" />
+              <p style="font-size: 11px; color: #aaa;">Cet e-mail est lié au ticket #${ticketId}. Ne modifiez pas le sujet de cet e-mail lors de votre réponse.</p>
+            </div>
+          `;
+
+          await smtpTransporter.sendMail({
+            from: `"Support Paniscope" <${fromEmail}>`,
+            to: clientEmail,
+            subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
+            html: emailHtml,
+            text: `--- Répondez au-dessus de cette ligne ---\n\nBonjour,\n\n${newMessage.displayName || newMessage.author} a répondu à votre ticket :\n\n${messageText}\n\nVous pouvez répondre directement à cet e-mail pour mettre à jour votre ticket.`,
+          });
+
+          console.log(
+            `✅ Email de réponse envoyé avec succès au client ${clientEmail} (Ticket ${ticketId})`,
+          );
+        } catch (error) {
+          console.error(
+            `❌ Erreur lors de l'envoi de l'email de réponse (Ticket ${ticketId}):`,
+            error,
+          );
+        }
+      }
+    }
+
+    // CAS 2 : STATUT MODIFIÉ VERS "CLÔTURÉ"
+    if (
+      beforeData.status !== "Ticket Clôturé" &&
+      beforeData.status !== "Clôturé" &&
+      beforeData.status !== "CLOSED" &&
+      (afterData.status === "Ticket Clôturé" ||
+        afterData.status === "Clôturé" ||
+        afterData.status === "CLOSED")
+    ) {
+      console.log(
+        `Ticket ${ticketId} clôturé. Préparation de l'email de clôture au client...`,
+      );
+      try {
+        // 1. Récupérer l'email du client
+        let clientEmail = null;
+        if (afterData.clientUid) {
+          const userDoc = await db
+            .collection("users")
+            .doc(afterData.clientUid)
+            .get();
+          if (userDoc.exists) {
+            clientEmail = userDoc.data().email;
+          }
+        }
+
+        if (!clientEmail) {
+          console.warn(
+            `Impossible de trouver l'email du client pour la clôture du ticket ${ticketId}`,
+          );
+          return;
+        }
+
+        const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+        const ticketSubject = afterData.subject || "Sans objet";
+
+        const emailHtml = `
+            <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
+              <p>Bonjour,</p>
+              <p>Le statut de votre ticket <strong>#${ticketId}</strong> (<em>${ticketSubject}</em>) vient de passer à <strong>Clôturé</strong>.</p>
+              
+              <div style="background-color: #f0fff4; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #155724;">✅ Votre demande a été traitée et le ticket est maintenant clos.</p>
+              </div>
+              
+              <p>Si vous avez une nouvelle demande ou si le problème persiste, nous vous invitons à <a href="mailto:${fromEmail}">nous envoyer un nouvel e-mail</a> ou à ouvrir un autre ticket depuis l'application.</p>
+              
+              <p>Merci pour votre confiance.<br>
+              L'équipe Support Paniscope.</p>
+            </div>
+          `;
+
+        await smtpTransporter.sendMail({
+          from: `"Support Paniscope" <${fromEmail}>`,
+          to: clientEmail,
+          subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
+          html: emailHtml,
+          text: `Bonjour,\n\nVotre ticket #${ticketId} (${ticketSubject}) a été clôturé.\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
+        });
+
+        console.log(
+          `✅ Email de clôture envoyé avec succès au client ${clientEmail} (Ticket ${ticketId})`,
+        );
+      } catch (error) {
+        console.error(
+          `❌ Erreur lors de l'envoi de l'email de clôture (Ticket ${ticketId}):`,
+          error,
+        );
+      }
+    }
+  });
