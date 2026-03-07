@@ -191,20 +191,74 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
         `Mail reçu brut: ${fromHeader} -> Email extrait: ${from} - Sujet: ${subject}`,
       );
 
-      // 1. Chercher l'utilisateur par son email
-      const userQuery = await db
+      // 1. Chercher l'utilisateur par son email exact d'abord
+      let userQuery = await db
         .collection("users")
         .where("email", "==", from)
         .limit(1)
         .get();
 
-      if (userQuery.empty) {
-        console.log(`Utilisateur non trouvé pour l'email : ${from}`);
-        return res.status(200).send("Expéditeur inconnu, ticket non créé.");
+      let userData = null;
+      let userId = null;
+
+      if (!userQuery.empty) {
+        userData = userQuery.docs[0].data();
+        userId = userQuery.docs[0].id;
+      } else {
+        // 1.bis. L'utilisateur n'existe pas, on cherche si le nom de domaine correspond à une extension autorisée (companyDomain)
+        console.log(
+          `Utilisateur non trouvé par email, recherche par extension...`,
+        );
+        const domainMatch = from.match(/@(.+)$/);
+
+        if (domainMatch && domainMatch[1]) {
+          const emailDomain = domainMatch[1].toLowerCase();
+
+          // Ignorer les domaines publics fréquents pour éviter d'associer un inconnu @gmail.com avec un autre client @gmail.com
+          const publicDomains = [
+            "gmail.com",
+            "yahoo.fr",
+            "yahoo.com",
+            "hotmail.fr",
+            "hotmail.com",
+            "outlook.fr",
+            "outlook.com",
+            "orange.fr",
+            "wanadoo.fr",
+            "sfr.fr",
+            "free.fr",
+            "laposte.net",
+          ];
+
+          if (!publicDomains.includes(emailDomain)) {
+            // Chercher le premier utilisateur qui a ce companyDomain
+            const domainQuery = await db
+              .collection("users")
+              .where("companyDomain", "==", emailDomain)
+              .limit(1)
+              .get();
+
+            if (!domainQuery.empty) {
+              userData = domainQuery.docs[0].data();
+              userId = domainQuery.docs[0].id;
+              console.log(
+                `Utilisateur non référencé (${from}) mais rattaché à l'entreprise via le domaine : ${emailDomain}`,
+              );
+            }
+          } else {
+            console.log(
+              `Domaine public ignoré pour l'association d'entreprise : ${emailDomain}`,
+            );
+          }
+        }
       }
 
-      const userData = userQuery.docs[0].data();
-      const userId = userQuery.docs[0].id;
+      if (!userData) {
+        console.log(
+          `Expéditeur inconnu et aucun domaine entreprise correspondant : ${from}`,
+        );
+        return res.status(200).send("Expéditeur inconnu, ticket non créé.");
+      }
 
       // 2. Gérer les pièces jointes (jusqu'à 4)
       const attachmentUrls = [];
@@ -298,12 +352,33 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
               );
           }
 
-          await ticketRef.update({
+          // Gestion des ccEmails si la personne qui répond n'est pas l'auteur principal
+          const updatedCcEmails = Array.isArray(ticketData.ccEmails)
+            ? [...ticketData.ccEmails]
+            : [];
+          if (
+            from !== ticketData.clientEmail &&
+            !updatedCcEmails.includes(from)
+          ) {
+            updatedCcEmails.push(from);
+          }
+
+          const updates = {
             conversation: admin.firestore.FieldValue.arrayUnion(initialMessage),
             hasNewClientMessage: true,
+            ccEmails: updatedCcEmails,
             lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-            status: "Nouveau", // On repasse en nouveau pour attirer l'attention du manager
-          });
+          };
+
+          if (
+            ticketData.status === "En attente" ||
+            ticketData.status === "En attente de validation"
+          ) {
+            updates.status = "En cours";
+          }
+
+          await ticketRef.update(updates);
+
           console.log(
             `Réponse ajoutée au ticket existant : ${existingTicketId}`,
           );
@@ -325,14 +400,24 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       const newTicket = {
         subject: subject,
         clientUid: userId,
-        client: userData.displayName || from,
+        clientEmail: from, // L'email de la personne qui a écrit
+        client: userData.company || userData.displayName || from,
+        companyDomain: userData.companyDomain || null, // On ajoute le companyDomain pour le partage
         status: "Nouveau",
         priority: "Normale",
         submittedAt: admin.firestore.FieldValue.serverTimestamp(),
         lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
         conversation: [initialMessage],
         hasNewClientMessage: true,
+        ccEmails: [], // On initialise le tableau ccEmails
       };
+
+      // On ajoute EXCLUSIVEMENT l'expéditeur en CC.
+      // S'il s'agit d'un membre non-inscrit, cela garantit qu'il recevra les réponses.
+      // Le titulaire du compte (userData.email) n'est PAS mis en copie automatiquement.
+      if (from) {
+        newTicket.ccEmails.push(from);
+      }
 
       if (attachmentUrls.length > 0) {
         newTicket.attachmentUrls = attachmentUrls;
@@ -672,9 +757,10 @@ exports.notifyClientOnNewMessage = functions.firestore
         );
 
         try {
-          // 1. Récupérer l'email du client
-          let clientEmail = null;
-          if (afterData.clientUid) {
+          // 1. Récupérer l'email du client (priorité à l'auteur original du ticket)
+          let clientEmail = afterData.clientEmail || null;
+
+          if (!clientEmail && afterData.clientUid) {
             const userDoc = await db
               .collection("users")
               .doc(afterData.clientUid)
@@ -725,16 +811,28 @@ ${messageText}
             </div>
           `;
 
-          await smtpTransporter.sendMail({
+          const mailOptions = {
             from: `"Support Paniscope" <${fromEmail}>`,
             to: clientEmail,
             subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
             html: emailHtml,
             text: `--- Répondez au-dessus de cette ligne ---\n\nBonjour,\n\n${newMessage.displayName || newMessage.author} a répondu à votre ticket :\n\n${messageText}\n\nVous pouvez répondre directement à cet e-mail pour mettre à jour votre ticket.`,
-          });
+          };
+
+          if (afterData.ccEmails && afterData.ccEmails.length > 0) {
+            // Nettoyage : retirer l'adresse TO de la liste des CC pour éviter les doublons
+            const cleanCc = afterData.ccEmails.filter(
+              (email) => email !== clientEmail,
+            );
+            if (cleanCc.length > 0) {
+              mailOptions.cc = cleanCc.join(",");
+            }
+          }
+
+          await smtpTransporter.sendMail(mailOptions);
 
           console.log(
-            `✅ Email de réponse envoyé avec succès au client ${clientEmail} (Ticket ${ticketId})`,
+            `✅ Email de réponse envoyé avec succès au client ${clientEmail} ${afterData.ccEmails && afterData.ccEmails.length > 0 ? `et CC (${afterData.ccEmails.join(", ")}) ` : ""}(Ticket ${ticketId})`,
           );
         } catch (error) {
           console.error(
@@ -759,8 +857,8 @@ ${messageText}
       );
       try {
         // 1. Récupérer l'email du client
-        let clientEmail = null;
-        if (afterData.clientUid) {
+        let clientEmail = afterData.clientEmail || null;
+        if (!clientEmail && afterData.clientUid) {
           const userDoc = await db
             .collection("users")
             .doc(afterData.clientUid)
@@ -796,16 +894,27 @@ ${messageText}
             </div>
           `;
 
-        await smtpTransporter.sendMail({
+        const closeMailOptions = {
           from: `"Support Paniscope" <${fromEmail}>`,
           to: clientEmail,
           subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
           html: emailHtml,
           text: `Bonjour,\n\nVotre ticket #${ticketId} (${ticketSubject}) a été clôturé.\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
-        });
+        };
+
+        if (afterData.ccEmails && afterData.ccEmails.length > 0) {
+          const cleanCc = afterData.ccEmails.filter(
+            (email) => email !== clientEmail,
+          );
+          if (cleanCc.length > 0) {
+            closeMailOptions.cc = cleanCc.join(",");
+          }
+        }
+
+        await smtpTransporter.sendMail(closeMailOptions);
 
         console.log(
-          `✅ Email de clôture envoyé avec succès au client ${clientEmail} (Ticket ${ticketId})`,
+          `✅ Email de clôture envoyé avec succès au client ${clientEmail} ${afterData.ccEmails && afterData.ccEmails.length > 0 ? `et CC (${afterData.ccEmails.join(", ")}) ` : ""}(Ticket ${ticketId})`,
         );
       } catch (error) {
         console.error(

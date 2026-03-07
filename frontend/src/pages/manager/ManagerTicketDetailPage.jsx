@@ -281,10 +281,12 @@ export default function ManagerTicketDetailPage() {
                 }
             }
 
+            const isClient = ticket.clientUid === currentUser.uid;
+
             const newConversationEntry = { 
-                author: 'Manager', 
+                author: isClient ? 'Client' : 'Manager', 
                 uid: currentUser.uid,
-                displayName: currentUser.displayName || 'Manager',
+                displayName: currentUser.displayName || (isClient ? 'Client' : 'Manager'),
                 photoURL: currentUser.photoURL || null,
                 text: replyText, 
                 timestamp: new Date() 
@@ -300,13 +302,22 @@ export default function ManagerTicketDetailPage() {
                 };
             }
 
-            await updateDoc(docRef, {
+            const updateData = {
                 conversation: arrayUnion(newConversationEntry),
                 lastUpdate: serverTimestamp(),
-                status: STATUS.PENDING,
-                hasNewClientMessage: false,
                 managerLastReadTimestamp: new Date() // auto mark our own as read
-            });
+            };
+
+            if (isClient) {
+                updateData.hasNewClientMessage = true;
+                if (ticket.status === STATUS.PENDING || ticket.status === STATUS.PENDING_VALIDATION) {
+                    updateData.status = STATUS.IN_PROGRESS;
+                }
+            } else {
+                updateData.hasNewClientMessage = false;
+            }
+
+            await updateDoc(docRef, updateData);
             
             autoScrolled.current = true;
             setReplyText('');
@@ -713,9 +724,24 @@ export default function ManagerTicketDetailPage() {
                 <Col md={5}>
                 <Card className="shadow-sm border-0 mb-4">
                     <Card.Body className="p-3 p-md-4">
-                    <Card.Title className="mb-3 pb-2 border-bottom">Détails & Actions</Card.Title>
-                    <p><strong>Client:</strong> {ticket.clientName || ticket.client || ticket.clientId}</p>
-                    <p><strong>Soumis le:</strong> {ticket.submittedAt?.toDate ? ticket.submittedAt.toDate().toLocaleString('fr-FR') : 'Date inconnue'}</p>
+                    <Card.Title className="mb-3 pb-2 border-bottom">Informations Clés</Card.Title>
+                    <div className="mb-2">
+                        <strong>Client :</strong> {ticket.clientName || ticket.client || ticket.clientId}
+                    </div>
+                    {ticket.companyDomain && (
+                      <div className="mb-2">
+                          <strong>Entreprise :</strong> {ticket.companyDomain}
+                      </div>
+                    )}
+                    {ticket.ccEmails && ticket.ccEmails.length > 0 && (
+                        <div className="mb-2">
+                            <strong>En copie :</strong>{' '}
+                            {ticket.ccEmails.join(', ')}
+                        </div>
+                    )}
+                    <div className="mb-2">
+                        <strong>Soumis le:</strong> {ticket.submittedAt?.toDate ? ticket.submittedAt.toDate().toLocaleString('fr-FR') : 'Date inconnue'}
+                    </div>
                     <div className="mb-2">
                         <strong>Phase de développement:</strong>{' '}
                         <Badge bg={DEV_PHASE_COLORS[ticket.devPhase] || DEV_PHASE_COLORS.PLANNING}>

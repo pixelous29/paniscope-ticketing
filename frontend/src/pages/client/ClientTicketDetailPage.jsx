@@ -6,7 +6,8 @@ import { db, storage } from '../../firebaseConfig';
 import { Container, Card, Form, Button, ListGroup, Badge, Spinner, Alert, Breadcrumb } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
 import { LinkContainer } from 'react-router-bootstrap';
-import { STATUS, STATUS_VARIANT } from '../../constants/status';
+import { STATUS } from '../../constants/status';
+import StatusBadge from '../../components/shared/StatusBadge';
 import { useAuth } from '../../hooks/useAuth';
 import { Reply, X } from 'lucide-react';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
@@ -196,11 +197,19 @@ export default function ClientTicketDetailPage() {
             }
 
             const docRef = doc(db, "tickets", ticketId);
-            await updateDoc(docRef, {
+            const updateData = {
                 conversation: arrayUnion(newMessage),
                 hasNewDeveloperMessage: false, // On reset si on répondait au dev
-                hasNewClientMessage: true // Signale au manager une maj
-            });
+                hasNewClientMessage: true, // Signale au manager une maj
+                ccEmails: arrayUnion(currentUser.email) // Ajoute la personne à la boucle des envois mail
+            };
+
+            // Si le ticket était en attente (ou autre), la réponse du client le repasse "En cours"
+            if (ticket.status === STATUS.PENDING || ticket.status === STATUS.PENDING_VALIDATION) {
+                updateData.status = STATUS.IN_PROGRESS;
+            }
+
+            await updateDoc(docRef, updateData);
 
             // On met directement un timestamp plus élevé pour éviter que le propre message du client s'affiche comme "Nouveau" pour lui !
             autoScrolled.current = true;
@@ -266,7 +275,7 @@ export default function ClientTicketDetailPage() {
             <Card className="shadow-sm border-0 mb-3">
                 <Card.Header className="d-flex justify-content-between align-items-center bg-white border-bottom pt-3 pb-3">
                     <h4 className="mb-0">{ticket.subject}</h4>
-                    <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge>
+                    <StatusBadge status={ticket.status} />
                 </Card.Header>
                 <Card.Body className="p-3 p-md-4">
                     <h5 className="mb-3 d-none d-md-block">Conversation</h5>

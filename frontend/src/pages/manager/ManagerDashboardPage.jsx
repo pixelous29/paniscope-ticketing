@@ -4,7 +4,8 @@ import { db } from '../../firebaseConfig';
 import { Container, Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Card, Nav } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
-import { STATUS, STATUS_VARIANT } from '../../constants/status';
+import { STATUS } from '../../constants/status';
+import StatusBadge from '../../components/shared/StatusBadge';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
 import InternalKanbanBoard from '../../components/shared/InternalKanbanBoard';
 
@@ -165,14 +166,19 @@ export default function ManagerDashboardPage() {
                             <span>{ticket.subject}</span>
                           </div>
                         </td>
-                        <td className="align-middle">{ticket.clientName || ticket.client || ticket.clientId}</td>
+                        <td className="align-middle">
+                          {ticket.clientName || ticket.client || ticket.clientId}
+                          {ticket.companyDomain && (
+                            <><br/><small className="text-muted">{ticket.companyDomain}</small></>
+                          )}
+                        </td>
                         <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
                         <td className="align-middle">
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
                           ))}
                         </td>
-                        <td className="align-middle"><Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
+                        <td className="align-middle"><StatusBadge status={ticket.status} /></td>
                         {showActionsColumn && (
                           <td className="align-middle text-center">
                             {ticket.status === STATUS.CLOSED && (
@@ -231,14 +237,19 @@ export default function ManagerDashboardPage() {
                       <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
                         <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge></td>
                         <td className="fw-bold align-middle">{ticket.subject}</td>
-                        <td className="align-middle">{ticket.clientName || ticket.client || ticket.clientId}</td>
+                        <td className="align-middle">
+                          {ticket.clientName || ticket.client || ticket.clientId}
+                          {ticket.companyDomain && (
+                            <><br/><small className="text-muted">{ticket.companyDomain}</small></>
+                          )}
+                        </td>
                         <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
                         <td className="align-middle">
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
                           ))}
                         </td>
-                        <td className="align-middle"><Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>{ticket.status}</Badge></td>
+                        <td className="align-middle"><StatusBadge status={ticket.status} /></td>
                       </tr>
                     ))
                   ) : (

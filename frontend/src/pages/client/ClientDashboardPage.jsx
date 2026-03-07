@@ -6,8 +6,9 @@ import { LinkContainer } from 'react-router-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
-import { STATUS, STATUS_VARIANT } from '../../constants/status';
+import { STATUS } from '../../constants/status';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
+import StatusBadge from '../../components/shared/StatusBadge';
 
 export default function ClientDashboardPage() {
   const [tickets, setTickets] = useState([]);
@@ -21,10 +22,20 @@ export default function ClientDashboardPage() {
   useEffect(() => {
     if (!currentUser) return;
 
-    const ticketsCollectionQuery = query(
-      collection(db, "tickets"),
-      where("clientUid", "==", currentUser.uid)
-    );
+    let ticketsCollectionQuery;
+    if (currentUser.companyDomain) {
+      // Si l'utilisateur appartient à une entreprise, il voit tous les tickets de son entreprise
+      ticketsCollectionQuery = query(
+        collection(db, "tickets"),
+        where("companyDomain", "==", currentUser.companyDomain)
+      );
+    } else {
+      // Sinon, il ne voit que ses propres tickets
+      ticketsCollectionQuery = query(
+        collection(db, "tickets"),
+        where("clientUid", "==", currentUser.uid)
+      );
+    }
 
     const unsubscribe = onSnapshot(ticketsCollectionQuery, (querySnapshot) => {
       const ticketsData = querySnapshot.docs.map(doc => {
@@ -158,12 +169,15 @@ export default function ClientDashboardPage() {
                   {currentTickets.length > 0 ? (
                     currentTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
-                        <td className="fw-bold align-middle">{ticket.subject}</td>
+                        <td className="fw-bold align-middle">
+                          {ticket.subject}
+                          {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
+                            <><br/><small className="text-muted fw-normal fst-italic">Initiateur: {ticket.clientName || 'Collègue'}</small></>
+                          )}
+                        </td>
                         <td className="align-middle">{ticket.lastUpdate}</td>
                         <td className="align-middle">
-                          <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>
-                            {ticket.status}
-                          </Badge>
+                          <StatusBadge status={ticket.status} />
                         </td>
                         {showActionsColumn && (
                           <td className="align-middle text-center">
@@ -218,12 +232,15 @@ export default function ClientDashboardPage() {
                   {archivedTickets.length > 0 ? (
                     archivedTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
-                        <td className="fw-bold align-middle">{ticket.subject}</td>
+                        <td className="fw-bold align-middle">
+                          {ticket.subject}
+                          {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
+                            <><br/><small className="text-muted fw-normal fst-italic">Initiateur: {ticket.clientName || 'Collègue'}</small></>
+                          )}
+                        </td>
                         <td className="align-middle">{ticket.lastUpdate}</td>
                         <td className="align-middle">
-                          <Badge bg={STATUS_VARIANT[ticket.status] || 'secondary'} pill>
-                            {ticket.status}
-                          </Badge>
+                          <StatusBadge status={ticket.status} />
                         </td>
                       </tr>
                     ))

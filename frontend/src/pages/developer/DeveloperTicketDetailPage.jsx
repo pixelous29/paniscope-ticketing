@@ -212,10 +212,12 @@ export default function DeveloperTicketDetailPage() {
                 }
             }
 
+            const isClient = ticket.clientUid === currentUser.uid;
+
             const newConversationEntry = { 
-                author: 'Développeur', 
+                author: isClient ? 'Client' : 'Développeur', 
                 uid: currentUser.uid,
-                displayName: currentUser.displayName || 'Développeur',
+                displayName: currentUser.displayName || (isClient ? 'Client' : 'Développeur'),
                 photoURL: currentUser.photoURL || null,
                 text: replyText, 
                 timestamp: new Date() 
@@ -231,12 +233,21 @@ export default function DeveloperTicketDetailPage() {
                 };
             }
 
-            await updateDoc(docRef, {
+            const updateData = {
                 conversation: arrayUnion(newConversationEntry),
-                lastUpdate: serverTimestamp(),
-                status: STATUS.PENDING,
-                hasNewClientMessage: false
-            });
+                lastUpdate: serverTimestamp()
+            };
+
+            if (isClient) {
+                updateData.hasNewClientMessage = true;
+                if (ticket.status === STATUS.PENDING || ticket.status === STATUS.PENDING_VALIDATION) {
+                    updateData.status = STATUS.IN_PROGRESS;
+                }
+            } else {
+                updateData.hasNewClientMessage = false;
+            }
+
+            await updateDoc(docRef, updateData);
             
             setReplyText('');
             setReplyingTo(null);
@@ -601,6 +612,17 @@ export default function DeveloperTicketDetailPage() {
                             <div className="mb-2">
                                 <strong>Client :</strong> {ticket.clientName || ticket.client || ticket.clientId}
                             </div>
+                            {ticket.companyDomain && (
+                              <div className="mb-2">
+                                  <strong>Entreprise :</strong> {ticket.companyDomain}
+                              </div>
+                            )}
+                            {ticket.ccEmails && ticket.ccEmails.length > 0 && (
+                                <div className="mb-2">
+                                    <strong>En copie :</strong>{' '}
+                                    {ticket.ccEmails.join(', ')}
+                                </div>
+                            )}
                             <div className="mb-2">
                                 <strong>Phase de développement :</strong>
                                 <Form.Select 

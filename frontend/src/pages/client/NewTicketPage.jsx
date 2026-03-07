@@ -91,6 +91,7 @@ export default function NewTicketPage() {
         clientUid: currentUser.uid,
         clientEmail: currentUser.email,
         clientName: currentUser.company || currentUser.displayName || currentUser.email,
+        companyDomain: currentUser.companyDomain || null,
         status: STATUS.NEW,
         priority: 'Normale',
         submittedAt: serverTimestamp(),

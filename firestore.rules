@@ -68,5 +68,11 @@ service cloud.firestore {
       
       allow delete: if isManager();
     }
+
+    // Rules pour la collection companies
+    match /companies/{domain} {
+      allow read: if isSignedIn();
+      allow write: if isManager();
+    }
   }
 }

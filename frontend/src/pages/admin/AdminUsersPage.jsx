@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { Container, Card, Table, Form, Button, Spinner, Alert, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { Shield, User, Code, Check, X, Clock, Copy } from 'lucide-react';
+import { Container, Card, Table, Form, Button, Spinner, Alert, Badge, OverlayTrigger, Tooltip, Stack } from 'react-bootstrap';
+import { Shield, User, Code, Check, X, Clock, Copy, Building, Edit2, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
+import CompanyDomainModal from '../../components/admin/CompanyDomainModal';
 
 // Email du super admin protégé : ne peut être ni bloqué, ni révoqué, ni modifié
 const SUPER_ADMIN_EMAIL = 'yves@paniscope.fr';
@@ -14,10 +15,19 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
+  
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
+  const [selectedUserForCompany, setSelectedUserForCompany] = useState(null);
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const handleCompanyUpdate = (userId, updatedData) => {
+    setUsers(users.map(u => 
+      u.id === userId ? { ...u, company: updatedData.company, companyDomain: updatedData.companyDomain } : u
+    ));
+  };
 
   const fetchUsers = async () => {
     try {
@@ -220,11 +230,36 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="align-middle" style={{ wordBreak: 'break-word', minWidth: '100px' }}>
-                      {user.company ? (
-                        user.company
-                      ) : (
-                        <span className="text-muted fst-italic">Non renseignée</span>
-                      )}
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div>
+                          {user.company ? (
+                            <span className="fw-medium">{user.company}</span>
+                          ) : (
+                            <span className="text-muted fst-italic">Non renseignée</span>
+                          )}
+                          {user.companyDomain && (
+                            <div className="text-muted small">
+                              <Globe size={12} className="me-1" inline="true" />
+                              {user.companyDomain}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {(user.role === 'client' && !isSuperAdmin) && (
+                          <Button 
+                            variant="light" 
+                            size="sm" 
+                            className="p-1 text-primary ms-2"
+                            onClick={() => {
+                              setSelectedUserForCompany(user);
+                              setShowCompanyModal(true);
+                            }}
+                            title="Configurer le domaine d'entreprise"
+                          >
+                            <Edit2 size={14} />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                     <td className="align-middle" style={{ wordBreak: 'break-all', minWidth: '100px' }}>
                       {user.email}
@@ -361,6 +396,17 @@ export default function AdminUsersPage() {
           )}
         </Card.Body>
       </Card>
+
+      {/* Modale d'édition de la société */}
+      <CompanyDomainModal
+        show={showCompanyModal}
+        onHide={() => {
+          setShowCompanyModal(false);
+          setSelectedUserForCompany(null);
+        }}
+        user={selectedUserForCompany}
+        onUpdate={handleCompanyUpdate}
+      />
     </Container>
   );
 }

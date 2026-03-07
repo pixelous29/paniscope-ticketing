@@ -2,6 +2,7 @@ import React from "react";
 import { Card, Badge, Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { STATUS, STATUS_VARIANT } from "../../constants/status";
+import StatusBadge from "./StatusBadge";
 
 const priorityVariant = {
   Faible: "secondary",
@@ -48,12 +49,7 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
             {ticket.subject}
           </div>
           <div>
-            <Badge
-              bg={STATUS_VARIANT[ticket.status] || "secondary"}
-              className="px-2 py-1"
-            >
-              {ticket.status}
-            </Badge>
+            <StatusBadge status={ticket.status} className="px-2 py-1" />
           </div>
         </div>
 
@@ -62,6 +58,11 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
             <div className="mb-1">
               <i className="bi bi-person me-1"></i>{" "}
               {ticket.clientName || ticket.client || ticket.clientId}
+              {ticket.companyDomain && (
+                <span className="ms-2 text-muted" style={{ fontSize: "0.8em" }}>
+                  ({ticket.companyDomain})
+                </span>
+              )}
             </div>
           )}
           <div className="d-flex justify-content-between">
