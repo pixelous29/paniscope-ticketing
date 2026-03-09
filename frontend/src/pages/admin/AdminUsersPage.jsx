@@ -9,6 +9,24 @@ import CompanyDomainModal from '../../components/admin/CompanyDomainModal';
 // Email du super admin protégé : ne peut être ni bloqué, ni révoqué, ni modifié
 const SUPER_ADMIN_EMAIL = 'yves@paniscope.fr';
 
+const truncateText = (text, maxLength = 20) => {
+  if (!text) return { text: '', isTruncated: false };
+  if (text.length > maxLength) {
+    return { text: text.substring(0, maxLength) + '...', isTruncated: true };
+  }
+  return { text, isTruncated: false };
+};
+
+const styles = `
+  .company-cell-interactive {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  .company-cell-interactive:hover {
+    background-color: rgba(13, 110, 253, 0.08) !important;
+  }
+`;
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
   const [temporaryPasswords, setTemporaryPasswords] = useState({});
@@ -151,6 +169,7 @@ export default function AdminUsersPage() {
 
   return (
     <Container className="mt-4">
+      <style>{styles}</style>
       <Card>
         <Card.Header>
           <div className="d-flex justify-content-between align-items-center">
@@ -180,7 +199,7 @@ export default function AdminUsersPage() {
             </Form.Select>
           </div>
           
-          <Table striped bordered hover>
+          <Table striped bordered hover responsive>
             <thead>
               <tr>
                 <th>Utilisateur</th>
@@ -201,6 +220,7 @@ export default function AdminUsersPage() {
                 const RoleIcon = roleBadge.icon;
                 const StatusIcon = statusBadge.icon;
                 const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
+                const isEditableCompany = user.role === 'client' && !isSuperAdmin;
                 
                 return (
                   <tr key={user.id}>
@@ -229,40 +249,70 @@ export default function AdminUsersPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="align-middle" style={{ wordBreak: 'break-word', minWidth: '100px' }}>
-                      <div className="d-flex align-items-center justify-content-between">
-                        <div>
-                          {user.company ? (
-                            <span className="fw-medium">{user.company}</span>
-                          ) : (
-                            <span className="text-muted fst-italic">Non renseignée</span>
-                          )}
-                          {user.companyDomain && (
-                            <div className="text-muted small">
-                              <Globe size={12} className="me-1" inline="true" />
-                              {user.companyDomain}
-                            </div>
-                          )}
-                        </div>
+                    <td 
+                      className={`align-middle ${isEditableCompany ? 'company-cell-interactive' : ''}`}
+                      onClick={isEditableCompany ? () => {
+                        setSelectedUserForCompany(user);
+                        setShowCompanyModal(true);
+                      } : undefined}
+                      title={isEditableCompany ? "Cliquez pour modifier la société" : undefined}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      <div className="d-flex flex-column">
+                        {user.company ? (
+                          (() => {
+                            const { text, isTruncated } = truncateText(user.company, 20);
+                            const content = <span className="fw-medium">{text}</span>;
+                            return isTruncated ? (
+                              <OverlayTrigger
+                                placement="top"
+                                delay={{ show: 1000, hide: 0 }}
+                                overlay={<Tooltip id={`tooltip-comp-${user.id}`}>{user.company}</Tooltip>}
+                              >
+                                {content}
+                              </OverlayTrigger>
+                            ) : content;
+                          })()
+                        ) : (
+                          <span className="text-muted fst-italic">Non renseignée</span>
+                        )}
                         
-                        {(user.role === 'client' && !isSuperAdmin) && (
-                          <Button 
-                            variant="light" 
-                            size="sm" 
-                            className="p-1 text-primary ms-2"
-                            onClick={() => {
-                              setSelectedUserForCompany(user);
-                              setShowCompanyModal(true);
-                            }}
-                            title="Configurer le domaine d'entreprise"
-                          >
-                            <Edit2 size={14} />
-                          </Button>
+                        {user.companyDomain && (
+                          (() => {
+                            const { text, isTruncated } = truncateText(user.companyDomain, 20);
+                            const content = (
+                              <div className="text-muted small mt-1">
+                                <Globe size={12} className="me-1" style={{ display: 'inline', verticalAlign: 'text-bottom' }} />
+                                {text}
+                              </div>
+                            );
+                            return isTruncated ? (
+                              <OverlayTrigger
+                                placement="top"
+                                delay={{ show: 1000, hide: 0 }}
+                                overlay={<Tooltip id={`tooltip-dom-${user.id}`}>{user.companyDomain}</Tooltip>}
+                              >
+                                {content}
+                              </OverlayTrigger>
+                            ) : content;
+                          })()
                         )}
                       </div>
                     </td>
-                    <td className="align-middle" style={{ wordBreak: 'break-all', minWidth: '100px' }}>
-                      {user.email}
+                    <td className="align-middle" style={{ whiteSpace: 'nowrap', minWidth: '100px' }}>
+                      {(() => {
+                        const { text, isTruncated } = truncateText(user.email, 25);
+                        const content = <span>{text}</span>;
+                        return isTruncated ? (
+                          <OverlayTrigger
+                            placement="top"
+                            delay={{ show: 1000, hide: 0 }}
+                            overlay={<Tooltip id={`tooltip-email-${user.id}`}>{user.email}</Tooltip>}
+                          >
+                            {content}
+                          </OverlayTrigger>
+                        ) : content;
+                      })()}
                     </td>
                     <td className="align-middle">
                       {user.lastConnection ? (
@@ -307,7 +357,7 @@ export default function AdminUsersPage() {
                       {isSuperAdmin ? (
                         <span className="text-muted fst-italic">—</span>
                       ) : (
-                        <div className="d-flex flex-wrap gap-1">
+                        <div className="d-flex gap-1 flex-nowrap">
                           {user.status === 'pending' && (
                             <>
                               <Button
@@ -315,6 +365,7 @@ export default function AdminUsersPage() {
                                 size="sm"
                                 onClick={() => handleStatusChange(user.id, 'approved')}
                                 title="Approuver"
+                                className="text-nowrap"
                               >
                                 <Check size={16} />
                               </Button>
@@ -323,6 +374,7 @@ export default function AdminUsersPage() {
                                 size="sm"
                                 onClick={() => handleStatusChange(user.id, 'rejected')}
                                 title="Rejeter"
+                                className="text-nowrap"
                               >
                                 <X size={16} />
                               </Button>
@@ -332,24 +384,24 @@ export default function AdminUsersPage() {
                             <Button
                               variant="outline-danger"
                               size="sm"
+                              className="text-nowrap d-flex align-items-center"
                               onClick={() => handleStatusChange(user.id, 'rejected')}
                               title="Bloquer"
                             >
-                              <X size={16} className="me-1 d-none d-xl-inline" />
-                              <span className="d-none d-lg-inline">Bloquer</span>
-                              <X size={16} className="d-lg-none" />
+                              <X size={16} className="me-1" />
+                              Bloquer
                             </Button>
                           )}
                           {user.status === 'rejected' && (
                             <Button
                               variant="outline-success"
                               size="sm"
+                              className="text-nowrap d-flex align-items-center"
                               onClick={() => handleStatusChange(user.id, 'approved')}
                               title="Réactiver"
                             >
-                              <Check size={16} className="me-1 d-none d-xl-inline" />
-                              <span className="d-none d-lg-inline">Réactiver</span>
-                              <Check size={16} className="d-lg-none" />
+                              <Check size={16} className="me-1" />
+                              Réactiver
                             </Button>
                           )}
                         </div>
