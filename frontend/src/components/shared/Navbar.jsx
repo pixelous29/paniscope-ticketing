@@ -182,8 +182,6 @@ export default function AppNavbar() {
 
       {/* ----------- MOBILE OFFCANVAS ----------- */}
       <Offcanvas show={showSidebar} onHide={handleClose} placement="start" className="bg-dark text-white border-end-0" style={{ width: '280px' }}>
-        <Offcanvas.Header closeButton closeVariant="white" className="pb-0 pt-3 px-3">
-        </Offcanvas.Header>
         <Offcanvas.Body className="p-0 overflow-hidden d-flex flex-column h-100">
           <SidebarContent />
         </Offcanvas.Body>
