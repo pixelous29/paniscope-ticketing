@@ -166,6 +166,7 @@ export default function ClientDashboardPage() {
                 <Table hover responsive className="m-0 align-middle">
                   <thead className="bg-light text-secondary">
                     <tr>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Ticket N°</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Dernière mise à jour</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
@@ -176,6 +177,7 @@ export default function ClientDashboardPage() {
                   {currentTickets.length > 0 ? (
                     currentTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
+                        <td className="px-4 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
                         <td className="px-4 py-3">
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
@@ -201,7 +203,7 @@ export default function ClientDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={showActionsColumn ? 4 : 3} className="text-center py-5 text-muted">
+                      <td colSpan={showActionsColumn ? 5 : 4} className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-inbox fs-3"></i></div>
                         Aucun ticket en cours.
                       </td>
@@ -235,6 +237,7 @@ export default function ClientDashboardPage() {
                 <Table hover responsive className="m-0 align-middle">
                   <thead className="bg-light text-secondary">
                     <tr>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Ticket N°</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Dernière mise à jour</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
@@ -244,6 +247,7 @@ export default function ClientDashboardPage() {
                   {archivedTickets.length > 0 ? (
                     archivedTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
+                        <td className="px-4 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
                         <td className="px-4 py-3">
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
@@ -258,7 +262,7 @@ export default function ClientDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="3" className="text-center py-5 text-muted">
+                      <td colSpan="4" className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-archive fs-3"></i></div>
                         Aucun ticket archivé.
                       </td>

@@ -30,6 +30,9 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
       }}
     >
       <Card.Body className="p-3">
+        <div className="text-secondary fw-semibold mb-2" style={{ fontSize: "0.85rem" }}>
+          Ticket N° #{ticket.id}
+        </div>
         <div className="d-flex justify-content-between align-items-start mb-2">
           <div
             className="fw-bold pe-2"

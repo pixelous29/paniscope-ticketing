@@ -423,7 +423,21 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
         newTicket.attachmentUrls = attachmentUrls;
       }
 
-      const docRef = await db.collection("tickets").add(newTicket);
+      const counterRef = db.collection("counters").doc("ticketCounter");
+      const nextIdStr = await db.runTransaction(async (t) => {
+        const counterDoc = await t.get(counterRef);
+        let nextNum = 1;
+
+        if (counterDoc.exists) {
+          nextNum = counterDoc.data().lastId + 1;
+        }
+
+        t.set(counterRef, { lastId: nextNum }, { merge: true });
+        return String(nextNum).padStart(7, '0');
+      });
+
+      const docRef = db.collection("tickets").doc(nextIdStr);
+      await docRef.set(newTicket);
       console.log(`Ticket créé via email avec l'ID : ${docRef.id}`);
 
       return res.status(200).send(`Ticket #${docRef.id} créé !`);

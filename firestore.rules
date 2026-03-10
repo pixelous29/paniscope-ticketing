@@ -45,6 +45,11 @@ service cloud.firestore {
       allow write: if isManager() || request.auth.token.email == 'yves@paniscope.fr' || request.auth.uid == userId;
     }
     
+    // Ajout d'une règle pour la génération des ID de tickets incrémentaux
+    match /counters/{counterId} {
+      allow read, write: if isSignedIn();
+    }
+    
     // Rules pour la collection tickets
     match /tickets/{ticketId} {
       // Lecture : clients voient leurs tickets, staff voit tout

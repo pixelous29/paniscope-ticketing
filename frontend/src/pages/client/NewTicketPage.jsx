@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { collection, addDoc, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, runTransaction, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
 import { STATUS } from '../../constants/status';
@@ -105,7 +105,20 @@ export default function NewTicketPage() {
         ticketData.attachmentUrls = attachmentUrls;
       }
 
-      const docRef = await addDoc(collection(db, "tickets"), ticketData);
+      // Generation de l'ID sequentiel
+      const counterRef = doc(db, 'counters', 'ticketCounter');
+      const nextIdStr = await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        let nextNum = 1;
+        if (counterDoc.exists()) {
+          nextNum = counterDoc.data().lastId + 1;
+        }
+        transaction.set(counterRef, { lastId: nextNum }, { merge: true });
+        return String(nextNum).padStart(7, '0');
+      });
+
+      const docRef = doc(db, "tickets", nextIdStr);
+      await setDoc(docRef, ticketData);
 
       // 3. Message initial dans la conversation
       const initialMessage = {
