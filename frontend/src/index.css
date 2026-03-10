@@ -1,8 +1,8 @@
 /* Cache la scrollbar tout en gardant le scroll actif */
 html,
 body {
-  -ms-overflow-style: none;  /* IE et Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none; /* IE et Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 html::-webkit-scrollbar,
@@ -109,3 +109,48 @@ code {
   flex: 1;
   text-align: center;
 }
+
+/* ===== APP SHELL & SIDEBAR STYLES ===== */
+
+.sidebar-container {
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.sidebar-nav-link {
+  transition:
+    background-color 0.2s ease,
+    opacity 0.2s ease;
+  font-size: 0.95rem;
+  opacity: 0.8;
+}
+
+.sidebar-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+.sidebar-nav-link.active {
+  background-color: #0d6efd; /* Primary blue */
+  color: #fff !important;
+  font-weight: 500;
+  opacity: 1;
+}
+
+/* Fix Bootstrap dropdown inside sidebar */
+.sidebar-user-dropdown .dropdown-toggle::after {
+  display: none !important;
+}
+
+.sidebar-user-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-user-dropdown .dropdown-menu {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+  border: none;
+  font-size: 0.9rem;
+}
+.dropdown-item-premium:hover { background-color: #f8f9fa; }

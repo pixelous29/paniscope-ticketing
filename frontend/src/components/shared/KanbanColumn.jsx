@@ -13,10 +13,10 @@ export default function KanbanColumn({ id, title, color, tickets, onCardClick })
   });
 
   return (
-    <div className="d-flex flex-column h-100 rounded" style={{ minWidth: '280px', width: '280px', backgroundColor: isOver ? '#eef2f5' : '#f4f5f7', padding: '10px' }}>
+    <div className="d-flex flex-column h-100 rounded" style={{ flex: 1, minWidth: '280px', backgroundColor: isOver ? '#eef2f5' : '#f4f5f7', padding: '10px' }}>
       <div className="d-flex align-items-center justify-content-between mb-3 px-1">
         <h6 className="m-0 fw-bold d-flex align-items-center" style={{ color: '#42526e' }}>
-            <span className="me-2 rounded-circle" style={{ width: '12px', height: '12px', backgroundColor: color, display: 'inline-block' }}></span>
+            <span className={`me-2 rounded-circle bg-${color}`} style={{ width: '12px', height: '12px', display: 'inline-block' }}></span>
             {title}
         </h6>
         <span className="badge bg-secondary rounded-pill">{tickets.length}</span>

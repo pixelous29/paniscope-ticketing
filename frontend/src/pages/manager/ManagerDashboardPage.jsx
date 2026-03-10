@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, doc, updateDoc } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
-import { Container, Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Card, Nav } from 'react-bootstrap';
+import { Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Nav } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { STATUS } from '../../constants/status';
 import StatusBadge from '../../components/shared/StatusBadge';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
-import InternalKanbanBoard from '../../components/shared/InternalKanbanBoard';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
@@ -71,11 +70,11 @@ export default function ManagerDashboardPage() {
   );
 
   if (loading) {
-    return <Container className="d-flex justify-content-center mt-5"><Spinner animation="border" /></Container>;
+    return <div className="d-flex justify-content-center mt-5 w-100"><Spinner animation="border" /></div>;
   }
 
   if (error) {
-    return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
+    return <div className="mt-4 px-3"><Alert variant="danger">{error}</Alert></div>;
   }
 
   // Un ticket est archivé seulement si archived=true ET status=CLOSED
@@ -85,30 +84,22 @@ export default function ManagerDashboardPage() {
   const showActionsColumn = currentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (
-    <Container className="mt-4">
-      <Card>
-        <Card.Header>
-          <h4 className="mb-3">Tableau de bord Manager</h4>
-          <Nav variant="tabs" activeKey={view} onSelect={(k) => setView(k)}>
-            <Nav.Item>
-              <Nav.Link eventKey="current">Tickets en cours</Nav.Link>
-            </Nav.Item>
-            <Nav.Item className="d-none d-md-block">
-              <Nav.Link eventKey="board">
-                <i className="bi bi-kanban me-2"></i>Tableau de développement
-              </Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="archived">Tickets Archivés</Nav.Link>
-            </Nav.Item>
-          </Nav>
-        </Card.Header>
-        <Card.Body>
-          {view === 'board' ? (
-              <div className="pt-3">
-                  <InternalKanbanBoard isDeveloperMode={false} />
-              </div>
-          ) : view === 'current' ? (
+    <div className="d-flex flex-column h-100 w-100 bg-light">
+      <div className="bg-white border-bottom px-3 px-md-4 pt-4 pb-0 flex-shrink-0">
+        <h4 className="mb-4 fw-bold text-dark">Tableau de bord</h4>
+        <Nav variant="tabs" className="custom-tabs" activeKey={view} onSelect={(k) => setView(k)}>
+          <Nav.Item>
+            <Nav.Link eventKey="current" className="fw-semibold">Tickets en cours ({currentTickets.length})</Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="archived" className="fw-semibold">Archivés ({archivedTickets.length})</Nav.Link>
+          </Nav.Item>
+        </Nav>
+      </div>
+
+      <div className="flex-grow-1 overflow-auto p-3 p-md-4 bg-light">
+        <div className="w-100 mx-auto" style={{ maxWidth: '1400px' }}>
+          {view === 'current' ? (
             <>
               {/* Vue Mobile (< md) */}
               <div className="d-md-none p-2 bg-light">
@@ -129,24 +120,25 @@ export default function ManagerDashboardPage() {
               </div>
 
               {/* Vue Desktop (>= md) */}
-              <Table striped bordered hover responsive className="m-0 d-none d-md-table">
-                <thead>
-                  <tr>
-                    <th>Priorité</th>
-                    <th>Sujet</th>
-                    <th>Client</th>
-                    <th>Assigné à</th>
-                    <th>Tags</th>
-                    <th>Statut</th>
-                    {showActionsColumn && <th>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
+              <div className="bg-white rounded-3 shadow-sm border overflow-hidden d-none d-md-block mb-4">
+                <Table hover responsive className="m-0 align-middle">
+                  <thead className="bg-light text-secondary">
+                    <tr>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Priorité</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Client</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Assigné à</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Tags</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
+                      {showActionsColumn && <th className="py-3 px-4 fw-semibold border-bottom-0 text-center">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="border-top-0">
                   {currentTickets.length > 0 ? (
                     currentTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
-                        <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge></td>
-                        <td className="fw-bold align-middle">
+                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
+                        <td className="px-4 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'} className="px-2 py-1">{ticket.priority}</Badge></td>
+                        <td className="px-4 py-3 fw-bold align-middle text-dark">
                           <div className="d-flex align-items-center">
                             {ticket.hasNewClientMessage && (
                                <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle réponse du client')}>
@@ -166,25 +158,25 @@ export default function ManagerDashboardPage() {
                             <span>{ticket.subject}</span>
                           </div>
                         </td>
-                        <td className="align-middle">
+                        <td className="px-4 py-3 align-middle">
                           {ticket.clientName || ticket.client || ticket.clientId}
                           {ticket.companyDomain && (
-                            <><br/><small className="text-muted">{ticket.companyDomain}</small></>
+                            <><br/><small className="text-muted"><i className="bi bi-building me-1"></i>{ticket.companyDomain}</small></>
                           )}
                         </td>
-                        <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
-                        <td className="align-middle">
+                        <td className="px-4 py-3 align-middle">{ticket.assignedTo || <span className="text-muted fst-italic">Non assigné</span>}</td>
+                        <td className="px-4 py-3 align-middle">
                           {ticket.tags?.map(tag => (
-                            <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
+                            <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
-                        <td className="align-middle"><StatusBadge status={ticket.status} /></td>
+                        <td className="px-4 py-3 align-middle"><StatusBadge status={ticket.status} /></td>
                         {showActionsColumn && (
-                          <td className="align-middle text-center">
+                          <td className="px-4 py-3 align-middle text-center">
                             {ticket.status === STATUS.CLOSED && (
                               <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
-                                <Button variant="outline-secondary" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)}>
-                                  <i className="bi bi-archive-fill"></i>
+                                <Button variant="light" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)} className="text-secondary hover-primary border">
+                                  <i className="bi bi-archive"></i>
                                 </Button>
                               </OverlayTrigger>
                             )}
@@ -194,11 +186,15 @@ export default function ManagerDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={showActionsColumn ? 7 : 6} className="text-center">Aucun ticket en cours.</td>
+                      <td colSpan={showActionsColumn ? 7 : 6} className="text-center py-5 text-muted">
+                        <div className="mb-2"><i className="bi bi-inbox fs-3"></i></div>
+                        Aucun ticket en cours.
+                      </td>
                     </tr>
                   )}
                 </tbody>
               </Table>
+              </div>
             </>
           ) : (
             <>
@@ -220,49 +216,54 @@ export default function ManagerDashboardPage() {
               </div>
 
               {/* Vue Desktop (>= md) */}
-              <Table striped bordered hover responsive className="m-0 d-none d-md-table">
-                <thead>
-                  <tr>
-                    <th>Priorité</th>
-                    <th>Sujet</th>
-                    <th>Client</th>
-                    <th>Assigné à</th>
-                    <th>Tags</th>
-                    <th>Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <div className="bg-white rounded-3 shadow-sm border overflow-hidden d-none d-md-block mb-4">
+                <Table hover responsive className="m-0 align-middle">
+                  <thead className="bg-light text-secondary">
+                    <tr>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Priorité</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Client</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Assigné à</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Tags</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody className="border-top-0">
                   {archivedTickets.length > 0 ? (
                     archivedTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }}>
-                        <td className="align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'}>{ticket.priority}</Badge></td>
-                        <td className="fw-bold align-middle">{ticket.subject}</td>
-                        <td className="align-middle">
+                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
+                        <td className="px-4 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'} className="px-2 py-1">{ticket.priority}</Badge></td>
+                        <td className="px-4 py-3 fw-bold align-middle text-dark">{ticket.subject}</td>
+                        <td className="px-4 py-3 align-middle">
                           {ticket.clientName || ticket.client || ticket.clientId}
                           {ticket.companyDomain && (
-                            <><br/><small className="text-muted">{ticket.companyDomain}</small></>
+                            <><br/><small className="text-muted"><i className="bi bi-building me-1"></i>{ticket.companyDomain}</small></>
                           )}
                         </td>
-                        <td className="align-middle">{ticket.assignedTo || 'Non assigné'}</td>
-                        <td className="align-middle">
+                        <td className="px-4 py-3 align-middle">{ticket.assignedTo || <span className="text-muted fst-italic">Non assigné</span>}</td>
+                        <td className="px-4 py-3 align-middle">
                           {ticket.tags?.map(tag => (
-                            <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>
+                            <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
-                        <td className="align-middle"><StatusBadge status={ticket.status} /></td>
+                        <td className="px-4 py-3 align-middle"><StatusBadge status={ticket.status} /></td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="text-center">Aucun ticket archivé.</td>
+                      <td colSpan="6" className="text-center py-5 text-muted">
+                        <div className="mb-2"><i className="bi bi-archive fs-3"></i></div>
+                        Aucun ticket archivé.
+                      </td>
                     </tr>
                   )}
                 </tbody>
               </Table>
+              </div>
             </>
           )}
-        </Card.Body>
-      </Card>
-    </Container>
+        </div>
+      </div>
+    </div>
   );
 }

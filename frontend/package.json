@@ -23,6 +23,7 @@
     "lucide-react": "^0.562.0",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
+    "react-bootstrap-icons": "^1.11.6",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.68.0",
     "react-hot-toast": "^2.6.0",

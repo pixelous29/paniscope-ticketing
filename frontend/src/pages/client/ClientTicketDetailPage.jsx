@@ -3,9 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
-import { Container, Card, Form, Button, ListGroup, Badge, Spinner, Alert, Breadcrumb } from 'react-bootstrap';
+import { Form, Button, Badge, Spinner, Alert, ListGroup, Container } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
-import { LinkContainer } from 'react-router-bootstrap';
 import { STATUS } from '../../constants/status';
 import StatusBadge from '../../components/shared/StatusBadge';
 import { useAuth } from '../../hooks/useAuth';
@@ -30,6 +29,7 @@ export default function ClientTicketDetailPage() {
     const [previews, setPreviews] = useState([]);
     const [imageError, setImageError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isRefusing, setIsRefusing] = useState(false);
 
     // États pour la modale d'image
     const [showImageModal, setShowImageModal] = useState(false);
@@ -76,6 +76,13 @@ export default function ClientTicketDetailPage() {
     useEffect(() => {
         if (localLastRead !== null && !autoScrolled.current) {
             const scrollToLastMessage = () => {
+                const validationBox = document.getElementById('validation-box');
+                if (validationBox) {
+                    validationBox.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    autoScrolled.current = true;
+                    return true;
+                }
+
                 const firstUnread = document.getElementById('first-unread-msg');
                 if (firstUnread) {
                     firstUnread.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -205,8 +212,9 @@ export default function ClientTicketDetailPage() {
             };
 
             // Si le ticket était en attente (ou autre), la réponse du client le repasse "En cours"
-            if (ticket.status === STATUS.PENDING || ticket.status === STATUS.PENDING_VALIDATION) {
+            if (ticket.status === STATUS.PENDING || (isRefusing && ticket.status === STATUS.PENDING_VALIDATION)) {
                 updateData.status = STATUS.IN_PROGRESS;
+                setIsRefusing(false);
             }
 
             await updateDoc(docRef, updateData);
@@ -222,6 +230,34 @@ export default function ClientTicketDetailPage() {
         } catch (err) {
             console.error("Erreur lors de l'envoi de la réponse: ", err);
             showAlert('Erreur', 'Une erreur est survenue lors de l\'envoi de votre réponse.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleAcceptValidation = async () => {
+        setIsSubmitting(true);
+        try {
+            const newMessage = {
+                author: 'Client',
+                text: "✅ **Validation client :** J'ai validé les travaux. Tout est conforme, le ticket peut être clôturé par l'équipe.",
+                timestamp: new Date(),
+                uid: currentUser.uid,
+                displayName: currentUser.displayName,
+            };
+            const docRef = doc(db, "tickets", ticketId);
+            await updateDoc(docRef, {
+                conversation: arrayUnion(newMessage),
+                status: STATUS.IN_PROGRESS, // Pour que le manager puisse le voir dans ses tickets "en cours" et le fermer.
+                hasNewClientMessage: true,
+                hasNewDeveloperMessage: false,
+                ccEmails: arrayUnion(currentUser.email)
+            });
+            showAlert('Succès', 'Votre validation a été transmise au manager qui s\'occupera de clore le ticket définitivement.');
+            autoScrolled.current = true;
+        } catch (err) {
+            console.error("Erreur de validation: ", err);
+            showAlert('Erreur', 'Une erreur est survenue lors de la validation.');
         } finally {
             setIsSubmitting(false);
         }
@@ -257,30 +293,31 @@ export default function ClientTicketDetailPage() {
     const isTicketClosed = ticket.status === STATUS.CLOSED;
     
     return (
-        <Container className="mt-2 mt-md-4 pb-5 px-2 px-md-3">
-            <Breadcrumb className="d-none d-md-flex">
-                <LinkContainer to="/">
-                    <Breadcrumb.Item>Tableau de bord</Breadcrumb.Item>
-                </LinkContainer>
-                <Breadcrumb.Item active>Ticket #{ticket?.id}</Breadcrumb.Item>
-            </Breadcrumb>
-            
-            {/* Bouton retour mobile */}
-            <div className="d-md-none mb-3">
-                <Link to="/" className="text-decoration-none bg-white px-3 py-2 rounded shadow-sm text-primary fw-bold border d-inline-block">
-                    <i className="bi bi-arrow-left me-2"></i> Retour aux tickets
-                </Link>
+        <div className="d-flex flex-column h-100 w-100 bg-white">
+            {/* En-tête du ticket : fixe en haut */}
+            <div className="flex-shrink-0 border-bottom bg-white d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center p-3 p-md-4 sticky-top z-2">
+                <div className="d-flex align-items-center gap-3 w-100 mb-3 mb-md-0">
+                    <Link to="/" className="text-secondary hover-primary text-decoration-none d-flex align-items-center justify-content-center bg-light rounded-circle p-2" title="Retour aux tickets">
+                        <i className="bi bi-arrow-left fs-5"></i>
+                    </Link>
+                    <div className="flex-grow-1">
+                        <div className="text-uppercase text-secondary fw-bold" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                            Ticket #{ticket?.id}
+                        </div>
+                        <h4 className="mb-0 fw-bold text-dark mt-1">{ticket.subject}</h4>
+                    </div>
+                </div>
+                <div className="ms-md-auto ms-5 ps-2 ps-md-0">
+                    <StatusBadge status={ticket.status} />
+                </div>
             </div>
 
-            <Card className="shadow-sm border-0 mb-3">
-                <Card.Header className="d-flex justify-content-between align-items-center bg-white border-bottom pt-3 pb-3">
-                    <h4 className="mb-0">{ticket.subject}</h4>
-                    <StatusBadge status={ticket.status} />
-                </Card.Header>
-                <Card.Body className="p-3 p-md-4">
-                    <h5 className="mb-3 d-none d-md-block">Conversation</h5>
+            {/* Zone principale : défilement */}
+            <div className="flex-grow-1 overflow-auto d-flex flex-column">
+                <div className="w-100 mx-auto d-flex flex-column flex-grow-1" style={{ maxWidth: '900px' }}>
                     
-                    <ListGroup variant="flush" className="mb-4 border rounded shadow-sm p-2 bg-light mobile-expand-list desktop-fixed-list">
+                    {/* Conteneur des messages (ListGroup retiré car on veut un flux naturel) */}
+                    <div className="flex-grow-1 p-3 p-md-4 d-flex flex-column gap-1">
                         
                         {ticket.conversation?.slice().sort((a, b) => {
                             const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
@@ -319,11 +356,32 @@ export default function ClientTicketDetailPage() {
                                 />
                             );
                         })}
-                    </ListGroup>
+                    </div>
                     
-                    {!isTicketClosed && (
-                        <>
-                        <Form onSubmit={handleReplySubmit} className="bg-light p-3 rounded shadow-sm border mt-4">
+                    {/* Zone de réponse */}
+                    {!isTicketClosed && ticket.status === STATUS.PENDING_VALIDATION && !isRefusing ? (
+                        <div id="validation-box" className="p-4 bg-white border-top mt-auto">
+                            <div className="rounded p-4 text-center mx-auto" style={{ backgroundColor: '#f0f9ff', border: '1px solid #bce8f1', maxWidth: '750px' }}>
+                                <h5 className="fw-bold mb-3" style={{ color: '#005e8e' }}><i className="bi bi-check-circle me-2"></i>Validation requise</h5>
+                                <p className="text-secondary mb-4">Le développeur a indiqué avoir terminé les tâches liées à ce ticket. Veuillez vérifier et nous indiquer votre décision concernant ces travaux.</p>
+                                <div className="d-flex justify-content-center gap-3 flex-wrap">
+                                    <Button variant="outline-danger" onClick={() => setIsRefusing(true)}>
+                                        <i className="bi bi-x-circle me-2"></i>Je ne valide pas
+                                    </Button>
+                                    <Button variant="success" onClick={handleAcceptValidation} disabled={isSubmitting}>
+                                        {isSubmitting ? <Spinner size="sm" /> : <><i className="bi bi-check-circle me-2"></i>Je valide</>}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : !isTicketClosed && (
+                        <div className="p-3 p-md-4 bg-white border-top mt-auto">
+                        <Form onSubmit={handleReplySubmit} className="rounded" style={{ backgroundColor: '#f8f9fc', padding: '20px', border: '1px solid #e2e8f0' }}>
+                            {isRefusing && (
+                                <Alert variant="warning" className="mb-4" onClose={() => setIsRefusing(false)} dismissible>
+                                    <strong>Vous avez refusé la validation.</strong> Veuillez expliquer ci-dessous en détails pourquoi vous refusez la validation afin que nos équipes puissent corriger. Le ticket repassera "En cours".
+                                </Alert>
+                            )}
                             {replyingTo && (
                                 <div className="mb-3 p-2 bg-white rounded border-start border-3 border-primary shadow-sm d-flex justify-content-between align-items-start position-relative">
                                     <div className="text-muted" style={{ fontSize: '0.85rem' }}>
@@ -376,16 +434,16 @@ export default function ClientTicketDetailPage() {
                                 </Button>
                             </div>
                         </Form>
-                        </>
+                        </div>
                     )}
-                </Card.Body>
-            </Card>
+                </div>
+            </div>
 
             <ImageModal 
                 show={showImageModal} 
                 onHide={() => setShowImageModal(false)} 
                 imageUrl={currentImageUrl} 
             />
-        </Container>
+        </div>
     );
 }

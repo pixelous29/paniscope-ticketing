@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Form, Button, Alert, Row, Col, Image } from 'react-bootstrap';
+import { Form, Button, Alert, Row, Col, Image, Spinner } from 'react-bootstrap';
 import { useAuth } from '../../hooks/useAuth';
 import { db, storage, auth } from '../../firebaseConfig';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -195,15 +195,26 @@ export default function MyAccountPage() {
     }
   };
 
-  if (loading) return <Container className="py-4">Chargement du profil...</Container>;
+  if (loading) return (
+    <div className="d-flex justify-content-center align-items-center h-100 w-100 bg-light">
+      <Spinner animation="border" variant="primary" />
+    </div>
+  );
 
   return (
-    <Container className="py-4">
-      <Row className="justify-content-center">
-        <Col md={8} lg={6}>
-          <Card className="shadow-sm border-0">
-            <Card.Body className="p-4">
-              <h2 className="fs-4 mb-4 fw-bold">Mon compte</h2>
+    <div className="d-flex flex-column h-100 w-100 bg-light">
+      {/* Header */}
+      <div className="flex-shrink-0 border-bottom bg-white p-3 p-md-4 sticky-top z-2">
+        <h4 className="mb-0 fw-bold d-flex align-items-center text-dark">
+          <User size={24} className="me-2 text-primary" />
+          Mon compte
+        </h4>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-grow-1 overflow-auto p-3 p-md-4 d-flex justify-content-center">
+        <div className="w-100" style={{ maxWidth: '800px' }}>
+          <div className="bg-white rounded shadow-sm border p-4 p-md-5">
               {error && <Alert variant="danger">{error}</Alert>}
               
               <Form onSubmit={handleSave}>
@@ -405,10 +416,9 @@ export default function MyAccountPage() {
                   {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
                 </Button>
               </Form>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

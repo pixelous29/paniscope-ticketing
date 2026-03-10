@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
-import { Container, Row, Col, Card, Badge, Form, Button, ListGroup, Alert, Spinner, Breadcrumb, Tabs, Tab } from 'react-bootstrap';
+import { Badge, Form, Button, Alert, Dropdown, Spinner, Tabs, Tab, ListGroup } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
+import StatusBadge from '../../components/shared/StatusBadge';
 import { STATUS } from '../../constants/status';
 import { DEV_PHASE_LABELS, DEV_PHASE_COLORS } from '../../constants/phases';
 import { LinkContainer } from 'react-router-bootstrap';
@@ -240,7 +241,7 @@ export default function DeveloperTicketDetailPage() {
 
             if (isClient) {
                 updateData.hasNewClientMessage = true;
-                if (ticket.status === STATUS.PENDING || ticket.status === STATUS.PENDING_VALIDATION) {
+                if (ticket.status === STATUS.PENDING) {
                     updateData.status = STATUS.IN_PROGRESS;
                 }
             } else {
@@ -364,10 +365,10 @@ export default function DeveloperTicketDetailPage() {
     };
 
     if (loading) {
-        return <Container className="text-center mt-5"><Spinner animation="border" /></Container>;
+        return <div className="d-flex justify-content-center align-items-center h-100"><Spinner animation="border" /></div>;
     }
     if (error || !ticket) {
-        return <Container className="mt-4"><Alert variant="danger">{error || "Ticket non trouvé."}</Alert></Container>;
+        return <div className="p-4"><Alert variant="danger">{error || "Ticket non trouvé."}</Alert></div>;
     }
     
     const isTicketClosed = ticket.status === STATUS.CLOSED;
@@ -387,25 +388,30 @@ export default function DeveloperTicketDetailPage() {
     });
 
     return (
-        <>
-        <Container className="mt-2 mt-md-4 pb-5 px-2 px-md-3">
-            <Breadcrumb className="d-none d-md-flex">
-                <LinkContainer to="/dev">
-                    <Breadcrumb.Item>Tableau de bord</Breadcrumb.Item>
-                </LinkContainer>
-                <Breadcrumb.Item active>Ticket #{ticket.id}</Breadcrumb.Item>
-            </Breadcrumb>
-            
-            {/* Bouton retour mobile */}
-            <div className="d-md-none mb-3">
-                <Link to="/dev" className="text-decoration-none bg-white px-3 py-2 rounded shadow-sm text-primary fw-bold border d-inline-block">
-                    <i className="bi bi-arrow-left me-2"></i> Retour aux tickets
-                </Link>
+        <div className="d-flex flex-column h-100 w-100 bg-white">
+            {/* En-tête du ticket */}
+            <div className="flex-shrink-0 border-bottom bg-white d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center p-3 p-md-4 sticky-top z-2">
+                <div className="d-flex align-items-center gap-3 w-100 mb-3 mb-md-0">
+                    <Link to="/dev" className="text-secondary hover-primary text-decoration-none d-flex align-items-center justify-content-center bg-light rounded-circle p-2" title="Retour aux tickets">
+                        <i className="bi bi-arrow-left fs-5"></i>
+                    </Link>
+                    <div className="flex-grow-1">
+                        <div className="text-uppercase text-secondary fw-bold" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                            Ticket #{ticket?.id}
+                        </div>
+                        <h4 className="mb-0 fw-bold text-dark mt-1">{ticket.subject}</h4>
+                    </div>
+                </div>
+                <div className="ms-md-auto ms-5 ps-2 ps-md-0">
+                    <StatusBadge status={ticket.status} />
+                </div>
             </div>
 
-            <Row>
-                <Col md={7}>
-                    <Card className="shadow-sm border-0 mb-3 overflow-hidden">
+            {/* Layout principal (split 70/30) */}
+            <div className="flex-grow-1 overflow-hidden d-flex flex-column flex-md-row">
+                {/* Zone principale (conversation / notes) */}
+                <div className="flex-grow-1 overflow-auto bg-white d-flex flex-column" style={{ flexBasis: '70%' }}>
+                    <div className="w-100 mx-auto d-flex flex-column flex-grow-1" style={{ maxWidth: '900px' }}>
                         <Tabs
                             id="ticket-conversation-tabs"
                             activeKey={activeTab}
@@ -419,7 +425,7 @@ export default function DeveloperTicketDetailPage() {
                                     {ticket.hasNewClientMessage && <Badge bg="danger" pill className="ms-2">!</Badge>}
                                 </span>
                             }>
-                                <Card.Body className="p-3 p-md-4">
+                                <div className="p-3 p-md-4">
                                     <ListGroup variant="flush" className="mb-3 border rounded shadow-sm p-2 bg-light mobile-expand-list desktop-fixed-list" id="conversation-list">
                                         {sortedConversation?.map((msg, index, arr) => {
                                             let msgToRender = msg;
@@ -508,7 +514,7 @@ export default function DeveloperTicketDetailPage() {
                                             </Form>
                                         </>
                                     )}
-                                </Card.Body>
+                                </div>
                             </Tab>
                             <Tab eventKey="internal" title={
                                 <span className="d-flex align-items-center justify-content-center py-2">
@@ -516,7 +522,7 @@ export default function DeveloperTicketDetailPage() {
                                     {ticket.hasNewManagerMessage && <Badge bg="danger" pill className="ms-2">!</Badge>}
                                 </span>
                             }>
-                                <Card.Body className="p-3 p-md-4">
+                                <div className="p-3 p-md-4">
                                     <ListGroup variant="flush" className="mb-3 border rounded shadow-sm p-2 bg-light mobile-expand-list desktop-fixed-list" id="internal-notes-list">
                                         {sortedInternalNotes?.map((note, index, arr) => {
                                             const msgMs = note.timestamp?.toMillis ? note.timestamp.toMillis() : new Date(note.timestamp).getTime();
@@ -599,16 +605,15 @@ export default function DeveloperTicketDetailPage() {
                                             </Form>
                                         </>
                                     )}
-                                </Card.Body>
+                                </div>
                             </Tab>
                         </Tabs>
-                    </Card>
-                </Col>
+                    </div>
+                </div>
                 
-                <Col md={5}>
-                    <Card className="shadow-sm border-0 mb-4">
-                        <Card.Body className="p-3 p-md-4">
-                            <Card.Title className="mb-3 pb-2 border-bottom">Informations Clés</Card.Title>
+                {/* Colonne de droite : Informations du ticket */}
+                <div className="flex-shrink-0 overflow-auto bg-light border-start p-4" style={{ flexBasis: '30%', minWidth: '320px' }}>
+                    <h5 className="mb-4 pb-2 border-bottom fw-bold text-dark">Informations Clés</h5>
                             <div className="mb-2">
                                 <strong>Client :</strong> {ticket.clientName || ticket.client || ticket.clientId}
                             </div>
@@ -623,21 +628,23 @@ export default function DeveloperTicketDetailPage() {
                                     {ticket.ccEmails.join(', ')}
                                 </div>
                             )}
-                            <div className="mb-2">
-                                <strong>Phase de développement :</strong>
-                                <Form.Select 
-                                    size="sm" 
-                                    value={ticket.devPhase || 'PLANNING'} 
-                                    onChange={handleDevPhaseChange}
-                                    disabled={isTicketClosed}
-                                    className="mt-1"
-                                >
-                                    {Object.entries(DEV_PHASE_LABELS).map(([key, label]) => (
-                                        <option key={key} value={key}>{label}</option>
-                                    ))}
-                                </Form.Select>
-                            </div>
-                            <div>
+                             <div className="mb-3 d-flex flex-column align-items-start gap-1">
+                                 <strong>Phase de développement :</strong>
+                                 <Dropdown>
+                                     <Dropdown.Toggle as={Badge} bg={DEV_PHASE_COLORS[ticket.devPhase] || DEV_PHASE_COLORS.PLANNING} text={(DEV_PHASE_COLORS[ticket.devPhase] || DEV_PHASE_COLORS.PLANNING) === 'warning' ? 'dark' : 'white'} style={{ cursor: isTicketClosed ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }} className="border-0 shadow-sm" disabled={isTicketClosed}>
+                                         {DEV_PHASE_LABELS[ticket.devPhase] || DEV_PHASE_LABELS.PLANNING}
+                                     </Dropdown.Toggle>
+                                     <Dropdown.Menu>
+                                         {Object.entries(DEV_PHASE_LABELS).map(([key, label]) => (
+                                             <Dropdown.Item key={key} onClick={() => handleDevPhaseChange({ target: { value: key } })} className="py-2 px-3 dropdown-item-premium">
+                                                 <Badge bg={DEV_PHASE_COLORS[key]} text={DEV_PHASE_COLORS[key] === 'warning' ? 'dark' : 'white'} className="me-2">{label}</Badge>
+                                                 {ticket.devPhase === key && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
+                                             </Dropdown.Item>
+                                         ))}
+                                     </Dropdown.Menu>
+                                 </Dropdown>
+                             </div>
+                             <div>
                                 <strong>Priorité :</strong>{' '}
                                 <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'}>{ticket.priority}</Badge>
                             </div>
@@ -655,17 +662,14 @@ export default function DeveloperTicketDetailPage() {
                                     {isPendingValidation ? 'Annuler l\'attente de validation' : 'Terminé, prêt pour validation'}
                                 </Button>
                             </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
-        </Container>
+                </div>
+            </div>
 
         <ImageModal 
             show={showImageModal} 
             onHide={() => setShowImageModal(false)} 
             imageUrl={currentImageUrl} 
         />
-        </>
+        </div>
     );
 }

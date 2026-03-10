@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { Container, Card, Table, Form, Button, Spinner, Alert, Badge, OverlayTrigger, Tooltip, Stack } from 'react-bootstrap';
+import { Table, Form, Button, Spinner, Alert, Badge, OverlayTrigger, Tooltip, Stack } from 'react-bootstrap';
 import { Shield, User, Code, Check, X, Clock, Copy, Building, Edit2, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CompanyDomainModal from '../../components/admin/CompanyDomainModal';
@@ -153,43 +153,45 @@ export default function AdminUsersPage() {
 
   if (loading) {
     return (
-      <Container className="d-flex justify-content-center mt-5">
-        <Spinner animation="border" />
-      </Container>
+      <div className="d-flex justify-content-center align-items-center h-100 w-100 bg-light">
+        <Spinner animation="border" variant="primary" />
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Container className="mt-4">
-        <Alert variant="danger">{error}</Alert>
-      </Container>
+      <div className="p-4 bg-light w-100 h-100">
+        <Alert variant="danger" className="shadow-sm border-0">{error}</Alert>
+      </div>
     );
   }
 
   return (
-    <Container className="mt-4">
+    <div className="d-flex flex-column h-100 w-100 bg-light">
       <style>{styles}</style>
-      <Card>
-        <Card.Header>
-          <div className="d-flex justify-content-between align-items-center">
-            <h4 className="mb-0">
-              <Shield size={24} className="me-2" />
-              Gestion des utilisateurs
-            </h4>
-            {pendingCount > 0 && (
-              <Badge bg="warning" text="dark">
-                {pendingCount} en attente
-              </Badge>
-            )}
-          </div>
-        </Card.Header>
-        <Card.Body>
-          <Alert variant="info">
-            <strong>Note:</strong> Approuvez les nouveaux comptes et modifiez les rôles des utilisateurs pour contrôler leurs accès à l'application.
+      
+      <div className="flex-shrink-0 border-bottom bg-white p-3 p-md-4 sticky-top z-2">
+        <div className="d-flex justify-content-between align-items-center">
+          <h4 className="mb-0 fw-bold d-flex align-items-center text-dark">
+            <Shield size={24} className="me-2 text-primary" />
+            Gestion des utilisateurs
+          </h4>
+          {pendingCount > 0 && (
+            <Badge bg="warning" text="dark" className="px-3 py-2 rounded-pill shadow-sm">
+              {pendingCount} en attente
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-grow-1 overflow-auto p-3 p-md-4">
+        <div className="bg-white rounded shadow-sm border p-4 mb-4">
+          <Alert variant="info" className="border-0 shadow-sm bg-info bg-opacity-10 text-info-emphasis mb-4">
+            <strong>Note :</strong> Approuvez les nouveaux comptes et modifiez les rôles des utilisateurs pour contrôler leurs accès à l'application.
           </Alert>
 
-          <div className="mb-3">
+          <div className="mb-4">
             <Form.Label htmlFor="statusFilter">Filtrer par statut :</Form.Label>
             <Form.Select id="statusFilter" name="statusFilter" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: '200px' }}>
               <option value="all">Tous les utilisateurs</option>
@@ -199,8 +201,9 @@ export default function AdminUsersPage() {
             </Form.Select>
           </div>
           
-          <Table striped bordered hover responsive>
-            <thead>
+          <div className="table-responsive">
+            <Table hover responsive className="align-middle border align-top">
+              <thead className="bg-light">
               <tr>
                 <th>Utilisateur</th>
                 <th>Société</th>
@@ -439,15 +442,16 @@ export default function AdminUsersPage() {
                 );
               })}
             </tbody>
-          </Table>
+            </Table>
+          </div>
 
           {filteredUsers.length === 0 && (
-            <Alert variant="info" className="text-center">
+            <Alert variant="info" className="text-center mt-3 border-0 shadow-sm">
               Aucun utilisateur trouvé pour ce filtre
             </Alert>
           )}
-        </Card.Body>
-      </Card>
+        </div>
+      </div>
 
       {/* Modale d'édition de la société */}
       <CompanyDomainModal
@@ -459,6 +463,6 @@ export default function AdminUsersPage() {
         user={selectedUserForCompany}
         onUpdate={handleCompanyUpdate}
       />
-    </Container>
+    </div>
   );
 }

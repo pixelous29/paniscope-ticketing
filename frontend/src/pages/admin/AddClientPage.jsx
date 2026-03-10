@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Card, Form, Button, Alert, Row, Col } from 'react-bootstrap';
+import { Form, Button, Alert, Row, Col } from 'react-bootstrap';
 import { UserPlus, Mail, Lock, User, Briefcase, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import toast from 'react-hot-toast';
@@ -76,18 +76,25 @@ export default function AddClientPage() {
   };
 
   return (
-    <Container className="py-4">
-      <Row className="justify-content-center">
-        <Col md={8} lg={6}>
-          <Card className="shadow-sm border-0">
-            <Card.Header className="bg-white border-bottom-0 pt-4 pb-0">
-              <h2 className="fs-4 mb-0 fw-bold d-flex align-items-center">
-                <UserPlus size={24} className="me-2 text-primary" />
-                Ajouter un client
-              </h2>
-            </Card.Header>
-            <Card.Body className="p-4">
-              {error && <Alert variant="danger">{error}</Alert>}
+    <div className="d-flex flex-column h-100 w-100 bg-light">
+      {/* Header */}
+      <div className="flex-shrink-0 border-bottom bg-white p-3 p-md-4 sticky-top z-2">
+        <div className="d-flex align-items-center gap-3">
+          <Button variant="light" className="rounded-circle p-2 d-flex align-items-center justify-content-center" onClick={() => navigate('/admin/users')} title="Retour">
+            <i className="bi bi-arrow-left fs-5 text-secondary"></i>
+          </Button>
+          <h4 className="fs-4 mb-0 fw-bold d-flex align-items-center text-dark">
+            <UserPlus size={24} className="me-2 text-primary" />
+            Ajouter un client
+          </h4>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-grow-1 overflow-auto p-3 p-md-4 d-flex justify-content-center">
+        <div className="w-100" style={{ maxWidth: '800px' }}>
+          <div className="bg-white rounded shadow-sm border p-4 p-md-5">
+            {error && <Alert variant="danger">{error}</Alert>}
               
               <Form onSubmit={handleSubmit} autoComplete="off">
                 <Row>
@@ -216,10 +223,9 @@ export default function AddClientPage() {
                   </Button>
                 </div>
               </Form>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -13,10 +13,10 @@ export const DEV_PHASE_LABELS = {
 };
 
 export const DEV_PHASE_COLORS = {
-  [DEV_PHASE.PLANNING]: "#6c757d", // secondary (gris)
-  [DEV_PHASE.DEVELOPMENT]: "#0d6efd", // primary (bleu)
-  [DEV_PHASE.TESTING]: "#ffc107", // warning (jaune)
-  [DEV_PHASE.READY_FOR_DEPLOY]: "#198754", // success (vert)
+  [DEV_PHASE.PLANNING]: "secondary",
+  [DEV_PHASE.DEVELOPMENT]: "primary",
+  [DEV_PHASE.TESTING]: "warning",
+  [DEV_PHASE.READY_FOR_DEPLOY]: "success",
 };
 
 export const DEV_PHASES_ORDER = [

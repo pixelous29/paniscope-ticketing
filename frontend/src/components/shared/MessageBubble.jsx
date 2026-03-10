@@ -260,7 +260,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
     };
 
     return (
-        <ListGroup.Item 
+        <div 
             id={id}
             ref={setRefs}
             onClick={() => setShowEmojis(!showEmojis)}
@@ -272,7 +272,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                 transition: 'background-color 1s ease-out',
                 cursor: 'pointer'
             }}
-            className={`d-flex flex-column border-0 px-3 py-3 mb-3 shadow-sm ${isNew ? 'bg-opacity-25' : ''}`} 
+            className={`d-flex flex-column px-3 py-3 shadow-sm list-group-item ${isNew ? 'bg-opacity-25' : ''}`} 
         >
             {isNew && (
                 <div className="position-absolute top-0 mt-2" style={{ right: showEmojis ? '45px' : '15px', transition: 'right 0.2s ease-in-out', zIndex: 1 }}>
@@ -448,6 +448,6 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                     })}
                 </div>
             )}
-        </ListGroup.Item>
+        </div>
     );
 }

@@ -14,7 +14,7 @@ export default function StatusBadge({ status, className = "" }) {
 
     return (
         <OverlayTrigger
-            placement="top"
+            placement="bottom"
             overlay={<Tooltip id={`tooltip-status-${status.replace(/\s+/g, '-')}`}>{desc}</Tooltip>}
         >
             <Badge bg={variant} pill className={className} style={{ cursor: 'help' }}>

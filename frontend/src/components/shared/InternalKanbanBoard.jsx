@@ -241,7 +241,7 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false }) {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="d-flex gap-3 h-100 align-items-stretch" style={{ height: '100%', minWidth: 'min-content' }}>
+        <div className="d-flex gap-3 h-100 align-items-stretch justify-content-center" style={{ height: '100%', minWidth: 'min-content', paddingBottom: '1rem' }}>
           {DEV_PHASES_ORDER.map((phaseId) => (
               <KanbanColumn
                 key={phaseId}

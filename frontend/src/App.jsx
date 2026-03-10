@@ -11,6 +11,7 @@ import ManagerDashboardPage from './pages/manager/ManagerDashboardPage';
 import ManagerTicketDetailPage from './pages/manager/ManagerTicketDetailPage';
 import DeveloperDashboardPage from './pages/developer/DeveloperDashboardPage';
 import DeveloperTicketDetailPage from './pages/developer/DeveloperTicketDetailPage';
+import KanbanPage from './pages/shared/KanbanPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AddClientPage from './pages/admin/AddClientPage';
 import MyAccountPage from './pages/shared/MyAccountPage';
@@ -147,6 +148,16 @@ export default function App() {
               element={
                 <RoleBasedRoute allowedRoles={['developer', 'manager']}>
                   <DeveloperDashboardPage />
+                </RoleBasedRoute>
+              } 
+            />
+            
+            {/* Routes Kanban */}
+            <Route 
+              path="/kanban" 
+              element={
+                <RoleBasedRoute allowedRoles={['manager', 'developer']}>
+                  <KanbanPage />
                 </RoleBasedRoute>
               } 
             />

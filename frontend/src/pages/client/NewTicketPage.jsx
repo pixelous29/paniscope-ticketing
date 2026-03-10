@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { collection, addDoc, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
 import { STATUS } from '../../constants/status';
-import { Container, Card, Form, Button, FloatingLabel, Spinner, Alert } from 'react-bootstrap';
+import { Form, Button, FloatingLabel, Spinner, Alert } from 'react-bootstrap';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
 
 export default function NewTicketPage() {
@@ -135,12 +135,24 @@ export default function NewTicketPage() {
   };
 
   return (
-    <Container className="mt-4 pb-5">
-      <Card className="shadow-sm">
-        <Card.Header className="bg-white py-3">
-          <h4 className="mb-0 fw-bold">Envoyer une demande d'assistance</h4>
-        </Card.Header>
-        <Card.Body className="p-4">
+    <div className="d-flex flex-column h-100 w-100 bg-light">
+      <div className="flex-shrink-0 border-bottom bg-white d-flex align-items-center p-3 p-md-4 sticky-top z-2">
+          <div className="d-flex align-items-center gap-3">
+              <Link to="/" className="text-secondary hover-primary text-decoration-none d-flex align-items-center justify-content-center bg-light rounded-circle p-2" title="Retour aux tickets">
+                  <i className="bi bi-arrow-left fs-5"></i>
+              </Link>
+              <div>
+                  <h4 className="mb-0 fw-bold text-dark">Nouvelle demande d'assistance</h4>
+                  <div className="text-muted" style={{ fontSize: '0.85rem' }}>
+                      Veuillez détailler votre problème ci-dessous
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <div className="flex-grow-1 overflow-auto p-3 p-md-4 d-flex justify-content-center">
+        <div className="w-100" style={{ maxWidth: '800px' }}>
+          <div className="bg-white rounded shadow-sm border p-4 p-md-5">
           {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
           
           <Form onSubmit={handleSubmit}>
@@ -187,8 +199,9 @@ export default function NewTicketPage() {
               </Button>
             </div>
           </Form>
-        </Card.Body>
-      </Card>
-    </Container>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
