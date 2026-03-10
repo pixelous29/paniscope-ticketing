@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { LogOut, User, Shield, Code, UserPlus, Menu, LayoutDashboard } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Capacitor } from '@capacitor/core';
 
 export default function AppNavbar() {
   const { currentUser, userRole, logout } = useAuth();
@@ -44,8 +45,11 @@ export default function AppNavbar() {
   const handleShow = () => setShowSidebar(true);
 
   // Contenu réutilisé entre la sidebar fixe (desktop) et offcanvas (mobile)
+  const isAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  const sidebarPadding = isAndroid ? 'calc(1.5rem + max(env(safe-area-inset-top), 55px))' : 'calc(1rem + env(safe-area-inset-top))';
+  
   const SidebarContent = () => (
-    <div className="d-flex flex-column h-100 bg-dark text-white p-3 sidebar-container" style={{ width: '280px' }}>
+    <div className="d-flex flex-column h-100 bg-dark text-white px-3 pb-3 sidebar-container" style={{ width: '280px', paddingTop: sidebarPadding }}>
       <NavLink to="/" className="d-flex flex-column align-items-center w-100 mb-4 mt-2 text-white text-decoration-none px-2 text-center" onClick={handleClose}>
         <img
           src="/paniscope_sans_slogan.png"
@@ -159,21 +163,24 @@ export default function AppNavbar() {
     </div>
   );
 
+  const mobileHeight = isAndroid ? 'calc(60px + max(env(safe-area-inset-top), 45px))' : 'calc(60px + env(safe-area-inset-top))';
+  const mobilePadding = isAndroid ? 'calc(0.5rem + max(env(safe-area-inset-top), 45px))' : 'calc(0.5rem + env(safe-area-inset-top))';
+
   return (
     <>
       {/* ----------- MOBILE TOP BAR ----------- */}
-      <div className="d-lg-none bg-dark p-2 d-flex justify-content-between align-items-center w-100 position-fixed top-0 z-3" style={{ height: '60px' }}>
-        <div className="d-flex align-items-center text-white px-2">
+      <div className="d-lg-none bg-dark p-2 d-flex justify-content-between align-items-center w-100 position-fixed top-0 z-3" style={{ height: mobileHeight, paddingTop: mobilePadding }}>
+        <div className="d-flex align-items-center text-white px-2 mt-auto mb-auto">
           <img src="/logo36x36.png" alt="Logo" className="me-2" style={{ width: '28px' }} />
           <span className="fw-semibold fs-5">Support</span>
         </div>
-        <Button variant="link" onClick={handleShow} className="text-white p-0 px-2 me-1">
+        <Button variant="link" onClick={handleShow} className="text-white p-0 px-2 me-1 mt-auto mb-auto">
           <Menu size={28} />
         </Button>
       </div>
       
       {/* Espace vide pour descendre le contenu sous la topbar mobile */}
-      <div className="d-lg-none w-100 flex-shrink-0" style={{ height: '60px' }}></div>
+      <div className="d-lg-none w-100 flex-shrink-0" style={{ height: mobileHeight }}></div>
 
       {/* ----------- DESKTOP SIDEBAR ----------- */}
       <div className="d-none d-lg-block h-100 flex-shrink-0" style={{ width: '280px' }}>

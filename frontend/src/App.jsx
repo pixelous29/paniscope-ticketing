@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 
 import MainLayout from './layouts/MainLayout';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 import ClientDashboardPage from './pages/client/ClientDashboardPage';
 import ClientTicketDetailPage from './pages/client/ClientTicketDetailPage';
 import NewTicketPage from './pages/client/NewTicketPage';
@@ -38,6 +40,21 @@ export default function App() {
       updateServiceWorker(true);
     }
   }, [needRefresh, updateServiceWorker]);
+
+  useEffect(() => {
+    const setupAndroid = async () => {
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+        try {
+          await StatusBar.setOverlaysWebView({ overlay: false });
+          await StatusBar.setStyle({ style: Style.Dark });
+          await StatusBar.setBackgroundColor({ color: '#212529' });
+        } catch (error) {
+          console.warn('StatusBar not available', error);
+        }
+      }
+    };
+    setupAndroid();
+  }, []);
 
   return (
     <AuthProvider>

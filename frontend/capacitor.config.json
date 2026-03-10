@@ -1,0 +1,12 @@
+{
+  "appId": "com.paniscope.app",
+  "appName": "Paniscope",
+  "webDir": "dist",
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#212529"
+    }
+  }
+}
