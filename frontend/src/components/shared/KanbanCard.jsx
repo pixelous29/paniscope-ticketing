@@ -57,7 +57,7 @@ export default function KanbanCard({ ticket, onClick }) {
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card 
-        className="shadow-sm border-0 h-100 position-relative" 
+        className="shadow-sm border-0 h-100 position-relative user-select-none" 
         style={{ minHeight: '90px', cursor: 'pointer', backgroundColor: cardBg, borderRadius: '8px' }}
         onClick={(e) => {
             e.stopPropagation();

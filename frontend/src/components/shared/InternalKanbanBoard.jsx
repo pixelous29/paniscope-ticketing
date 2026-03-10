@@ -240,7 +240,7 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false }) {
   if (error) return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
 
   return (
-    <div className="w-100 overflow-auto pb-3" style={{ minHeight: 'calc(100vh - 250px)' }}>
+    <div className="w-100 overflow-auto pb-3 user-select-none" style={{ minHeight: 'calc(100vh - 250px)' }}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
