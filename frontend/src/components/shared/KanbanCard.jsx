@@ -48,6 +48,7 @@ export default function KanbanCard({ ticket, onClick }) {
     opacity: isDragging ? 0.4 : 1,
     cursor: 'grab',
     marginBottom: '10px',
+    touchAction: 'none'
   };
 
   const isNewTicket = ticket.status === STATUS.NEW;

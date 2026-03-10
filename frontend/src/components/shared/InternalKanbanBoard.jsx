@@ -6,6 +6,7 @@ import {
   closestCorners, 
   KeyboardSensor, 
   PointerSensor, 
+  TouchSensor,
   useSensor, 
   useSensors,
   defaultDropAnimationSideEffects
@@ -42,6 +43,12 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false }) {
         activationConstraint: {
             distance: 5,
         },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
