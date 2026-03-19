@@ -116,11 +116,14 @@ export function AuthProvider({ children }) {
             const userData = userDoc.data();
             // Enrichir l'objet user avec les données Firestore
             const enrichedUser = {
+              uid: user.uid,
+              email: user.email,
               ...user,
               displayName: userData.displayName || user.displayName,
               photoURL: userData.photoBase64 || userData.photoURL || user.photoURL,
               photoBase64: userData.photoBase64 || null,
               company: userData.company || '',
+              companyDomain: userData.companyDomain || null,
               firstName: userData.firstName || '',
               lastName: userData.lastName || '',
               lastConnection: userData.lastConnection || null

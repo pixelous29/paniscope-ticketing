@@ -33,7 +33,7 @@ export default function ClientDashboardPage() {
       // Sinon, il ne voit que ses propres tickets
       ticketsCollectionQuery = query(
         collection(db, "tickets"),
-        where("clientUid", "==", currentUser.uid)
+        where("clientUid", "==", currentUser.uid || "")
       );
     }
 
