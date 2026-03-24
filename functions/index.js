@@ -6,105 +6,114 @@ admin.initializeApp();
 const db = admin.firestore();
 const storage = admin.storage();
 
-// Configuration Zapier chargée depuis .env
-const ZAPIER_WEBHOOK_URL = process.env.ZAPIER_WEBHOOK_URL;
+const nodemailer = require("nodemailer");
+
+const smtpTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "ssl0.ovh.net",
+  port: parseInt(process.env.SMTP_PORT || "465"),
+  secure: true, // SSL
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 /**
- * 1. NOTIFICATION ZAPIER
+ * 1. NOTIFICATION MANAGERS
  * Se déclenche dès qu'un nouveau ticket est créé dans Firestore
  */
-exports.notifyZapierOnNewTicket = functions.firestore
+exports.notifyManagersOnNewTicket = functions.firestore
   .document("tickets/{ticketId}")
   .onCreate(async (snap, context) => {
-    const ticket = snap.data();
     const ticketId = context.params.ticketId;
+    
+    // Parapluie de robustesse: Si le navigateur du client a gardé en cache (SW/PWA)
+    // l'ancien comportement qui créait le ticket sans la conversation puis faisait un updateDoc...
+    // On attend 1.5 seconde et on va lire l'état ultime en base de données !
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const ticketRef = admin.firestore().collection('tickets').doc(ticketId);
+    const freshTicketSnap = await ticketRef.get();
+    const ticket = freshTicketSnap.exists ? freshTicketSnap.data() : snap.data();
 
-    console.log(
-      `Nouveau ticket détecté : ${ticketId} - Préparation Webhook Zapier...`,
-    );
+    console.log(`Nouveau ticket détecté : ${ticketId} - Préparation Email pour Managers...`);
 
-    try {
-      if (!ZAPIER_WEBHOOK_URL) {
-        console.warn(
-          "L'URL Zapier (ZAPIER_WEBHOOK_URL) est manquante dans .env",
-        );
-        return;
-      }
+    let clientName = ticket.clientName || ticket.client || ticket.clientEmail || "Client inconnu";
+    let companyName = ticket.companyDomain || "";
 
-      // Vérifier si un manager a désactivé les notifications Zapier/Wimi
+    if (ticket.clientUid) {
       try {
-        const managersSnapshot = await db
-          .collection("users")
-          .where("role", "==", "manager")
-          .get();
+        const userDoc = await db.collection("users").doc(ticket.clientUid).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          
+          let userRealName = (userData.firstName || userData.lastName) 
+            ? `${userData.firstName || ""} ${userData.lastName || ""}`.trim() 
+            : userData.displayName;
 
-        let wimiEnabledByManagers = true;
-        managersSnapshot.forEach((doc) => {
-          if (doc.data().wimiNotificationsEnabled === false) {
-            wimiEnabledByManagers = false;
+          companyName = userData.company || companyName;
+
+          if (userRealName) {
+            clientName = companyName ? `${userRealName} (${companyName})` : userRealName;
+          } else if (companyName) {
+            // Prevent repeating the company name if it's already the default name
+            clientName = (clientName === companyName) ? companyName : `${clientName} (${companyName})`;
           }
-        });
-
-        if (!wimiEnabledByManagers) {
-          console.log(
-            "Notification Zapier annulée : désactivée dans les paramètres d'un compte manager.",
-          );
-          return;
         }
       } catch (err) {
-        console.error(
-          "Erreur lors de la vérification des paramètres managers:",
-          err,
-        );
+        console.error("Erreur lors de la récupération de la société de l'utilisateur:", err);
       }
+    }
 
-      let clientName = ticket.clientName || ticket.client || ticket.clientUid;
-      let companyName = "";
-
-      if (ticket.clientUid) {
-        try {
-          const userDoc = await db
-            .collection("users")
-            .doc(ticket.clientUid)
-            .get();
-          if (userDoc.exists) {
-            const userData = userDoc.data();
-            if (userData.company) {
-              companyName = userData.company;
-              clientName = `${clientName} de chez ${companyName}`;
-            }
-          }
-        } catch (err) {
-          console.error(
-            "Erreur lors de la récupération de la société de l'utilisateur:",
-            err,
-          );
-        }
+    const ticketUrl = `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`;
+    
+    let initialMessage = "Aucun contenu.";
+    console.log(`[DEBUG_TICKET] conversation: ${JSON.stringify(ticket.conversation)}`);
+    if (ticket.conversation && ticket.conversation.length > 0) {
+      if (ticket.conversation[0].text && ticket.conversation[0].text.trim() !== "") {
+        initialMessage = ticket.conversation[0].text;
+      } else if (ticket.conversation[0].attachmentUrls && ticket.conversation[0].attachmentUrls.length > 0) {
+        initialMessage = "Message envoyé sans texte (uniquement avec des pièces jointes).";
       }
+    }
 
-      // Préparation du "paquet cadeau" (Payload Json) pour Zapier
-      const payload = {
-        ticket_id: ticketId,
-        subject: ticket.subject,
-        client_name: clientName,
-        company_name: companyName,
-        priority: ticket.priority || "Normale",
-        ticket_url: `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`,
-        created_at: new Date().toISOString(),
-      };
+    const hasAttachments = (ticket.conversation && ticket.conversation.length > 0 && ticket.conversation[0].attachmentUrls && ticket.conversation[0].attachmentUrls.length > 0) || (ticket.attachmentUrls && ticket.attachmentUrls.length > 0);
+    const attachmentNote = hasAttachments ? `<br><p>📎 <em>Ce ticket contient des pièces jointes (visibles depuis l'application).</em></p>` : "";
 
-      // Envoi du paquet cadeau à l'URL Zapier
-      const response = await axios.post(ZAPIER_WEBHOOK_URL, payload);
-      console.log(
-        "✅ Webhook envoyé à Zapier avec succès ! (Status:",
-        response.status,
-        ")",
-      );
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "support@paniscope.fr";
+    const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+
+
+
+    try {
+      await smtpTransporter.sendMail({
+        from: `"Support Paniscope" <${fromEmail}>`, 
+        to: adminEmail,
+        subject: `[Ticket #${ticketId}] Nouveau ticket de ${clientName} : ${ticket.subject}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; color: #333;">
+            <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
+              <h2 style="margin: 0;">Nouveau ticket de support</h2>
+            </div>
+            <div style="background: #ffffff; padding: 20px; border: 1px solid #ddd; border-top: none;">
+              <p>Bonjour,</p>
+              <p><strong>${clientName}</strong> a ouvert un nouveau ticket d'assistance.</p>
+              <br>
+              <p><strong>Sujet :</strong> ${ticket.subject}</p>
+              <p><strong>Priorité :</strong> ${ticket.priority || "Normale"}</p>
+              <br>
+              <p><strong>Message original :</strong></p>
+              <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #D9AC5F; white-space: pre-wrap;">${initialMessage}</div>
+              ${attachmentNote}
+              <br>
+              <p><a href="${ticketUrl}" style="background-color: #0B1B2B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Répondre depuis l'application</a></p>
+              <p style="font-size: 13px; color: #555; margin-top: 15px;">Vous pouvez également répondre directement à cet email pour converser avec le client. La réponse sera automatiquement ajoutée dans l'application et transmise au client !</p>
+            </div>
+          </div>
+        `
+      });
+      console.log(`✅ Email de notification envoyé aux managers (${adminEmail}) pour le ticket ${ticketId}`);
     } catch (error) {
-      console.error(
-        "❌ Erreur lors de l'envoi du Webhook à Zapier :",
-        error.message,
-      );
+      console.error(`❌ Erreur lors de l'envoi de l'email aux managers :`, error.message);
     }
   });
 
@@ -186,6 +195,12 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       const from = emailMatch
         ? emailMatch[0].toLowerCase().trim()
         : fromHeader.toLowerCase().trim();
+
+      const systemEmailLower = (process.env.SMTP_FROM || "support@paniscope.fr").toLowerCase();
+      if (from === systemEmailLower) {
+         console.log(`Boucle évitée: L'email provient du système (${from}). On l'ignore.`);
+         return res.status(200).send("Email système ignoré (évitement de boucle).");
+      }
 
       console.log(
         `Mail reçu brut: ${fromHeader} -> Email extrait: ${from} - Sujet: ${subject}`,
@@ -296,13 +311,17 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
         }
       }
 
+      let userRole = userData && userData.role ? userData.role : "client";
+      let isManager = (userRole === "manager" || userRole === "admin" || userRole === "dev");
+      let messageAuthor = isManager ? "Support" : "Client";
+
       const initialMessage = {
-        author: "Client",
+        author: messageAuthor,
         uid: userId,
         text: plain,
         timestamp: new Date(),
-        displayName: userData.displayName || from,
-        photoURL: userData.photoURL || null,
+        displayName: (userData && userData.displayName && userData.company) ? `${userData.displayName} (${userData.company})` : (userData ? (userData.displayName || userData.company || from) : from),
+        photoURL: (userData && userData.photoURL) || null,
       };
 
       if (attachmentUrls.length > 0) {
@@ -358,7 +377,8 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
             : [];
           if (
             from !== ticketData.clientEmail &&
-            !updatedCcEmails.includes(from)
+            !updatedCcEmails.includes(from) &&
+            from !== systemEmailLower
           ) {
             updatedCcEmails.push(from);
           }
@@ -401,8 +421,8 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
         subject: subject,
         clientUid: userId,
         clientEmail: from, // L'email de la personne qui a écrit
-        client: userData.company || userData.displayName || from,
-        companyDomain: userData.companyDomain || null, // On ajoute le companyDomain pour le partage
+        client: (userData && userData.displayName && userData.company) ? `${userData.displayName} (${userData.company})` : (userData ? (userData.company || userData.displayName) : from),
+        companyDomain: userData ? userData.companyDomain : null, // On ajoute le companyDomain pour le partage
         status: "Nouveau",
         priority: "Normale",
         submittedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -415,7 +435,7 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       // On ajoute EXCLUSIVEMENT l'expéditeur en CC.
       // S'il s'agit d'un membre non-inscrit, cela garantit qu'il recevra les réponses.
       // Le titulaire du compte (userData.email) n'est PAS mis en copie automatiquement.
-      if (from) {
+      if (from && from !== systemEmailLower) {
         newTicket.ccEmails.push(from);
       }
 
@@ -455,18 +475,6 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
  * Se déclenche quand un nouveau document utilisateur est créé dans Firestore
  * Envoie un email de notification à l'admin pour gérer la demande
  */
-const nodemailer = require("nodemailer");
-
-const smtpTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "ssl0.ovh.net",
-  port: parseInt(process.env.SMTP_PORT || "465"),
-  secure: true, // SSL
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
 exports.notifyAdminOnNewUser = functions.firestore
   .document("users/{userId}")
   .onCreate(async (snap, context) => {
@@ -834,9 +842,9 @@ ${messageText}
           };
 
           if (afterData.ccEmails && afterData.ccEmails.length > 0) {
-            // Nettoyage : retirer l'adresse TO de la liste des CC pour éviter les doublons
+            // Nettoyage : retirer l'adresse TO et l'adresse FROM de la liste des CC pour éviter les doublons et les boucles
             const cleanCc = afterData.ccEmails.filter(
-              (email) => email !== clientEmail,
+              (email) => email !== clientEmail && email !== fromEmail,
             );
             if (cleanCc.length > 0) {
               mailOptions.cc = cleanCc.join(",");

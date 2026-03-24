@@ -76,8 +76,15 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
                 : (ticket.lastUpdate || "Modifié récemment")}
             </span>
             {role !== "client" && ticket.assignedTo && (
-              <span>
-                <i className="bi bi-person-badge me-1"></i> {ticket.assignedTo}
+              <span className="d-inline-flex flex-wrap gap-1 align-items-center">
+                <i className="bi bi-person-badge me-1"></i>
+                {Array.isArray(ticket.assignedTo) && ticket.assignedTo.length > 0 ? (
+                  ticket.assignedTo.map(assignee => (
+                    <Badge key={assignee} pill bg="primary" text="white" className="fw-normal">{assignee}</Badge>
+                  ))
+                ) : typeof ticket.assignedTo === 'string' && ticket.assignedTo.trim() !== '' ? (
+                  <Badge pill bg="primary" text="white" className="fw-normal">{ticket.assignedTo}</Badge>
+                ) : null}
               </span>
             )}
           </div>

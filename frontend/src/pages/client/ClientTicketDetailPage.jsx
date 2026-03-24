@@ -190,7 +190,7 @@ export default function ClientTicketDetailPage() {
                 text: trimmedReply,
                 timestamp: new Date(),
                 uid: currentUser.uid,
-                displayName: currentUser.displayName,
+                displayName: (currentUser.displayName && currentUser.company) ? `${currentUser.displayName} (${currentUser.company})` : (currentUser.displayName || 'Client'),
                 attachmentUrls: uploadedUrls.length > 0 ? uploadedUrls : []
             };
 
@@ -243,7 +243,7 @@ export default function ClientTicketDetailPage() {
                 text: "✅ **Validation client :** J'ai validé les travaux. Tout est conforme, le ticket peut être clôturé par l'équipe.",
                 timestamp: new Date(),
                 uid: currentUser.uid,
-                displayName: currentUser.displayName,
+                displayName: (currentUser.displayName && currentUser.company) ? `${currentUser.displayName} (${currentUser.company})` : (currentUser.displayName || 'Client'),
             };
             const docRef = doc(db, "tickets", ticketId);
             await updateDoc(docRef, {

@@ -55,6 +55,7 @@ service cloud.firestore {
       // Lecture : clients voient leurs tickets, staff voit tout
       allow read: if isSignedIn() && (
         (request.auth.uid == resource.data.clientUid) ||
+        (getUserData().companyDomain != null && getUserData().companyDomain == resource.data.companyDomain) ||
         isManager() ||
         isDeveloper()
       );
@@ -67,6 +68,7 @@ service cloud.firestore {
       // Mise à jour :
       allow update: if isSignedIn() && (
         (request.auth.uid == resource.data.clientUid) ||
+        (getUserData().companyDomain != null && getUserData().companyDomain == resource.data.companyDomain) ||
         isManager() ||
         isDeveloper()
       );

@@ -236,7 +236,19 @@ export default function ManagerDashboardPage() {
                             <><br/><small className="text-muted"><i className="bi bi-building me-1"></i>{ticket.companyDomain}</small></>
                           )}
                         </td>
-                        <td className="px-4 py-3 align-middle">{ticket.assignedTo || <span className="text-muted fst-italic">Non assigné</span>}</td>
+                        <td className="px-4 py-3 align-middle">
+                          {Array.isArray(ticket.assignedTo) && ticket.assignedTo.length > 0 ? (
+                            <div className="d-flex flex-wrap gap-1">
+                              {ticket.assignedTo.map(assignee => (
+                                <Badge key={assignee} pill bg="primary" text="white" className="fw-normal">{assignee}</Badge>
+                              ))}
+                            </div>
+                          ) : typeof ticket.assignedTo === 'string' && ticket.assignedTo.trim() !== '' ? (
+                            <Badge pill bg="primary" text="white" className="fw-normal">{ticket.assignedTo}</Badge>
+                          ) : (
+                            <span className="text-muted fst-italic">Non assigné</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 align-middle">
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
@@ -314,7 +326,19 @@ export default function ManagerDashboardPage() {
                             <><br/><small className="text-muted"><i className="bi bi-building me-1"></i>{ticket.companyDomain}</small></>
                           )}
                         </td>
-                        <td className="px-4 py-3 align-middle">{ticket.assignedTo || <span className="text-muted fst-italic">Non assigné</span>}</td>
+                        <td className="px-4 py-3 align-middle">
+                          {Array.isArray(ticket.assignedTo) && ticket.assignedTo.length > 0 ? (
+                            <div className="d-flex flex-wrap gap-1">
+                              {ticket.assignedTo.map(assignee => (
+                                <Badge key={assignee} pill bg="primary" text="white" className="fw-normal">{assignee}</Badge>
+                              ))}
+                            </div>
+                          ) : typeof ticket.assignedTo === 'string' && ticket.assignedTo.trim() !== '' ? (
+                            <Badge pill bg="primary" text="white" className="fw-normal">{ticket.assignedTo}</Badge>
+                          ) : (
+                            <span className="text-muted fst-italic">Non assigné</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 align-middle">
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>

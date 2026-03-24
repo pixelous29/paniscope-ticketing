@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { doc, setDoc, runTransaction, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
 import { STATUS } from '../../constants/status';
@@ -90,7 +90,7 @@ export default function NewTicketPage() {
         subject: formData.subject,
         clientUid: currentUser.uid,
         clientEmail: currentUser.email,
-        clientName: currentUser.company || currentUser.displayName || currentUser.email,
+        clientName: (currentUser.displayName && currentUser.company) ? `${currentUser.displayName} (${currentUser.company})` : (currentUser.company || currentUser.displayName || currentUser.email),
         companyDomain: currentUser.companyDomain || null,
         status: STATUS.NEW,
         priority: 'Normale',
@@ -117,14 +117,11 @@ export default function NewTicketPage() {
         return String(nextNum).padStart(7, '0');
       });
 
-      const docRef = doc(db, "tickets", nextIdStr);
-      await setDoc(docRef, ticketData);
-
       // 3. Message initial dans la conversation
       const initialMessage = {
         author: 'Client',
         uid: currentUser.uid,
-        displayName: currentUser.displayName || formData.clientName || 'Client',
+        displayName: (currentUser.displayName && currentUser.company) ? `${currentUser.displayName} (${currentUser.company})` : (currentUser.displayName || 'Client'),
         photoURL: currentUser.photoURL || null,
         text: formData.description,
         timestamp: new Date() 
@@ -134,9 +131,10 @@ export default function NewTicketPage() {
         initialMessage.attachmentUrls = attachmentUrls;
       }
 
-      await updateDoc(docRef, {
-        conversation: arrayUnion(initialMessage)
-      });
+      ticketData.conversation = [initialMessage];
+
+      const docRef = doc(db, "tickets", nextIdStr);
+      await setDoc(docRef, ticketData);
       
       navigate('/'); 
 

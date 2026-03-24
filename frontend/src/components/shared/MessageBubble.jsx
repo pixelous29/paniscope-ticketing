@@ -93,10 +93,18 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                             fullName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
                         }
                         
+                        let userRealName = fullName || data.displayName || msg.displayName || msg.author;
+                        let finalName = userRealName;
+                        if (data.role === 'client' && data.company) {
+                            if (userRealName && userRealName !== data.company) {
+                                finalName = `${userRealName} (${data.company})`;
+                            } else {
+                                finalName = data.company;
+                            }
+                        }
+
                         const profile = {
-                            displayName: (data.role === 'client' && data.company) 
-                                ? data.company 
-                                : (fullName || data.displayName || msg.displayName || msg.author),
+                            displayName: finalName,
                             photoBase64: data.photoBase64 || null,
                             photoURL: data.photoBase64 || data.photoURL || msg.photoURL || null,
                             timestamp: now
