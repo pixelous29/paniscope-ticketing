@@ -1014,8 +1014,7 @@ exports.notifyTeamOnInternalMention = functions.firestore
                 let routePrefix = "manager";
                 if (targetUser.role === "developer") routePrefix = "dev";
                 
-                const ticketUrl = `https://paniscope-ticketing.web.app/${routePrefix}/ticket/${ticketId}`; // La route amène au ticket. Pour l'onglet on pourrait passer tab=internal mais vu l'URL de paniscope, /ticket/0000X charge la page du role
-                
+                const ticketUrl = `https://paniscope-ticketing.web.app/${routePrefix}/ticket/${ticketId}?tab=internal`;
                 const emailHtml = `
                   <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
                     <p>Bonjour ${targetUser.name},</p>

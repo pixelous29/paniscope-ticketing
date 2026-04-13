@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
@@ -20,6 +20,7 @@ const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': '
 
 export default function ManagerTicketDetailPage() {
     const { ticketId } = useParams();
+    const location = useLocation();
     const { currentUser } = useAuth();
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -28,7 +29,12 @@ export default function ManagerTicketDetailPage() {
     const [internalNoteText, setInternalNoteText] = useState('');
     const [replyingTo, setReplyingTo] = useState(null);
     const [noteReplyingTo, setNoteReplyingTo] = useState(null);
-    const [activeTab, setActiveTab] = useState('client');
+    
+    // Auto-select tab based on URL query parameter
+    const queryParams = new URLSearchParams(location.search);
+    const initialTab = queryParams.get('tab') === 'internal' ? 'internal' : 'client';
+    const [activeTab, setActiveTab] = useState(initialTab);
+    
     const [developers, setDevelopers] = useState([]);
     const { showAlert, showConfirmation, showPrompt } = useModal();
 

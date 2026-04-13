@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
@@ -20,6 +20,7 @@ const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': '
 
 export default function DeveloperTicketDetailPage() {
     const { ticketId } = useParams();
+    const location = useLocation();
     const { currentUser } = useAuth();
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -46,7 +47,11 @@ export default function DeveloperTicketDetailPage() {
     // États pour la modale d'image
     const [showImageModal, setShowImageModal] = useState(false);
     const [currentImageUrl, setCurrentImageUrl] = useState('');
-    const [activeTab, setActiveTab] = useState('client');
+    
+    // Auto-select tab based on URL query parameter
+    const queryParams = new URLSearchParams(location.search);
+    const initialTab = queryParams.get('tab') === 'internal' ? 'internal' : 'client';
+    const [activeTab, setActiveTab] = useState(initialTab);
 
     const [localLastRead, setLocalLastRead] = useState(null);
     const maxSeenRef = React.useRef(0);
