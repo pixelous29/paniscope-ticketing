@@ -2,8 +2,8 @@ import React, { useState, useRef } from 'react';
 import { Form, ListGroup } from 'react-bootstrap';
 import { useMentionableUsers } from '../../hooks/useMentionableUsers';
 
-const MentionTextarea = ({ value, onChange, ticket, ...props }) => {
-    const users = useMentionableUsers(ticket);
+const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, ...props }) => {
+    const users = useMentionableUsers(ticket, excludeClients);
     const [mentionState, setMentionState] = useState(null);
     const textareaRef = useRef(null);
 

@@ -581,6 +581,7 @@ export default function DeveloperTicketDetailPage() {
                                                         onChange={(e) => setInternalNoteText(e.target.value)}
                                                         className="border-secondary"
                                                         ticket={ticket}
+                                                        excludeClients={true}
                                                     />
                                                 </Form.Group>
 

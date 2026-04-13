@@ -6,7 +6,7 @@ import { useAuth } from "./useAuth";
 // Cache partagé pour éviter les requêtes Firestore répétées
 const profileCache = {};
 
-export const useMentionableUsers = (ticket) => {
+export const useMentionableUsers = (ticket, excludeClients = false) => {
   const { currentUser } = useAuth();
   const [users, setUsers] = useState([]);
 
@@ -108,11 +108,32 @@ export const useMentionableUsers = (ticket) => {
         }
       }
 
-      setUsers(participants);
+      // 3. Ajouter les personnes assignées au ticket
+      if (Array.isArray(ticket.assignedTo)) {
+        ticket.assignedTo.forEach((assignedName) => {
+          const exists = participants.some((p) => p.name === assignedName);
+          if (!exists && assignedName !== currentUser?.displayName) {
+            participants.push({
+              id: `assigned-${assignedName}`,
+              name: assignedName,
+              role: "Développeur",
+            });
+          }
+        });
+      }
+
+      let finalParticipants = participants;
+      if (excludeClients) {
+        finalParticipants = participants.filter(
+          (p) => p.role.toLowerCase() !== "client"
+        );
+      }
+
+      setUsers(finalParticipants);
     };
 
     fetchParticipants();
-  }, [ticket, currentUser]);
+  }, [ticket, currentUser, excludeClients]);
 
   return users;
 };
