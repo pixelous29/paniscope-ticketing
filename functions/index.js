@@ -946,3 +946,108 @@ ${messageText}
       }
     }
   });
+
+/**
+ * 6. NOTIFICATION EMAIL - MENTION DANS NOTE INTERNE (Outbound)
+ * Se déclenche quand une note interne est ajoutée
+ * et notifie les membres de l'équipe taggués avec @[Nom].
+ */
+exports.notifyTeamOnInternalMention = functions.firestore
+  .document("tickets/{ticketId}")
+  .onUpdate(async (change, context) => {
+    const ticketId = context.params.ticketId;
+    const beforeData = change.before.data();
+    const afterData = change.after.data();
+
+    const beforeNotes = beforeData.internalNotes || [];
+    const afterNotes = afterData.internalNotes || [];
+
+    // Si une nouvelle note interne a été ajoutée
+    if (afterNotes.length > beforeNotes.length) {
+      const newNote = afterNotes[afterNotes.length - 1];
+      const messageText = newNote.text || "";
+
+      // Extraction de toutes les mentions de type @[Nom]
+      const mentionRegex = /@\[([^\]]+)\]/g;
+      const mentionedNames = [];
+      let match;
+      while ((match = mentionRegex.exec(messageText)) !== null) {
+        mentionedNames.push(match[1].trim()); // match[1] contient le nom sans les crochets et le @
+      }
+
+      if (mentionedNames.length > 0) {
+        console.log(`Mentions trouvées dans la note du ticket ${ticketId} :`, mentionedNames.join(", "));
+        
+        try {
+            // Récupérer les membres de l'équipe
+            const usersSnapshot = await db.collection("users").where("role", "in", ["manager", "admin", "developer"]).get();
+            const teamMembers = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const emailsToSend = [];
+            
+            for (const name of mentionedNames) {
+              const queryLower = name.toLowerCase();
+              
+              // Trouver le(s) membre(s) correspondant au nom taggué
+              const matchedUsers = teamMembers.filter(user => {
+                 const generatedName = (user.displayName || user.firstName || (user.email ? user.email.split("@")[0] : "Utilisateur")).toLowerCase();
+                 return generatedName === queryLower || generatedName.startsWith(queryLower) || generatedName.includes(queryLower);
+              });
+              
+              matchedUsers.forEach(user => {
+                 if (user.email && !emailsToSend.some(e => e.email === user.email)) {
+                    emailsToSend.push({
+                       email: user.email,
+                       role: user.role,
+                       name: user.displayName || user.firstName || "Membre de l'équipe"
+                    });
+                 }
+              });
+            }
+
+            if (emailsToSend.length > 0) {
+              const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+              const ticketSubject = afterData.subject || "Sans objet";
+
+              for (const targetUser of emailsToSend) {
+                // Construction du lien selon le rôle
+                let routePrefix = "manager";
+                if (targetUser.role === "developer") routePrefix = "developer";
+                
+                const ticketUrl = `https://paniscope-ticketing.web.app/${routePrefix}/ticket/${ticketId}`; // La route amène au ticket. Pour l'onglet on pourrait passer tab=internal mais vu l'URL de paniscope, /ticket/0000X charge la page du role
+                
+                const emailHtml = `
+                  <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
+                    <p>Bonjour ${targetUser.name},</p>
+                    <p><strong>${newNote.displayName || newNote.author}</strong> vous a mentionné dans une note interne sur le ticket <strong>#${ticketId}</strong> (<em>${ticketSubject}</em>) :</p>
+                    
+                    <div style="background-color: #f9f9f9; border-left: 4px solid #6c757d; padding: 15px; margin: 20px 0; white-space: pre-wrap;">${messageText}</div>
+                    
+                    <p>Pour consulter ou répondre à cette note, veuillez cliquer sur le lien suivant : <br>
+                    <a href="${ticketUrl}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#6c757d; color:#fff; text-decoration:none; border-radius:5px;">Accéder au ticket</a></p>
+                    
+                    <hr style="border: none; border-top: 1px solid #eee; margin-top: 30px;" />
+                    <p style="font-size: 11px; color: #aaa;">Veuillez répondre directement via l'application. Ne répondez pas à cet e-mail.</p>
+                  </div>
+                `;
+
+                const mailOptions = {
+                  from: `"Support Paniscope" <${fromEmail}>`,
+                  to: targetUser.email,
+                  subject: `[Notification Interne] Vous avez été mentionné - Ticket #${ticketId}`,
+                  html: emailHtml,
+                  text: `Bonjour ${targetUser.name},\n\n${newNote.displayName || newNote.author} vous a mentionné dans une note interne sur le ticket #${ticketId} (${ticketSubject}).\n\nMessage :\n${messageText}\n\nLien : ${ticketUrl}`
+                };
+                
+                await smtpTransporter.sendMail(mailOptions);
+                console.log(`✅ Email de notification de mention envoyé à ${targetUser.email} (Ticket ${ticketId})`);
+              }
+            } else {
+              console.log(`⚠️ Aucune adresse e-mail trouvée pour les mentions dans le ticket ${ticketId}`);
+            }
+        } catch(error) {
+            console.error(`❌ Erreur lors de la notification des mentions internes (Ticket ${ticketId}):`, error);
+        }
+      }
+    }
+  });
