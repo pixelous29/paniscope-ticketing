@@ -125,7 +125,10 @@ export const useMentionableUsers = (ticket, excludeClients = false) => {
       let finalParticipants = participants;
       if (excludeClients) {
         finalParticipants = participants.filter(
-          (p) => p.role.toLowerCase() !== "client"
+          (p) => 
+            p.role.trim().toLowerCase() !== "client" && 
+            !p.role.toLowerCase().includes("client") &&
+            p.id !== ticket.clientUid
         );
       }
 
