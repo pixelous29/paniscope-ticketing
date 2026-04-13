@@ -821,12 +821,12 @@ ${messageText}
               ${
                 newMessage.attachmentUrls &&
                 newMessage.attachmentUrls.length > 0
-                  ? `<p><em>📎 Ce message contient des pièces jointes. <a href="https://paniscope-ticketing.web.app/client/ticket/${ticketId}">Connectez-vous à l'application</a> pour les consulter.</em></p>`
+                  ? `<p><em>📎 Ce message contient des pièces jointes. <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}">Connectez-vous à l'application</a> pour les consulter.</em></p>`
                   : ""
               }
               
               <p>Vous pouvez répondre directement à cet e-mail pour ajouter un commentaire à votre ticket, ou vous connecter sur votre espace client : <br>
-              <a href="https://paniscope-ticketing.web.app/client/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#fff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
+              <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#fff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
               
               <hr style="border: none; border-top: 1px solid #eee; margin-top: 30px;" />
               <p style="font-size: 11px; color: #aaa;">Cet e-mail est lié au ticket #${ticketId}. Ne modifiez pas le sujet de cet e-mail lors de votre réponse.</p>
@@ -1012,7 +1012,7 @@ exports.notifyTeamOnInternalMention = functions.firestore
               for (const targetUser of emailsToSend) {
                 // Construction du lien selon le rôle
                 let routePrefix = "manager";
-                if (targetUser.role === "developer") routePrefix = "developer";
+                if (targetUser.role === "developer") routePrefix = "dev";
                 
                 const ticketUrl = `https://paniscope-ticketing.web.app/${routePrefix}/ticket/${ticketId}`; // La route amène au ticket. Pour l'onglet on pourrait passer tab=internal mais vu l'URL de paniscope, /ticket/0000X charge la page du role
                 
