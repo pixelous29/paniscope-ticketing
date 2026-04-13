@@ -44,7 +44,8 @@ export default function ClientDashboardPage() {
         return { 
           id: doc.id, 
           ...data,
-          lastUpdate: lastUpdateDate
+          lastUpdate: lastUpdateDate,
+          _rawLastUpdate: data.lastUpdate?.toMillis ? data.lastUpdate.toMillis() : (data.createdAt?.toMillis ? data.createdAt.toMillis() : 0)
         };
       });
       
@@ -100,7 +101,8 @@ export default function ClientDashboardPage() {
   }
 
   const currentTickets = tickets.filter(ticket => !ticket.archived || ticket.status !== STATUS.CLOSED);
-  const archivedTickets = tickets.filter(ticket => ticket.archived && ticket.status === STATUS.CLOSED);
+  const archivedTickets = tickets.filter(ticket => ticket.archived && ticket.status === STATUS.CLOSED)
+    .sort((a, b) => (b._rawLastUpdate || 0) - (a._rawLastUpdate || 0));
   const showActionsColumn = currentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (

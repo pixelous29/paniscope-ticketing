@@ -109,7 +109,11 @@ export default function ManagerDashboardPage() {
   // Un ticket est archivé seulement si archived=true ET status=CLOSED
   // Si un ticket est réouvert, il revient automatiquement dans les tickets en cours
   const currentTickets = tickets.filter(ticket => !ticket.archived || ticket.status !== STATUS.CLOSED);
-  const archivedTickets = tickets.filter(ticket => ticket.archived && ticket.status === STATUS.CLOSED);
+  const archivedTickets = tickets.filter(ticket => ticket.archived && ticket.status === STATUS.CLOSED)
+    .sort((a, b) => {
+      const getTimestamp = (t) => (t.lastUpdate?.toMillis ? t.lastUpdate.toMillis() : (t.createdAt?.toMillis ? t.createdAt.toMillis() : 0));
+      return getTimestamp(b) - getTimestamp(a);
+    });
   const showActionsColumn = currentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (
