@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ListGroup, Image, Badge, OverlayTrigger, Tooltip, Button } from 'react-bootstrap';
+import { ListGroup, Image, Badge, OverlayTrigger, Tooltip, Button, Form, Spinner } from 'react-bootstrap';
 import { useInView } from 'react-intersection-observer';
-import { User, ShieldCheck, Code, Bot, SmilePlus, Reply } from 'lucide-react';
+import { User, ShieldCheck, Code, Bot, SmilePlus, Reply, Edit2, Save, X } from 'lucide-react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../firebaseConfig';
 import { useAuth } from '../../hooks/useAuth';
+import MentionTextarea from './MentionTextarea';
+import MultiImageUpload from './MultiImageUpload';
 
 // Cache en mémoire pour réduire les appels Firestore inutiles aux profils
 const userProfileCache = {};
@@ -17,6 +20,113 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
         displayName: msg.displayName || msg.author,
         photoURL: msg.photoBase64 || msg.photoURL || null
     });
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedText, setEditedText] = useState("");
+    const [editedAttachmentUrls, setEditedAttachmentUrls] = useState([]);
+    const [newImages, setNewImages] = useState([]);
+    const [newPreviews, setNewPreviews] = useState([]);
+    const [newImageError, setNewImageError] = useState('');
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+    const handleEditClick = (e) => {
+        e.stopPropagation();
+        setEditedText(msg.text || "");
+        setEditedAttachmentUrls([...(msg.attachmentUrls || (msg.attachmentUrl ? [msg.attachmentUrl] : []))]);
+        setNewImages([]);
+        setNewPreviews([]);
+        setNewImageError("");
+        setIsEditing(true);
+        setShowEmojis(false);
+    };
+
+    const handleAddImage = (file) => {
+        if (!file.type.startsWith('image/')) {
+            setNewImageError("Veuillez sélectionner uniquement des fichiers image.");
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setNewImageError("L'image est trop volumineuse (max 5 Mo).");
+            return;
+        }
+        setNewImages(prev => [...prev, file]);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setNewPreviews(prev => [...prev, reader.result]);
+        };
+        reader.readAsDataURL(file);
+        setNewImageError('');
+    };
+
+    const handleRemoveNewImage = (index) => {
+        setNewImages(prev => prev.filter((_, i) => i !== index));
+        setNewPreviews(prev => prev.filter((_, i) => i !== index));
+        setNewImageError('');
+    };
+    
+    const handleRemoveExistingImage = (index) => {
+        setEditedAttachmentUrls(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleSaveEdit = async () => {
+        if (!ticket || !currentUser) return;
+        setIsSavingEdit(true);
+
+        const isSameMessage = (m1, m2) => {
+            if (m1.timestamp && m2.timestamp) {
+                const t1 = m1.timestamp.toMillis ? m1.timestamp.toMillis() : new Date(m1.timestamp).getTime();
+                const t2 = m2.timestamp.toMillis ? m2.timestamp.toMillis() : new Date(m2.timestamp).getTime();
+                if (t1 === t2) return true;
+            }
+            return m1.text === m2.text && m1.author === m2.author;
+        };
+
+        let arrayName = 'conversation';
+        let msgIndex = ticket.conversation?.findIndex(m => isSameMessage(m, msg));
+        
+        if (msgIndex === -1 || msgIndex === undefined) {
+            msgIndex = ticket.internalNotes?.findIndex(m => isSameMessage(m, msg));
+            if (msgIndex !== -1 && msgIndex !== undefined) {
+                arrayName = 'internalNotes';
+            } else {
+                setIsSavingEdit(false);
+                return;
+            }
+        }
+
+        const docRef = doc(db, "tickets", ticket.id);
+        const originArray = ticket[arrayName];
+        const targetMsg = { ...originArray[msgIndex] };
+
+        let uploadedUrls = [];
+        try {
+            if (newImages.length > 0) {
+                for (let i = 0; i < newImages.length; i++) {
+                    const fileExtension = newImages[i].name.split('.').pop();
+                    const fileName = `ticket_${ticket.id}_edit_${Date.now()}_img${i}_${currentUser.uid}.${fileExtension}`;
+                    const storageRef = ref(storage, `tickets/${fileName}`);
+                    const snapshot = await uploadBytes(storageRef, newImages[i]);
+                    const url = await getDownloadURL(snapshot.ref);
+                    uploadedUrls.push(url);
+                }
+            }
+
+            targetMsg.text = editedText;
+            targetMsg.attachmentUrls = [...editedAttachmentUrls, ...uploadedUrls];
+            if (targetMsg.attachmentUrl) delete targetMsg.attachmentUrl;
+            targetMsg.isEdited = true;
+
+            const newArray = [...originArray];
+            newArray[msgIndex] = targetMsg;
+            
+            await updateDoc(docRef, { [arrayName]: newArray });
+            setIsEditing(false);
+        } catch (err) {
+            console.error("Erreur lors de la modification:", err);
+        } finally {
+            setIsSavingEdit(false);
+        }
+    };
 
     const AVAILABLE_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '👀', '✅'];
 
@@ -171,6 +281,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
     const isOpeningMessage = msg.author === 'Système' && !msg.text?.startsWith('🔒') && !msg.text?.startsWith('🔓');
     const displayName = userData.displayName === 'Système' ? (isOpeningMessage ? 'Ouverture du ticket' : 'Système') : userData.displayName;
     const displayAuthor = msg.author === 'Système' ? (isOpeningMessage ? 'Ouverture du ticket' : 'Système') : msg.author;
+    const canEdit = currentUser && ((msg.uid && msg.uid === currentUser.uid) || (!msg.uid && msg.author === 'Client' && ticket?.clientUid === currentUser.uid));
 
     // Rendu du texte avec mise en surbrillance des @mentions
     // Supporte le format @[Prénom Nom] (noms avec espaces) et aussi @Prénom (ancien format sans espaces)
@@ -331,6 +442,22 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                         </Button>
                     </>
                 )}
+                {canEdit && (
+                    <>
+                        <div className="border-start border-secondary mx-1 h-100" style={{ opacity: 0.3 }}></div>
+                        <Button 
+                            variant="link" 
+                            className="p-0 text-primary" 
+                            title="Modifier ce message"
+                            onClick={handleEditClick}
+                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.1)'}
+                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                            style={{ transition: 'transform 0.1s' }}
+                        >
+                            <Edit2 size={20} />
+                        </Button>
+                    </>
+                )}
             </div>
 
             <div className="d-flex justify-content-between align-items-center mb-2 pb-2">
@@ -377,45 +504,118 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                     </div>
                 </div>
                 
-                <small className="text-muted" style={{ fontSize: '0.8rem' }}>
-                    {msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleString('fr-FR') : (msg.timestamp ? new Date(msg.timestamp).toLocaleString('fr-FR') : 'Date inconnue')}
+                <small className="text-muted d-flex align-items-center gap-2" style={{ fontSize: '0.8rem' }}>
+                    {msg.isEdited && <span className="fst-italic opacity-75">Modifié</span>}
+                    <span>{msg.timestamp?.toDate ? msg.timestamp.toDate().toLocaleString('fr-FR') : (msg.timestamp ? new Date(msg.timestamp).toLocaleString('fr-FR') : 'Date inconnue')}</span>
                 </small>
             </div>
 
-            {/* Block de citation (Réponse à un précédent message) */}
-            {msg.replyTo && (
+            {isEditing ? (
                 <div 
-                    className="mb-2 p-2 rounded text-muted bg-white border-start border-3 border-secondary" 
-                    style={{ fontSize: '0.85rem', cursor: 'pointer', opacity: 0.8 }}
-                    onClick={(e) => {
-                        // Optionnel : Scroll vers le message original si on a un id, 
-                        // mais ça dépendra de comment on id les messages à terme
-                        e.stopPropagation();
-                    }}
-                >
-                    <div className="d-flex align-items-center mb-1 fw-bold">
-                        <Reply size={12} className="me-1" />
-                        {msg.replyTo.displayName || msg.replyTo.author}
-                    </div>
-                    <div className="text-truncate" style={{ whiteSpace: 'nowrap' }}>
-                        {msg.replyTo.text || "Message avec pièce jointe"}
-                    </div>
-                </div>
-            )}
-            
-            <div className="mb-1 mt-2 text-dark" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.95rem' }}>
-                {renderTextWithMentions(msg.text)}
-            </div>
-            
-            {/* Affichage des images jointes au message */}
-            {msg.attachmentUrls && msg.attachmentUrls.length > 0 && (
-                <div 
-                    className="mt-3 bg-white p-2 rounded border border-light"
+                    className="mt-2 bg-light p-3 rounded border shadow-sm" 
                     onClick={(e) => e.stopPropagation()}
+                    style={{ borderColor: borderColor }}
                 >
-                    <small className="d-block mb-2 text-muted fw-semibold">Pièce(s) jointe(s) :</small>
-                    {renderImages(msg.attachmentUrls)}
+                    <Form.Group className="mb-3">
+                        <Form.Label className="small fw-bold text-muted">Modification du message</Form.Label>
+                        <MentionTextarea 
+                            rows={3} 
+                            value={editedText}
+                            onChange={(e) => setEditedText(e.target.value)}
+                            className="bg-white"
+                            style={{ borderColor: borderColor }}
+                            ticket={ticket}
+                        />
+                    </Form.Group>
+                    
+                    {editedAttachmentUrls.length > 0 && (
+                        <div className="mb-3">
+                            <small className="d-block mb-2 text-muted fw-semibold">Pièces jointes actuelles :</small>
+                            <div className="d-flex flex-wrap gap-2">
+                                {editedAttachmentUrls.map((url, idx) => (
+                                    <div key={idx} className="position-relative border rounded shadow-sm bg-white d-flex align-items-center justify-content-center p-1" style={{ width: '70px', height: '70px' }}>
+                                        <img 
+                                            src={url} 
+                                            alt={`PJ ${idx + 1}`} 
+                                            className="img-fluid rounded"
+                                            style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
+                                        />
+                                        <Button 
+                                            variant="danger" 
+                                            className="position-absolute top-0 end-0 rounded-circle shadow-sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRemoveExistingImage(idx);
+                                            }}
+                                            style={{ padding: '0px', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'translate(40%, -40%)' }}
+                                        >
+                                            <X size={12} />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mb-3">
+                        <small className="d-block mb-2 text-muted fw-semibold">Nouvelles pièces jointes (Max {4 - editedAttachmentUrls.length}) :</small>
+                        <MultiImageUpload 
+                            images={newImages}
+                            previews={newPreviews}
+                            onAddImage={handleAddImage}
+                            onRemoveImage={handleRemoveNewImage}
+                            error={newImageError}
+                            maxImages={4 - editedAttachmentUrls.length}
+                        />
+                    </div>
+
+                    <div className="d-flex justify-content-end gap-2 mt-2 pt-2 border-top">
+                         <Button variant="outline-secondary" size="sm" onClick={() => setIsEditing(false)} disabled={isSavingEdit}>
+                             Annuler
+                         </Button>
+                         <Button variant="primary" size="sm" onClick={handleSaveEdit} disabled={isSavingEdit || (editedText.trim() === '' && editedAttachmentUrls.length === 0 && newImages.length === 0)}>
+                             {isSavingEdit ? <> <Spinner as="span" animation="border" size="sm" className="me-1" /> Sauvegarde... </> : <> <Save size={14} className="me-1"/> Sauvegarder </>}
+                         </Button>
+                    </div>
                 </div>
+            ) : (
+                <>
+                    {/* Block de citation (Réponse à un précédent message) */}
+                    {msg.replyTo && (
+                        <div 
+                            className="mb-2 p-2 rounded text-muted bg-white border-start border-3 border-secondary" 
+                            style={{ fontSize: '0.85rem', cursor: 'pointer', opacity: 0.8 }}
+                            onClick={(e) => {
+                                // Optionnel : Scroll vers le message original si on a un id, 
+                                // mais ça dépendra de comment on id les messages à terme
+                                e.stopPropagation();
+                            }}
+                        >
+                            <div className="d-flex align-items-center mb-1 fw-bold">
+                                <Reply size={12} className="me-1" />
+                                {msg.replyTo.displayName || msg.replyTo.author}
+                            </div>
+                            <div className="text-truncate" style={{ whiteSpace: 'nowrap' }}>
+                                {msg.replyTo.text || "Message avec pièce jointe"}
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div className="mb-1 mt-2 text-dark" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '0.95rem' }}>
+                        {renderTextWithMentions(msg.text)}
+                    </div>
+                    
+                    {/* Affichage des images jointes au message */}
+                    {msg.attachmentUrls && msg.attachmentUrls.length > 0 && (
+                        <div 
+                            className="mt-3 bg-white p-2 rounded border border-light"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <small className="d-block mb-2 text-muted fw-semibold">Pièce(s) jointe(s) :</small>
+                            {renderImages(msg.attachmentUrls)}
+                        </div>
+                    )}
+                </>
             )}
 
             {/* Affichage des réactions existantes */}
