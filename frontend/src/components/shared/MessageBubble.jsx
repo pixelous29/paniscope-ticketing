@@ -283,6 +283,19 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
     const displayAuthor = msg.author === 'Système' ? (isOpeningMessage ? 'Ouverture du ticket' : 'Système') : msg.author;
     const canEdit = currentUser && ((msg.uid && msg.uid === currentUser.uid) || (!msg.uid && msg.author === 'Client' && ticket?.clientUid === currentUser.uid));
 
+    const isInternalMessage = (() => {
+        if (!ticket || !ticket.internalNotes) return false;
+        const isSame = (m1, m2) => {
+            if (m1.timestamp && m2.timestamp) {
+                const t1 = m1.timestamp.toMillis ? m1.timestamp.toMillis() : new Date(m1.timestamp).getTime();
+                const t2 = m2.timestamp.toMillis ? m2.timestamp.toMillis() : new Date(m2.timestamp).getTime();
+                if (t1 === t2) return true;
+            }
+            return m1.text === m2.text && m1.author === m2.author;
+        };
+        return ticket.internalNotes.findIndex(m => isSame(m, msg)) !== -1;
+    })();
+
     // Rendu du texte avec mise en surbrillance des @mentions
     // Supporte le format @[Prénom Nom] (noms avec espaces) et aussi @Prénom (ancien format sans espaces)
     const renderTextWithMentions = (text) => {
@@ -525,6 +538,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                             className="bg-white"
                             style={{ borderColor: borderColor }}
                             ticket={ticket}
+                            excludeClients={isInternalMessage}
                         />
                     </Form.Group>
                     
