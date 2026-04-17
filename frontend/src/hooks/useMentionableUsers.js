@@ -108,12 +108,12 @@ export const useMentionableUsers = (ticket, excludeClients = false, excludeStaff
         }
       }
 
-      // 3. Fetch all managers and developers to allow global tagging in internal discussions
+      // 3. Fetch all managers to allow global tagging in internal discussions (developers only if assigned)
       if (!excludeStaff) {
         try {
           const q = query(
             collection(db, "users"),
-            where("role", "in", ["manager", "developer", "admin"])
+            where("role", "in", ["manager", "admin"])
           );
           const snapshot = await getDocs(q);
           snapshot.forEach((docSnap) => {
