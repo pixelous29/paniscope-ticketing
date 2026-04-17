@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { useAuth } from "./useAuth";
 
@@ -120,6 +120,49 @@ export const useMentionableUsers = (ticket, excludeClients = false, excludeStaff
             });
           }
         });
+      }
+
+      // 4. Fetch all managers and developers to allow global tagging in internal discussions
+      if (!excludeStaff) {
+        try {
+          const q = query(
+            collection(db, "users"),
+            where("role", "in", ["manager", "developer", "admin"])
+          );
+          const snapshot = await getDocs(q);
+          snapshot.forEach((docSnap) => {
+            const uid = docSnap.id;
+            const data = docSnap.data();
+
+            // Ignore current user
+            if (uid === currentUid) return;
+
+            // Ignore if already added
+            if (participants.some((p) => p.id === uid)) return;
+
+            // Format role
+            let displayRole = data.role || "Inconnu";
+            if (displayRole === "manager") displayRole = "Manager";
+            else if (displayRole === "developer") displayRole = "Développeur";
+            else if (displayRole === "admin") displayRole = "Admin";
+
+            const name =
+              data.displayName ||
+              data.firstName ||
+              data.email?.split("@")[0] ||
+              "Utilisateur";
+
+            profileCache[uid] = { name, role: data.role };
+
+            participants.push({
+              id: uid,
+              name: name,
+              role: displayRole,
+            });
+          });
+        } catch (error) {
+          console.warn("Impossible de charger tout le staff pour les mentions :", error);
+        }
       }
 
       let finalParticipants = participants;
