@@ -108,21 +108,7 @@ export const useMentionableUsers = (ticket, excludeClients = false, excludeStaff
         }
       }
 
-      // 3. Ajouter les personnes assignées au ticket
-      if (Array.isArray(ticket.assignedTo)) {
-        ticket.assignedTo.forEach((assignedName) => {
-          const exists = participants.some((p) => p.name === assignedName);
-          if (!exists) {
-            participants.push({
-              id: `assigned-${assignedName}`,
-              name: assignedName,
-              role: "Développeur",
-            });
-          }
-        });
-      }
-
-      // 4. Fetch all managers and developers to allow global tagging in internal discussions
+      // 3. Fetch all managers and developers to allow global tagging in internal discussions
       if (!excludeStaff) {
         try {
           const q = query(
@@ -161,8 +147,22 @@ export const useMentionableUsers = (ticket, excludeClients = false, excludeStaff
             });
           });
         } catch (error) {
-          console.warn("Impossible de charger tout le staff pour les mentions :", error);
+           console.warn("Impossible de charger tout le staff pour les mentions :", error);
         }
+      }
+
+      // 4. Ajouter les personnes assignées au ticket
+      if (Array.isArray(ticket.assignedTo)) {
+        ticket.assignedTo.forEach((assignedName) => {
+          const exists = participants.some((p) => p.name === assignedName);
+          if (!exists) {
+            participants.push({
+              id: `assigned-${assignedName}`,
+              name: assignedName,
+              role: "Développeur",
+            });
+          }
+        });
       }
 
       let finalParticipants = participants;
