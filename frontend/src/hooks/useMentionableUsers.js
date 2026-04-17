@@ -112,7 +112,7 @@ export const useMentionableUsers = (ticket, excludeClients = false) => {
       if (Array.isArray(ticket.assignedTo)) {
         ticket.assignedTo.forEach((assignedName) => {
           const exists = participants.some((p) => p.name === assignedName);
-          if (!exists && assignedName !== currentUser?.displayName) {
+          if (!exists) {
             participants.push({
               id: `assigned-${assignedName}`,
               name: assignedName,
