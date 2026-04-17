@@ -579,6 +579,7 @@ export default function ManagerTicketDetailPage() {
                                                 onChange={(e) => setReplyText(e.target.value)}
                                                 className="border-primary"
                                                 ticket={ticket}
+                                                excludeStaff={true}
                                                 />
                                             </Form.Group>
                                             

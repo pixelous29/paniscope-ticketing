@@ -6,7 +6,7 @@ import { useAuth } from "./useAuth";
 // Cache partagé pour éviter les requêtes Firestore répétées
 const profileCache = {};
 
-export const useMentionableUsers = (ticket, excludeClients = false) => {
+export const useMentionableUsers = (ticket, excludeClients = false, excludeStaff = false) => {
   const { currentUser } = useAuth();
   const [users, setUsers] = useState([]);
 
@@ -124,7 +124,7 @@ export const useMentionableUsers = (ticket, excludeClients = false) => {
 
       let finalParticipants = participants;
       if (excludeClients) {
-        finalParticipants = participants.filter(
+        finalParticipants = finalParticipants.filter(
           (p) => 
             p.role.trim().toLowerCase() !== "client" && 
             !p.role.toLowerCase().includes("client") &&
@@ -132,11 +132,20 @@ export const useMentionableUsers = (ticket, excludeClients = false) => {
         );
       }
 
+      if (excludeStaff) {
+        finalParticipants = finalParticipants.filter(
+          (p) => 
+            p.role.trim().toLowerCase() === "client" || 
+            p.role.toLowerCase().includes("client") ||
+            p.id === ticket.clientUid
+        );
+      }
+
       setUsers(finalParticipants);
     };
 
     fetchParticipants();
-  }, [ticket, currentUser, excludeClients]);
+  }, [ticket, currentUser, excludeClients, excludeStaff]);
 
   return users;
 };

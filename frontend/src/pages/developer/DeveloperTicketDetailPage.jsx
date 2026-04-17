@@ -499,6 +499,7 @@ export default function DeveloperTicketDetailPage() {
                                                         onChange={(e) => setReplyText(e.target.value)}
                                                         className="border-primary"
                                                         ticket={ticket}
+                                                        excludeStaff={true}
                                                     />
                                                 </Form.Group>
                                                 

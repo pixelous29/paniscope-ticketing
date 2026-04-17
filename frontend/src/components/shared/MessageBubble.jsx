@@ -539,6 +539,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                             style={{ borderColor: borderColor }}
                             ticket={ticket}
                             excludeClients={isInternalMessage}
+                            excludeStaff={!isInternalMessage}
                         />
                     </Form.Group>
                     
