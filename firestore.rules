@@ -62,6 +62,7 @@ service cloud.firestore {
       
       // Création : Autoriser la création avec les nouveaux champs
       allow create: if isSignedIn() && (
+        isManager() ||
         request.resource.data.clientUid == request.auth.uid
       );
       

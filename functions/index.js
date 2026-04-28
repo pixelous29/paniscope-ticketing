@@ -37,7 +37,15 @@ exports.notifyManagersOnNewTicket = functions.firestore
 
     console.log(`Nouveau ticket détecté : ${ticketId} - Préparation Email pour Managers...`);
 
-    let clientName = ticket.clientName || ticket.client || ticket.clientEmail || "Client inconnu";
+    let clientName = ticket.clientName || ticket.client || ticket.clientEmail;
+    const isInternalTicket = !ticket.clientUid && !clientName;
+    
+    if (isInternalTicket) {
+      clientName = "Ticket Interne";
+    } else if (!clientName) {
+      clientName = "Client inconnu";
+    }
+
     let companyName = ticket.companyDomain || "";
 
     if (ticket.clientUid) {
@@ -88,7 +96,8 @@ exports.notifyManagersOnNewTicket = functions.firestore
       await smtpTransporter.sendMail({
         from: `"Support Paniscope" <${fromEmail}>`, 
         to: adminEmail,
-        subject: `[Ticket #${ticketId}] Nouveau ticket de ${clientName} : ${ticket.subject}`,
+        subject: `[Ticket #${ticketId}] ${ticket.subject}`,
+        messageId: `<ticket-${ticketId}@paniscope.fr>`,
         html: `
           <div style="font-family: Arial, sans-serif; color: #333;">
             <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
@@ -116,6 +125,90 @@ exports.notifyManagersOnNewTicket = functions.firestore
       console.error(`❌ Erreur lors de l'envoi de l'email aux managers :`, error.message);
     }
   });
+
+/**
+ * 1.bis NOTIFICATION DEVELOPER SUR ASSIGNATION
+ * Se déclenche quand un développeur est assigné à un ticket (Création ou Mise à jour)
+ */
+exports.notifyDeveloperOnAssignment = functions.firestore
+  .document("tickets/{ticketId}")
+  .onWrite(async (change, context) => {
+    const ticketId = context.params.ticketId;
+    const beforeData = change.before.exists ? change.before.data() : null;
+    const afterData = change.after.exists ? change.after.data() : null;
+
+    if (!afterData) return; // Ticket supprimé
+
+    const oldAssignedTo = beforeData && Array.isArray(beforeData.assignedTo) ? beforeData.assignedTo : [];
+    const newAssignedTo = afterData.assignedTo && Array.isArray(afterData.assignedTo) ? afterData.assignedTo : [];
+    
+    // Nouveaux développeurs assignés
+    const newlyAssignedNames = newAssignedTo.filter(name => !oldAssignedTo.includes(name));
+
+    if (newlyAssignedNames.length > 0) {
+      try {
+        console.log(`Nouveaux développeurs assignés au ticket ${ticketId} : ${newlyAssignedNames.join(', ')}. Préparation des emails...`);
+        
+        // Récupérer les emails des développeurs par leur nom
+        const devsQuery = await db.collection("users").where("role", "==", "developer").get();
+        const devsToNotify = [];
+        
+        devsQuery.forEach(doc => {
+          const devData = doc.data();
+          const devName = devData.displayName || devData.firstName || devData.email;
+          if (newlyAssignedNames.includes(devName) && devData.email) {
+            devsToNotify.push({ email: devData.email, name: devName });
+          }
+        });
+
+        if (devsToNotify.length === 0) {
+          console.warn(`Impossible de trouver les emails pour les développeurs assignés : ${newlyAssignedNames.join(', ')}`);
+          return;
+        }
+        
+        let clientName = afterData.clientName || afterData.client || afterData.clientEmail;
+        const isInternalTicket = !afterData.clientUid && !clientName;
+        if (isInternalTicket) {
+          clientName = "Ticket Interne";
+        } else if (!clientName) {
+          clientName = "Client inconnu";
+        }
+        
+        const ticketUrl = `https://paniscope-ticketing.web.app/dev/ticket/${ticketId}`;
+        const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+
+        for (const dev of devsToNotify) {
+            await smtpTransporter.sendMail({
+              from: `"Support Paniscope" <${fromEmail}>`, 
+              to: dev.email,
+              subject: `[Ticket #${ticketId}] ${afterData.subject}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                  <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
+                    <h2 style="margin: 0;">Nouvelle assignation de ticket</h2>
+                  </div>
+                  <div style="background: #ffffff; padding: 20px; border: 1px solid #ddd; border-top: none;">
+                    <p>Bonjour <strong>${dev.name}</strong>,</p>
+                    <p>Vous avez été assigné au ticket <strong>#${ticketId}</strong>.</p>
+                    <br>
+                    <p><strong>Client :</strong> ${clientName}</p>
+                    <p><strong>Sujet :</strong> ${afterData.subject}</p>
+                    <p><strong>Priorité :</strong> ${afterData.priority || "Normale"}</p>
+                    <br>
+                    <p><a href="${ticketUrl}" style="background-color: #0B1B2B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Voir le ticket</a></p>
+                  </div>
+                </div>
+              `
+            });
+            console.log(`✉️ Email d'assignation envoyé au développeur (${dev.email}) pour le ticket ${ticketId}`);
+        }
+      } catch (err) {
+        console.error(`❌ Erreur lors de l'envoi de l'email d'assignation aux développeurs :`, err.message);
+      }
+    }
+  });
+
+
 
 /**
  * 2. EMAIL -> TICKET (WebHook Inbound)
@@ -862,6 +955,56 @@ ${messageText}
             error,
           );
         }
+      } else if (newMessage.author === "Client") {
+        console.log(`Nouveau message du client sur le ticket ${ticketId}. Préparation de l'email managers...`);
+        
+        try {
+          const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "support@paniscope.fr";
+          const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+          
+          let clientName = afterData.clientName || afterData.client || afterData.clientEmail || "Client";
+          const ticketSubject = afterData.subject || "Sans objet";
+          const messageText = newMessage.text || "";
+          const ticketUrl = `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`;
+          
+          const hasAttachments = newMessage.attachmentUrls && newMessage.attachmentUrls.length > 0;
+          const attachmentNote = hasAttachments ? `<br><p>📎 <em>Ce message contient des pièces jointes (visibles depuis l'application).</em></p>` : "";
+
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+              <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
+                <h2 style="margin: 0;">Nouveau message du client</h2>
+              </div>
+              <div style="background: #ffffff; padding: 20px; border: 1px solid #ddd; border-top: none;">
+                <p>Bonjour,</p>
+                <p><strong>${clientName}</strong> a répondu au ticket <strong>#${ticketId}</strong>.</p>
+                <br>
+                <p><strong>Sujet :</strong> ${ticketSubject}</p>
+                <p><strong>Priorité :</strong> ${afterData.priority || "Normale"}</p>
+                <br>
+                <p><strong>Nouveau message :</strong></p>
+                <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #D9AC5F; white-space: pre-wrap;">${messageText}</div>
+                ${attachmentNote}
+                <br>
+                <p><a href="${ticketUrl}" style="background-color: #0B1B2B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Répondre depuis l'application</a></p>
+                <p style="font-size: 13px; color: #555; margin-top: 15px;">Vous pouvez également répondre directement à cet email pour converser avec le client. La réponse sera automatiquement ajoutée dans l'application et transmise au client !</p>
+              </div>
+            </div>
+          `;
+
+          await smtpTransporter.sendMail({
+            from: `"Support Paniscope" <${fromEmail}>`,
+            to: adminEmail,
+            subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
+            inReplyTo: `<ticket-${ticketId}@paniscope.fr>`,
+            references: [`<ticket-${ticketId}@paniscope.fr>`],
+            html: emailHtml,
+          });
+
+          console.log(`✅ Email de notification envoyé aux managers (${adminEmail}) pour le ticket ${ticketId}`);
+        } catch (error) {
+          console.error(`❌ Erreur lors de l'envoi de l'email aux managers (Ticket ${ticketId}):`, error);
+        }
       }
     }
 
@@ -967,16 +1110,19 @@ exports.notifyTeamOnInternalMention = functions.firestore
       const newNote = afterNotes[afterNotes.length - 1];
       const messageText = newNote.text || "";
 
-      // Extraction de toutes les mentions de type @[Nom]
-      const mentionRegex = /@\[([^\]]+)\]/g;
-      const mentionedNames = [];
+      // Extraction de toutes les mentions de type @[Nom](ID) ou @[Nom]
+      const mentionRegex = /@\[([^\]]+)\](?:\(([^)]+)\))?/g;
+      const mentions = [];
       let match;
       while ((match = mentionRegex.exec(messageText)) !== null) {
-        mentionedNames.push(match[1].trim()); // match[1] contient le nom sans les crochets et le @
+        mentions.push({
+          name: match[1].trim(), // match[1] contient le nom sans les crochets et le @
+          uid: match[2] ? match[2].trim() : null
+        });
       }
 
-      if (mentionedNames.length > 0) {
-        console.log(`Mentions trouvées dans la note du ticket ${ticketId} :`, mentionedNames.join(", "));
+      if (mentions.length > 0) {
+        console.log(`Mentions trouvées dans la note du ticket ${ticketId} :`, mentions.map(m => m.name).join(", "));
         
         try {
             // Récupérer les membres de l'équipe
@@ -985,14 +1131,24 @@ exports.notifyTeamOnInternalMention = functions.firestore
 
             const emailsToSend = [];
             
-            for (const name of mentionedNames) {
-              const queryLower = name.toLowerCase();
+            for (const mention of mentions) {
+              const queryLower = mention.name.toLowerCase();
               
-              // Trouver le(s) membre(s) correspondant au nom taggué
-              const matchedUsers = teamMembers.filter(user => {
-                 const generatedName = (user.displayName || user.firstName || (user.email ? user.email.split("@")[0] : "Utilisateur")).toLowerCase();
-                 return generatedName === queryLower || generatedName.startsWith(queryLower) || generatedName.includes(queryLower);
-              });
+                // Trouver le(s) membre(s) correspondant
+                const matchedUsers = teamMembers.filter(user => {
+                   if (mention.uid && !mention.uid.startsWith("assigned-")) {
+                     return user.id === mention.uid;
+                   }
+                   // Fallback si pas d'UID ou si c'est un faux UID (assigned-Nom)
+                   const generatedName = (user.displayName || user.firstName || (user.email ? user.email.split("@")[0] : "Utilisateur")).toLowerCase();
+                   const nameMatches = generatedName === queryLower || generatedName.startsWith(queryLower) || generatedName.includes(queryLower);
+                   
+                   if (mention.uid && mention.uid.startsWith("assigned-")) {
+                       // Si la mention provient de la liste des assignés, on s'assure de cibler le compte développeur
+                       return nameMatches && user.role === "developer";
+                   }
+                   return nameMatches;
+                });
               
               matchedUsers.forEach(user => {
                  if (user.email && !emailsToSend.some(e => e.email === user.email)) {
@@ -1005,9 +1161,12 @@ exports.notifyTeamOnInternalMention = functions.firestore
               });
             }
 
-            if (emailsToSend.length > 0) {
+              if (emailsToSend.length > 0) {
               const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
               const ticketSubject = afterData.subject || "Sans objet";
+              
+              // Clean up the text so that @[Name](UID) becomes @Name in the email body
+              const cleanMessageText = messageText.replace(/@\[([^\]]+)\](?:\(([^)]+)\))?/g, "@$1");
 
               for (const targetUser of emailsToSend) {
                 // Construction du lien selon le rôle
@@ -1020,7 +1179,7 @@ exports.notifyTeamOnInternalMention = functions.firestore
                     <p>Bonjour ${targetUser.name},</p>
                     <p><strong>${newNote.displayName || newNote.author}</strong> vous a mentionné dans une note interne sur le ticket <strong>#${ticketId}</strong> (<em>${ticketSubject}</em>) :</p>
                     
-                    <div style="background-color: #f9f9f9; border-left: 4px solid #6c757d; padding: 15px; margin: 20px 0; white-space: pre-wrap;">${messageText}</div>
+                    <div style="background-color: #f9f9f9; border-left: 4px solid #6c757d; padding: 15px; margin: 20px 0; white-space: pre-wrap;">${cleanMessageText}</div>
                     
                     <p>Pour consulter ou répondre à cette note, veuillez cliquer sur le lien suivant : <br>
                     <a href="${ticketUrl}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#6c757d; color:#fff; text-decoration:none; border-radius:5px;">Accéder au ticket</a></p>
@@ -1033,7 +1192,7 @@ exports.notifyTeamOnInternalMention = functions.firestore
                 const mailOptions = {
                   from: `"Support Paniscope" <${fromEmail}>`,
                   to: targetUser.email,
-                  subject: `[Notification Interne] Vous avez été mentionné - Ticket #${ticketId}`,
+                  subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
                   html: emailHtml,
                   text: `Bonjour ${targetUser.name},\n\n${newNote.displayName || newNote.author} vous a mentionné dans une note interne sur le ticket #${ticketId} (${ticketSubject}).\n\nMessage :\n${messageText}\n\nLien : ${ticketUrl}`
                 };

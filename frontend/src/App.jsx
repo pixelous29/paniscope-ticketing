@@ -11,6 +11,7 @@ import ClientTicketDetailPage from './pages/client/ClientTicketDetailPage';
 import NewTicketPage from './pages/client/NewTicketPage';
 import ManagerDashboardPage from './pages/manager/ManagerDashboardPage';
 import ManagerTicketDetailPage from './pages/manager/ManagerTicketDetailPage';
+import NewManagerTicketPage from './pages/manager/NewManagerTicketPage';
 import DeveloperDashboardPage from './pages/developer/DeveloperDashboardPage';
 import DeveloperTicketDetailPage from './pages/developer/DeveloperTicketDetailPage';
 import KanbanPage from './pages/shared/KanbanPage';
@@ -131,6 +132,14 @@ export default function App() {
               element={
                 <RoleBasedRoute allowedRoles={['manager']}>
                   <ManagerDashboardPage />
+                </RoleBasedRoute>
+              } 
+            />
+            <Route 
+              path="/manager/new-ticket" 
+              element={
+                <RoleBasedRoute allowedRoles={['manager']}>
+                  <NewManagerTicketPage />
                 </RoleBasedRoute>
               } 
             />

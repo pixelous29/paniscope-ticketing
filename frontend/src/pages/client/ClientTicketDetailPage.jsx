@@ -326,7 +326,11 @@ export default function ClientTicketDetailPage() {
                         }).map((msg, index, arr) => {
                             let msgToRender = msg;
                             // Injecter les pièces jointes initiales du ticket dans le tout premier message si elles n'y sont pas déjà (pour la rétrocompatibilité)
-                            if (index === 0 && !msg.attachmentUrls && !msg.attachmentUrl) {
+                            const msgMsForCheck = msg.timestamp?.toMillis ? msg.timestamp.toMillis() : new Date(msg.timestamp).getTime();
+                            const ticketMsForCheck = ticket.submittedAt?.toMillis ? ticket.submittedAt.toMillis() : new Date(ticket.submittedAt).getTime();
+                            const isCreationMessage = Math.abs(msgMsForCheck - ticketMsForCheck) < 10000;
+
+                            if (index === 0 && isCreationMessage && !msg.attachmentUrls && !msg.attachmentUrl && msg.author !== 'Système') {
                                 if (ticket.attachmentUrls && ticket.attachmentUrls.length > 0) {
                                     msgToRender = { ...msg, attachmentUrls: ticket.attachmentUrls };
                                 } else if (ticket.attachmentUrl) {

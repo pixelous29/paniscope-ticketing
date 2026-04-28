@@ -278,7 +278,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
 
     // Seul le tout premier message "Système" (description du ticket) affiche "Ouverture du ticket"
     // Les messages de clôture/réouverture gardent "Système"
-    const isOpeningMessage = msg.author === 'Système' && !msg.text?.startsWith('🔒') && !msg.text?.startsWith('🔓');
+    const isOpeningMessage = msg.author === 'Système' && !msg.text?.startsWith('🔒') && !msg.text?.startsWith('🔓') && !msg.text?.startsWith('🔗');
     const displayName = userData.displayName === 'Système' ? (isOpeningMessage ? 'Ouverture du ticket' : 'Système') : userData.displayName;
     const displayAuthor = msg.author === 'Système' ? (isOpeningMessage ? 'Ouverture du ticket' : 'Système') : msg.author;
     const canEdit = currentUser && ((msg.uid && msg.uid === currentUser.uid) || (!msg.uid && msg.author === 'Client' && ticket?.clientUid === currentUser.uid));
@@ -300,12 +300,13 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
     // Supporte le format @[Prénom Nom] (noms avec espaces) et aussi @Prénom (ancien format sans espaces)
     const renderTextWithMentions = (text) => {
         if (!text) return null;
-        // Cherche @[Nom Complet] ou @MotSimple
-        const parts = text.split(/(@\[[^\]]+\]|@[a-zA-ZÀ-ÿ0-9_-]+)/g);
+        // Cherche @[Nom Complet](ID) ou @[Nom Complet] ou @MotSimple
+        const parts = text.split(/(@\[[^\]]+\](?:\([^)]+\))?|@[a-zA-ZÀ-ÿ0-9_-]+)/g);
         return parts.map((part, i) => {
-            if (part.startsWith('@[') && part.endsWith(']')) {
-                // Format @[Nom Complet] → affiche @Nom Complet
-                const name = part.slice(2, -1);
+            if (part.startsWith('@[') && part.includes(']')) {
+                // Format @[Nom Complet](ID) ou @[Nom Complet] -> affiche @Nom Complet
+                const nameEndIndex = part.indexOf(']');
+                const name = part.slice(2, nameEndIndex);
                 return (
                     <span key={i} style={{ 
                         color: '#0d6efd', 

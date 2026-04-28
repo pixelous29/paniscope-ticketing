@@ -1,76 +1,135 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Form, ListGroup } from 'react-bootstrap';
 import { useMentionableUsers } from '../../hooks/useMentionableUsers';
 
-const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, excludeStaff = false, ...props }) => {
+const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, excludeStaff = false }) => {
     const users = useMentionableUsers(ticket, excludeClients, excludeStaff);
     const [mentionState, setMentionState] = useState(null);
-    const textareaRef = useRef(null);
+    const editorRef = useRef(null);
 
-    const handleTextChange = (e) => {
-        const text = e.target.value;
-        const cursorPosition = e.target.selectionStart;
-        onChange(e); // keep parent sync
-
-        // On cherche le dernier '@' avant le curseur
-        const textBeforeCursor = text.substring(0, cursorPosition);
-        
-        // Cherche le dernier @ suivi éventuellement de caractères (lettres, accents, espaces, chiffres, tirets, underscores)
-        const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-        
-        if (lastAtIndex !== -1) {
-            const afterAt = textBeforeCursor.substring(lastAtIndex + 1);
-            
-            // On vérifie que ce qui suit le @ ne contient pas de retour à la ligne (sinon ce n'est pas une mention)
-            if (!afterAt.includes('\n')) {
-                const query = afterAt.toLowerCase();
-                
-                // On filtre les utilisateurs
-                const matches = users.filter(u => 
-                    u.name.toLowerCase().startsWith(query) ||
-                    u.name.toLowerCase().includes(query)
-                );
-                
-                if (matches.length > 0) {
-                    setMentionState({
-                        query,
-                        startIndex: lastAtIndex,
-                        cursorPosition,
-                        suggestions: matches,
-                        selectedIndex: 0
-                    });
-                } else {
-                    setMentionState(null);
-                }
-            } else {
-                setMentionState(null);
+    // Synchronisation initiale ou effacement (quand value === '')
+    useEffect(() => {
+        if (editorRef.current) {
+            if (!value && editorRef.current.innerHTML !== '') {
+                editorRef.current.innerHTML = '';
+            } else if (value && editorRef.current.innerHTML === '') {
+                // Convertit les @[Nom](UID) initiaux en pastilles graphiques
+                const htmlValue = value.replace(/@\[([^\]]+)\](?:\(([^)]+)\))?/g, (match, name, uid) => {
+                    return `&nbsp;<span class="badge bg-primary rounded-pill text-white px-2 py-1 mx-1 mention-badge" contenteditable="false" data-uid="${uid || ''}">@${name}</span>&nbsp;`;
+                });
+                editorRef.current.innerHTML = htmlValue.replace(/\n/g, '<br>');
             }
-        } else {
-            setMentionState(null);
         }
+    }, [value]);
+
+    const handleInput = () => {
+        const el = editorRef.current;
+        if (!el) return;
+
+        // Parse le DOM pour générer le format texte plat @[Nom](UID) attendu par le backend
+        let textValue = '';
+        const parseNode = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                textValue += node.textContent.replace(/\u00A0/g, ' '); // Replace &nbsp; with space
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.classList.contains('mention-badge')) {
+                    const uid = node.getAttribute('data-uid');
+                    const name = node.textContent.replace(/^@/, '');
+                    if (uid) {
+                        textValue += `@[${name}](${uid})`;
+                    } else {
+                        textValue += `@[${name}]`;
+                    }
+                } else if (node.nodeName === 'BR') {
+                    textValue += '\n';
+                } else if (node.nodeName === 'DIV' || node.nodeName === 'P') {
+                    if (textValue.length > 0 && !textValue.endsWith('\n')) textValue += '\n';
+                    Array.from(node.childNodes).forEach(parseNode);
+                } else {
+                    Array.from(node.childNodes).forEach(parseNode);
+                }
+            }
+        };
+        Array.from(el.childNodes).forEach(parseNode);
+        
+        // Notifier le parent du changement textuel brut
+        onChange({ target: { value: textValue } });
+
+        // Vérifier s'il faut ouvrir le dropdown de mention
+        const sel = window.getSelection();
+        if (sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            if (range.startContainer.nodeType === Node.TEXT_NODE) {
+                const textBeforeCursor = range.startContainer.textContent.substring(0, range.startOffset);
+                const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+                
+                if (lastAtIndex !== -1) {
+                    const afterAt = textBeforeCursor.substring(lastAtIndex + 1);
+                    if (!afterAt.includes('\n') && !afterAt.includes(' ')) {
+                        const query = afterAt.toLowerCase();
+                        const matches = users.filter(u => 
+                            u.name.toLowerCase().startsWith(query) ||
+                            u.name.toLowerCase().includes(query)
+                        );
+                        
+                        if (matches.length > 0) {
+                            setMentionState({
+                                query,
+                                textNode: range.startContainer,
+                                startIndex: lastAtIndex,
+                                endIndex: range.startOffset,
+                                suggestions: matches,
+                                selectedIndex: 0
+                            });
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        setMentionState(null);
     };
 
     const insertMention = (user) => {
-        if (!mentionState) return;
+        if (!mentionState || !editorRef.current) return;
         
-        const textBeforeMention = value.substring(0, mentionState.startIndex);
-        const mentionText = `@[${user.name}] `; 
-        const textAfterMention = value.substring(mentionState.cursorPosition);
+        const { textNode, startIndex, endIndex } = mentionState;
         
-        const newText = textBeforeMention + mentionText + textAfterMention;
+        // Focus l'éditeur
+        editorRef.current.focus();
 
-        const syntheticEvent = { target: { value: newText } };
-        onChange(syntheticEvent);
-        setMentionState(null);
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.setStart(textNode, startIndex);
+        range.setEnd(textNode, endIndex);
         
-        setTimeout(() => {
-            if (textareaRef.current) {
-                textareaRef.current.focus();
-                const newCursorPos = textBeforeMention.length + mentionText.length;
-                textareaRef.current.selectionStart = newCursorPos;
-                textareaRef.current.selectionEnd = newCursorPos;
-            }
-        }, 0);
+        // Supprimer le texte `@...` tapé par l'utilisateur
+        range.deleteContents();
+        
+        // Créer les éléments de la pastille
+        const spaceBefore = document.createTextNode('\u00A0'); // &nbsp;
+        const badge = document.createElement('span');
+        badge.className = "badge bg-primary rounded-pill text-white px-2 py-1 mx-1 mention-badge";
+        badge.setAttribute("contenteditable", "false");
+        badge.setAttribute("data-uid", user.id);
+        badge.textContent = `@${user.name}`;
+        const spaceAfter = document.createTextNode('\u00A0'); // &nbsp;
+        
+        const frag = document.createDocumentFragment();
+        frag.appendChild(spaceBefore);
+        frag.appendChild(badge);
+        frag.appendChild(spaceAfter);
+        
+        range.insertNode(frag);
+        
+        // Placer le curseur juste après la pastille
+        range.setStartAfter(spaceAfter);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        
+        setMentionState(null);
+        handleInput(); // Forcer la mise à jour de la valeur
     };
 
     const handleKeyDown = (e) => {
@@ -121,7 +180,11 @@ const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, excl
                         <ListGroup.Item 
                             key={user.id} 
                             active={index === mentionState.selectedIndex}
-                            onClick={() => insertMention(user)}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                insertMention(user);
+                            }}
+                            onMouseDown={(e) => e.preventDefault()} // Empêche la perte de focus
                             style={{ cursor: 'pointer', padding: '8px 12px' }}
                             action
                         >
@@ -136,13 +199,18 @@ const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, excl
                 </ListGroup>
             )}
             
-            <Form.Control
-                as="textarea"
-                ref={textareaRef}
-                value={value}
-                onChange={handleTextChange}
+            <div
+                className="form-control"
+                ref={editorRef}
+                contentEditable="true"
+                onInput={handleInput}
                 onKeyDown={handleKeyDown}
-                {...props}
+                style={{
+                    minHeight: '100px',
+                    cursor: 'text',
+                    whiteSpace: 'pre-wrap',
+                    overflowWrap: 'break-word'
+                }}
             />
         </div>
     );

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Nav, NavDropdown, Offcanvas, Button } from 'react-bootstrap';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { LogOut, User, Shield, Code, UserPlus, Menu, LayoutDashboard } from 'lucide-react';
+import { LogOut, User, Shield, Code, UserPlus, Menu, LayoutDashboard, PlusCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Capacitor } from '@capacitor/core';
 
@@ -75,9 +75,13 @@ export default function AppNavbar() {
         )}
         {userRole === 'manager' && (
           <>
-            <Nav.Link as={NavLink} to="/manager" className="text-white d-flex align-items-center rounded px-3 py-2 sidebar-nav-link border-0" onClick={handleClose}>
+            <Nav.Link as={NavLink} to="/manager" end className="text-white d-flex align-items-center rounded px-3 py-2 sidebar-nav-link border-0" onClick={handleClose}>
               <LayoutDashboard size={18} className="me-3 opacity-75" />
               Gestion des Tickets
+            </Nav.Link>
+            <Nav.Link as={NavLink} to="/manager/new-ticket" className="text-white d-flex align-items-center rounded px-3 py-2 sidebar-nav-link border-0" onClick={handleClose}>
+              <PlusCircle size={18} className="me-3 opacity-75" />
+              Nouveau ticket interne
             </Nav.Link>
             <Nav.Link as={NavLink} to="/kanban" className="text-white d-flex align-items-center rounded px-3 py-2 sidebar-nav-link border-0" onClick={handleClose}>
               <Code size={18} className="me-3 opacity-75" />
