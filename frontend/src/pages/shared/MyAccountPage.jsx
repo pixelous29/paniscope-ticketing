@@ -6,8 +6,9 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { updateProfile, reauthenticateWithCredential, EmailAuthProvider, updateEmail, updatePassword } from 'firebase/auth';
 import toast from 'react-hot-toast';
-import { User, Image as ImageIcon, Briefcase, Building, Mail, Lock } from 'lucide-react';
+import { User, Image as ImageIcon, Briefcase, Building, Mail, Lock, Smartphone } from 'lucide-react';
 import { resizeImage } from '../../utils/imageResize';
+import { Capacitor } from '@capacitor/core';
 
 export default function MyAccountPage() {
   const { currentUser, userRole } = useAuth();
@@ -417,6 +418,36 @@ export default function MyAccountPage() {
                 </Button>
               </Form>
           </div>
+
+          {/* Section Application Mobile */}
+          {!Capacitor.isNativePlatform() && (
+            <div className="mt-4 bg-white rounded shadow-sm border p-4 d-flex flex-column flex-sm-row align-items-center justify-content-between">
+              <div className="d-flex align-items-center mb-3 mb-sm-0">
+                <div className="bg-primary bg-opacity-10 rounded-circle p-3 me-3">
+                  <Smartphone size={28} className="text-primary" />
+                </div>
+                <div>
+                  <h5 className="mb-0 fw-bold">Application Mobile</h5>
+                </div>
+              </div>
+              <a 
+                href="https://play.google.com/store/apps/details?id=com.paniscope.app" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="d-inline-block text-decoration-none"
+                style={{ transition: 'transform 0.2s ease' }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <img 
+                  src="https://play.google.com/intl/en_us/badges/static/images/badges/fr_badge_web_generic.png" 
+                  alt="Disponible sur Google Play" 
+                  style={{ height: '60px' }}
+                />
+              </a>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

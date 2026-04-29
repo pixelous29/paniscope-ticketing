@@ -44,7 +44,7 @@ export default function LoginPage() {
     } catch (err) {
       console.error('Erreur de connexion:', err);
       
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setError('Email ou mot de passe incorrect');
       } else if (err.code === 'auth/too-many-requests') {
         setError('Trop de tentatives. Veuillez réessayer plus tard.');
