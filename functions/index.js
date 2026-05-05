@@ -477,17 +477,63 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
           }
 
           const updates = {
-            conversation: admin.firestore.FieldValue.arrayUnion(initialMessage),
-            hasNewClientMessage: true,
             ccEmails: updatedCcEmails,
             lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
           };
 
-          if (
-            ticketData.status === "En attente" ||
-            ticketData.status === "En attente de validation"
-          ) {
-            updates.status = "En cours";
+          let detectedReaction = null;
+          if (attachmentUrls.length === 0) {
+              const emojiMatch = plain.match(/(?:a r[ée]agi(?: à votre message)? avec|reacted(?: to your message)?[:\s]+|\[(like|love|laugh)\])[\s:"«»“”]*(👍|❤️|😂|😮|😢|🙏|👀|✅)/iu);
+              if (emojiMatch && emojiMatch[2]) {
+                  detectedReaction = emojiMatch[2];
+              } else if (emojiMatch && emojiMatch[1]) {
+                  const kw = emojiMatch[1].toLowerCase();
+                  if (kw === 'like') detectedReaction = '👍';
+                  if (kw === 'love') detectedReaction = '❤️';
+                  if (kw === 'laugh') detectedReaction = '😂';
+              } else {
+                  const reactionMatch = plain.match(/^(?:.*?)(liked|a aim[ée]s?|loved|a ador[ée]s?|laughed at|a ri [àde]|emphasized|a mis l['’]accent sur|questioned|a remis en question|disliked|a moins aim[ée]s?)(?:\s+your message|\s+votre message|\s*[:"«»“”])/i) || 
+                                        subject.match(/^(liked|a aim[ée]s?|loved|a ador[ée]s?|laughed at|a ri [àde]|emphasized|a mis l['’]accent sur|questioned|a remis en question|disliked|a moins aim[ée]s?)/i);
+                  if (reactionMatch) {
+                      const keyword = (reactionMatch[1]).toLowerCase();
+                      if (keyword.includes('lik') || keyword.includes('aim')) detectedReaction = '👍';
+                      else if (keyword.includes('lov') || keyword.includes('ador')) detectedReaction = '❤️';
+                      else if (keyword.includes('laugh') || keyword.includes('ri ')) detectedReaction = '😂';
+                      else if (keyword.includes('emphasiz') || keyword.includes('accent')) detectedReaction = '👀';
+                      else if (keyword.includes('question') || keyword.includes('remis')) detectedReaction = '😮';
+                      else if (keyword.includes('dislik') || keyword.includes('moins aim')) detectedReaction = '😢';
+                  } else if (/^(👍|❤️|😂|😮|😢|🙏|👀|✅)\s*$/u.test(plain.trim())) {
+                      detectedReaction = plain.trim();
+                  }
+              }
+          }
+
+          if (detectedReaction && ticketData.conversation && ticketData.conversation.length > 0) {
+              const conversation = [...ticketData.conversation];
+              const lastMsg = conversation[conversation.length - 1];
+              if (!lastMsg.reactions) lastMsg.reactions = {};
+              if (!lastMsg.reactions[detectedReaction]) lastMsg.reactions[detectedReaction] = [];
+              
+              const alreadyReacted = lastMsg.reactions[detectedReaction].some(u => u.uid === userId || u.email === from);
+              if (!alreadyReacted) {
+                  lastMsg.reactions[detectedReaction].push({
+                      uid: userId,
+                      displayName: initialMessage.displayName,
+                      email: from
+                  });
+              }
+              updates.conversation = conversation;
+              console.log(`Réaction ${detectedReaction} extraite de l'email et ajoutée au dernier message.`);
+          } else {
+              updates.conversation = admin.firestore.FieldValue.arrayUnion(initialMessage);
+              updates.hasNewClientMessage = true;
+              
+              if (
+                ticketData.status === "En attente" ||
+                ticketData.status === "En attente de validation"
+              ) {
+                updates.status = "En cours";
+              }
           }
 
           await ticketRef.update(updates);
