@@ -911,6 +911,76 @@ exports.notifyClientOnNewMessage = functions.firestore
     if (afterConv.length > beforeConv.length) {
       const newMessage = afterConv[afterConv.length - 1];
 
+      // --- NOUVELLE LOGIQUE : NOTIFICATION AUX DÉVELOPPEURS ASSIGNÉS ---
+      const assignedTo = afterData.assignedTo && Array.isArray(afterData.assignedTo) ? afterData.assignedTo : [];
+      if (assignedTo.length > 0) {
+        try {
+          const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+          const ticketSubject = afterData.subject || "Sans objet";
+          const messageText = newMessage.text || "";
+          const ticketUrl = `https://paniscope-ticketing.web.app/dev/ticket/${ticketId}`;
+          const authorName = newMessage.displayName || newMessage.author || "Un utilisateur";
+
+          // On récupère les emails des développeurs assignés
+          const devsQuery = await db.collection("users").where("role", "==", "developer").get();
+          const devsToNotify = [];
+
+          devsQuery.forEach(doc => {
+            const devData = doc.data();
+            const devName = devData.displayName || devData.firstName || devData.email;
+            
+            // Si le dev est assigné ET qu'il n'est pas l'auteur du message, on l'ajoute
+            if (assignedTo.includes(devName) && devData.email) {
+              const authorMatchesDev = (newMessage.uid && newMessage.uid === doc.id) || (authorName === devName);
+              if (!authorMatchesDev) {
+                devsToNotify.push({ email: devData.email, name: devName });
+              }
+            }
+          });
+
+          if (devsToNotify.length > 0) {
+            console.log(`Notification des développeurs assignés au ticket ${ticketId} pour le nouveau message de ${authorName}...`);
+            const hasAttachments = newMessage.attachmentUrls && newMessage.attachmentUrls.length > 0;
+            const attachmentNote = hasAttachments ? `<br><p>📎 <em>Ce message contient des pièces jointes (visibles depuis l'application).</em></p>` : "";
+
+            for (const dev of devsToNotify) {
+              const emailHtml = `
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                  <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
+                    <h2 style="margin: 0;">Nouveau message sur un ticket assigné</h2>
+                  </div>
+                  <div style="background: #ffffff; padding: 20px; border: 1px solid #ddd; border-top: none;">
+                    <p>Bonjour <strong>${dev.name}</strong>,</p>
+                    <p><strong>${authorName}</strong> a posté un nouveau message sur le ticket <strong>#${ticketId}</strong> qui vous est assigné.</p>
+                    <br>
+                    <p><strong>Sujet :</strong> ${ticketSubject}</p>
+                    <br>
+                    <p><strong>Message :</strong></p>
+                    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #D9AC5F; white-space: pre-wrap;">${messageText}</div>
+                    ${attachmentNote}
+                    <br>
+                    <p><a href="${ticketUrl}" style="background-color: #0B1B2B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Voir dans l'application</a></p>
+                  </div>
+                </div>
+              `;
+
+              await smtpTransporter.sendMail({
+                from: `"Support Paniscope" <${fromEmail}>`,
+                to: dev.email,
+                subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
+                inReplyTo: `<ticket-${ticketId}@paniscope.fr>`,
+                references: [`<ticket-${ticketId}@paniscope.fr>`],
+                html: emailHtml,
+              });
+            }
+            console.log(`✅ Emails de notification envoyés aux développeurs assignés pour le ticket ${ticketId}`);
+          }
+        } catch (error) {
+          console.error(`❌ Erreur lors de la notification des développeurs assignés (Ticket ${ticketId}):`, error);
+        }
+      }
+      // --- FIN DE LA NOUVELLE LOGIQUE ---
+
       // Si l'auteur n'est PAS le client (et pas le système), on notifie le client
       if (newMessage.author !== "Client" && newMessage.author !== "Système") {
         console.log(
