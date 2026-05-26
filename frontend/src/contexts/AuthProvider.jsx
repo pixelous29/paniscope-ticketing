@@ -100,6 +100,7 @@ export function AuthProvider({ children }) {
 
   // Réinitialisation du mot de passe
   const resetPassword = (email) => {
+    auth.languageCode = 'fr'; // Force la langue de l'e-mail en français
     return sendPasswordResetEmail(auth, email);
   };
 
