@@ -124,6 +124,58 @@ exports.notifyManagersOnNewTicket = functions.firestore
     } catch (error) {
       console.error(`❌ Erreur lors de l'envoi de l'email aux managers :`, error.message);
     }
+
+    // Envoi d'une notification sur le salon Matrix "Support Paniscope"
+    const matrixServer = process.env.MATRIX_HOMESERVER_URL || "https://mtxdev.paniscope.fr";
+    const matrixToken = process.env.MATRIX_ACCESS_TOKEN;
+    const matrixRoomId = process.env.MATRIX_ROOM_ID;
+
+    if (matrixToken && matrixRoomId) {
+      try {
+        const safeMessage = initialMessage
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+
+        const matrixMessageBody = `Nouveau ticket #${ticketId} de ${clientName}\nSujet : ${ticket.subject}\nMessage : ${initialMessage}`;
+        const matrixMessageHtml = `
+          <strong>Nouveau ticket de support</strong><br>
+          <strong>ID :</strong> #${ticketId}<br>
+          <strong>Client :</strong> ${clientName}<br>
+          <strong>Sujet :</strong> ${ticket.subject}<br>
+          <strong>Priorité :</strong> ${ticket.priority || "Normale"}<br>
+          <br>
+          <strong>Message original :</strong>
+          <blockquote>${safeMessage.replace(/\n/g, "<br>")}</blockquote>
+          <br>
+          <p><a href="${ticketUrl}">Répondre depuis l'application</a></p>
+        `.trim();
+
+        await axios.post(
+          `${matrixServer}/_matrix/client/v3/rooms/${encodeURIComponent(matrixRoomId)}/send/m.room.message`,
+          {
+            msgtype: "m.text",
+            body: matrixMessageBody,
+            format: "org.matrix.custom.html",
+            formatted_body: matrixMessageHtml,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${matrixToken}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log(`✅ Notification Matrix envoyée avec succès pour le ticket ${ticketId}`);
+      } catch (matrixError) {
+        const errMsg = matrixError.response ? JSON.stringify(matrixError.response.data) : matrixError.message;
+        console.error(`❌ Erreur lors de l'envoi de la notification Matrix pour le ticket ${ticketId} :`, errMsg);
+      }
+    } else {
+      console.warn("⚠️ Notification Matrix ignorée : MATRIX_ACCESS_TOKEN ou MATRIX_ROOM_ID manquant.");
+    }
   });
 
 /**
