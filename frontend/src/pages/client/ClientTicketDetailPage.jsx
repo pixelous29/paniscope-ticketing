@@ -417,6 +417,7 @@ export default function ClientTicketDetailPage() {
                                     className="border-primary"
                                     ticket={ticket}
                                     excludeStaff={true}
+                                    onPasteImage={handleAddImage}
                                 />
                             </Form.Group>
 

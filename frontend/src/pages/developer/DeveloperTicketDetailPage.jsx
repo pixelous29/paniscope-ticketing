@@ -512,6 +512,7 @@ export default function DeveloperTicketDetailPage() {
                                                             className="border-primary"
                                                             ticket={ticket}
                                                             excludeStaff={true}
+                                                            onPasteImage={(file) => handleAddImage(file, setReplyImages, setReplyPreviews, setReplyImageError)}
                                                         />
                                                     </Form.Group>
                                                     
@@ -601,6 +602,7 @@ export default function DeveloperTicketDetailPage() {
                                                         className="border-secondary"
                                                         ticket={ticket}
                                                         excludeClients={true}
+                                                        onPasteImage={(file) => handleAddImage(file, setNoteImages, setNotePreviews, setNoteImageError)}
                                                     />
                                                 </Form.Group>
 

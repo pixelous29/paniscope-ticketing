@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Form, ListGroup } from 'react-bootstrap';
 import { useMentionableUsers } from '../../hooks/useMentionableUsers';
 
-const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, excludeStaff = false }) => {
+const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, excludeStaff = false, onPasteImage }) => {
     const users = useMentionableUsers(ticket, excludeClients, excludeStaff);
     const [mentionState, setMentionState] = useState(null);
     const editorRef = useRef(null);
@@ -157,6 +157,25 @@ const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, excl
         }
     };
 
+    const handlePaste = (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        let imagePasted = false;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const file = items[i].getAsFile();
+                if (file && onPasteImage) {
+                    onPasteImage(file);
+                    imagePasted = true;
+                }
+            }
+        }
+        if (imagePasted) {
+            e.preventDefault(); // Empêche l'image de se coller sous forme d'élément HTML ou d'image brute dans le contenteditable
+        }
+    };
+
     return (
         <div style={{ position: 'relative' }}>
             {mentionState && mentionState.suggestions.length > 0 && (
@@ -205,6 +224,7 @@ const MentionTextarea = ({ value, onChange, ticket, excludeClients = false, excl
                 contentEditable="true"
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 style={{
                     minHeight: '100px',
                     cursor: 'text',

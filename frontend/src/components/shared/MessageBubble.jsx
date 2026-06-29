@@ -541,6 +541,7 @@ export default function MessageBubble({ msg, renderImages, ticket, isNew, onVisi
                             ticket={ticket}
                             excludeClients={isInternalMessage}
                             excludeStaff={!isInternalMessage}
+                            onPasteImage={handleAddImage}
                         />
                     </Form.Group>
                     
