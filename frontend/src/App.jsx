@@ -130,7 +130,7 @@ export default function App() {
             <Route 
               path="/manager" 
               element={
-                <RoleBasedRoute allowedRoles={['manager']}>
+                <RoleBasedRoute allowedRoles={['manager', 'developer']}>
                   <ManagerDashboardPage />
                 </RoleBasedRoute>
               } 
@@ -138,7 +138,7 @@ export default function App() {
             <Route 
               path="/manager/new-ticket" 
               element={
-                <RoleBasedRoute allowedRoles={['manager']}>
+                <RoleBasedRoute allowedRoles={['manager', 'developer']}>
                   <NewManagerTicketPage />
                 </RoleBasedRoute>
               } 
@@ -146,7 +146,7 @@ export default function App() {
             <Route 
               path="/manager/ticket/:ticketId" 
               element={
-                <RoleBasedRoute allowedRoles={['manager']}>
+                <RoleBasedRoute allowedRoles={['manager', 'developer']}>
                   <ManagerTicketDetailPage />
                 </RoleBasedRoute>
               } 

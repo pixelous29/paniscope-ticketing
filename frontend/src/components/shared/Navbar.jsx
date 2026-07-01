@@ -91,9 +91,17 @@ export default function AppNavbar() {
         )}
         {userRole === 'developer' && (
           <>
+            <Nav.Link as={NavLink} to="/manager" end className="text-white d-flex align-items-center rounded px-3 py-2 sidebar-nav-link border-0" onClick={handleClose}>
+              <LayoutDashboard size={18} className="me-3 opacity-75" />
+              Gestion des Tickets
+            </Nav.Link>
             <Nav.Link as={NavLink} to="/dev" className="text-white d-flex align-items-center rounded px-3 py-2 sidebar-nav-link border-0" onClick={handleClose}>
               <LayoutDashboard size={18} className="me-3 opacity-75" />
-              Mes Tickets
+              Mes Tickets Dev
+            </Nav.Link>
+            <Nav.Link as={NavLink} to="/manager/new-ticket" className="text-white d-flex align-items-center rounded px-3 py-2 sidebar-nav-link border-0" onClick={handleClose}>
+              <PlusCircle size={18} className="me-3 opacity-75" />
+              Nouveau ticket interne
             </Nav.Link>
             <Nav.Link as={NavLink} to="/kanban" className="text-white d-flex align-items-center rounded px-3 py-2 sidebar-nav-link border-0" onClick={handleClose}>
               <Code size={18} className="me-3 opacity-75" />

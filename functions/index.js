@@ -33,7 +33,14 @@ exports.notifyManagersOnNewTicket = functions.firestore
     await new Promise(resolve => setTimeout(resolve, 1500));
     const ticketRef = admin.firestore().collection('tickets').doc(ticketId);
     const freshTicketSnap = await ticketRef.get();
-    const ticket = freshTicketSnap.exists ? freshTicketSnap.data() : snap.data();
+    let ticket = freshTicketSnap.exists ? freshTicketSnap.data() : snap.data();
+
+    // Affectation automatique à Lise Nusbaum par défaut
+    if (!ticket.assignedTo || !Array.isArray(ticket.assignedTo) || ticket.assignedTo.length === 0) {
+      console.log(`[ASSIGNATION] Affectation automatique du ticket ${ticketId} à Lise Nusbaum`);
+      await ticketRef.update({ assignedTo: ["Lise Nusbaum"] });
+      ticket.assignedTo = ["Lise Nusbaum"];
+    }
 
     console.log(`Nouveau ticket détecté : ${ticketId} - Préparation Email pour Managers...`);
 
