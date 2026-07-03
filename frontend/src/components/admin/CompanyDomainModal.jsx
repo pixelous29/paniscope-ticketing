@@ -125,7 +125,10 @@ export default function CompanyDomainModal({ show, onHide, user, onUpdate }) {
 
       toast.success('Informations de la société mises à jour');
       if (onUpdate) {
-        onUpdate(user.id, { ...userUpdates });
+        onUpdate(user.id, { 
+          ...userUpdates,
+          companyLogo: formData.companyLogoBase64 || null
+        });
       }
       onHide();
     } catch (error) {

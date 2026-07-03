@@ -43,21 +43,37 @@ export default function AdminUsersPage() {
 
   const handleCompanyUpdate = (userId, updatedData) => {
     setUsers(users.map(u => 
-      u.id === userId ? { ...u, company: updatedData.company, companyDomain: updatedData.companyDomain } : u
+      u.id === userId ? { 
+        ...u, 
+        company: updatedData.company, 
+        companyDomain: updatedData.companyDomain,
+        companyLogo: updatedData.companyLogo 
+      } : u
     ));
   };
 
   const fetchUsers = async () => {
     try {
-      const [usersSnapshot, tempPwdSnapshot] = await Promise.all([
+      const [usersSnapshot, tempPwdSnapshot, companiesSnapshot] = await Promise.all([
         getDocs(collection(db, 'users')),
-        getDocs(collection(db, 'temporaryPasswords'))
+        getDocs(collection(db, 'temporaryPasswords')),
+        getDocs(collection(db, 'companies'))
       ]);
       
-      const usersData = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const companiesData = {};
+      companiesSnapshot.docs.forEach(doc => {
+        companiesData[doc.id] = doc.data();
+      });
+
+      const usersData = usersSnapshot.docs.map(doc => {
+        const uData = doc.data();
+        const domain = uData.companyDomain;
+        return {
+          id: doc.id,
+          ...uData,
+          companyLogo: domain ? (companiesData[domain]?.logoBase64 || null) : null
+        };
+      });
 
       const tempPwdData = {};
       tempPwdSnapshot.docs.forEach(doc => {
@@ -229,13 +245,13 @@ export default function AdminUsersPage() {
                   <tr key={user.id}>
                     <td className="align-middle">
                       <div className="d-flex align-items-center">
-                        {(user.photoBase64 || user.photoURL) ? (
+                        {(user.photoBase64 || user.photoURL || user.companyLogo) ? (
                           <img
-                            src={user.photoBase64 || user.photoURL}
+                            src={user.photoBase64 || user.photoURL || user.companyLogo}
                             alt="Avatar"
                             className="rounded-circle me-2"
                             referrerPolicy="no-referrer"
-                            style={{ width: '32px', height: '32px' }}
+                            style={{ width: '32px', height: '32px', objectFit: 'cover' }}
                           />
                         ) : (
                           <div
