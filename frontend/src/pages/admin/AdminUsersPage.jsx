@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { Table, Form, Button, Spinner, Alert, Badge, OverlayTrigger, Tooltip, Stack } from 'react-bootstrap';
@@ -28,6 +29,7 @@ const styles = `
 `;
 
 export default function AdminUsersPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [temporaryPasswords, setTemporaryPasswords] = useState({});
   const [loading, setLoading] = useState(true);
@@ -189,10 +191,15 @@ export default function AdminUsersPage() {
       
       <div className="flex-shrink-0 border-bottom bg-white p-3 p-md-4 sticky-top z-2">
         <div className="d-flex justify-content-between align-items-center">
-          <h4 className="mb-0 fw-bold d-flex align-items-center text-dark">
-            <Shield size={24} className="me-2 text-primary" />
-            Gestion des utilisateurs
-          </h4>
+          <div className="d-flex align-items-center gap-3">
+            <Button variant="light" className="rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }} onClick={() => navigate('/manager')} title="Retour">
+              <i className="bi bi-arrow-left fs-5 text-secondary"></i>
+            </Button>
+            <h4 className="mb-0 fw-bold d-flex align-items-center text-dark">
+              <Shield size={24} className="me-2 text-primary" />
+              Gestion des utilisateurs
+            </h4>
+          </div>
           {pendingCount > 0 && (
             <Badge bg="warning" text="dark" className="px-3 py-2 rounded-pill shadow-sm">
               {pendingCount} en attente

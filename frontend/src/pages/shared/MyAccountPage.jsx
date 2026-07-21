@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Form, Button, Alert, Row, Col, Image, Spinner } from 'react-bootstrap';
 import { useAuth } from '../../hooks/useAuth';
 import { db, storage, auth } from '../../firebaseConfig';
@@ -11,6 +12,7 @@ import { resizeImage } from '../../utils/imageResize';
 import { Capacitor } from '@capacitor/core';
 
 export default function MyAccountPage() {
+  const navigate = useNavigate();
   const { currentUser, userRole } = useAuth();
   
   const [loading, setLoading] = useState(true);
@@ -206,10 +208,15 @@ export default function MyAccountPage() {
     <div className="d-flex flex-column h-100 w-100 bg-light">
       {/* Header */}
       <div className="flex-shrink-0 border-bottom bg-white p-3 p-md-4 sticky-top z-2">
-        <h4 className="mb-0 fw-bold d-flex align-items-center text-dark">
-          <User size={24} className="me-2 text-primary" />
-          Mon compte
-        </h4>
+        <div className="d-flex align-items-center gap-3">
+          <Button variant="light" className="rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }} onClick={() => navigate(-1)} title="Retour">
+            <i className="bi bi-arrow-left fs-5 text-secondary"></i>
+          </Button>
+          <h4 className="mb-0 fw-bold d-flex align-items-center text-dark">
+            <User size={24} className="me-2 text-primary" />
+            Mon compte
+          </h4>
+        </div>
       </div>
 
       {/* Main Content */}
