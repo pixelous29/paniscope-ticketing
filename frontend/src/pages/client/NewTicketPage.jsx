@@ -181,7 +181,7 @@ export default function NewTicketPage() {
                     style={{ cursor: 'pointer', border: ticketType === TICKET_TYPE.INCIDENT ? '2px solid #dc3545' : '1px solid #dee2e6' }}
                   >
                     <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '42px', height: '42px' }}>
-                      <i className="bi bi-exclamation-triangle-fill fs-5" style={{ lineHeight: 0 }}></i>
+                      <i className="bi bi-exclamation-triangle-fill fs-5" style={{ lineHeight: 0, transform: 'translateY(-1.5px)' }}></i>
                     </div>
                     <div>
                       <div className="fw-bold text-dark mb-1">Signalement d'incident</div>
