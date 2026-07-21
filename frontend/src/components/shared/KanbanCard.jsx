@@ -3,6 +3,7 @@ import { Card } from 'react-bootstrap';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { STATUS } from '../../constants/status';
+import { TICKET_TYPE } from '../../constants/type';
 
 // Couleurs pastel selon la priorité
 const PRIORITY_BG = {
@@ -52,6 +53,7 @@ export default function KanbanCard({ ticket, onClick }) {
   };
 
   const isNewTicket = ticket.status === STATUS.NEW;
+  const isEvolution = ticket.type === TICKET_TYPE.EVOLUTION;
   const cardBg = isNewTicket ? NEW_TICKET_BG : (PRIORITY_BG[ticket.priority] || '#f8f9fa');
 
   return (
@@ -65,12 +67,27 @@ export default function KanbanCard({ ticket, onClick }) {
         }}
       >
         <Card.Body className="p-2 d-flex flex-column">
-          {/* Indicateur "Nouveau" pour les tickets non encore traités */}
-          {isNewTicket && (
-            <div style={{ fontSize: '0.65rem', fontWeight: 'bold', color: '#0d6efd', textTransform: 'uppercase', marginBottom: '4px' }}>
-              ● Nouveau
+          <div className="d-flex justify-content-between align-items-center mb-1">
+            {/* Indicateur "Nouveau" */}
+            {isNewTicket ? (
+              <div style={{ fontSize: '0.65rem', fontWeight: 'bold', color: '#0d6efd', textTransform: 'uppercase' }}>
+                ● Nouveau
+              </div>
+            ) : <div></div>}
+
+            {/* Icône du Type de Ticket */}
+            <div style={{ fontSize: '0.75rem' }} title={isEvolution ? 'Évolution' : 'Incident'}>
+              {isEvolution ? (
+                <span className="badge bg-primary-subtle text-primary border border-primary px-1 py-0" style={{ fontSize: '0.65rem' }}>
+                  <i className="bi bi-lightbulb-fill me-1"></i>Évolution
+                </span>
+              ) : (
+                <span className="badge bg-danger-subtle text-danger border border-danger px-1 py-0" style={{ fontSize: '0.65rem' }}>
+                  <i className="bi bi-exclamation-triangle-fill me-1"></i>Incident
+                </span>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Titre complet du ticket + indicateur de priorité */}
           <div className="d-flex align-items-start gap-1 mb-2">

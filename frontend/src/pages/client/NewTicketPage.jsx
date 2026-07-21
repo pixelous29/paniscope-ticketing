@@ -5,6 +5,7 @@ import { doc, setDoc, runTransaction, serverTimestamp } from 'firebase/firestore
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
 import { STATUS } from '../../constants/status';
+import { TICKET_TYPE } from '../../constants/type';
 import { Form, Button, FloatingLabel, Spinner, Alert } from 'react-bootstrap';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
 
@@ -14,6 +15,7 @@ export default function NewTicketPage() {
     subject: '',
     description: ''
   });
+  const [ticketType, setTicketType] = useState(TICKET_TYPE.INCIDENT);
   
   // Nouveaux états pour MultiImageUpload
   const [images, setImages] = useState([]);
@@ -87,6 +89,7 @@ export default function NewTicketPage() {
 
       // 2. Création du ticket
       const ticketData = {
+        type: ticketType,
         subject: formData.subject,
         clientUid: currentUser.uid,
         clientEmail: currentUser.email,
@@ -167,6 +170,43 @@ export default function NewTicketPage() {
           {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
           
           <Form onSubmit={handleSubmit}>
+            {/* Choix du type de ticket */}
+            <div className="mb-4">
+              <Form.Label className="fw-bold text-dark mb-2">Nature de votre demande *</Form.Label>
+              <div className="row g-3">
+                <div className="col-12 col-md-6">
+                  <div 
+                    className={`p-3 rounded border h-100 d-flex align-items-start gap-3 user-select-none transition-all ${ticketType === TICKET_TYPE.INCIDENT ? 'bg-danger-subtle shadow-sm' : 'bg-light'}`}
+                    onClick={() => setTicketType(TICKET_TYPE.INCIDENT)}
+                    style={{ cursor: 'pointer', border: ticketType === TICKET_TYPE.INCIDENT ? '2px solid #dc3545' : '1px solid #dee2e6' }}
+                  >
+                    <div className="rounded-circle bg-danger text-white p-2 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }}>
+                      <i className="bi bi-exclamation-triangle-fill fs-5"></i>
+                    </div>
+                    <div>
+                      <div className="fw-bold text-dark mb-1">Signalement d'incident</div>
+                      <div className="small text-muted">Dysfonctionnement, erreur ou problème de fonctionnement.</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-12 col-md-6">
+                  <div 
+                    className={`p-3 rounded border h-100 d-flex align-items-start gap-3 user-select-none transition-all ${ticketType === TICKET_TYPE.EVOLUTION ? 'bg-primary-subtle shadow-sm' : 'bg-light'}`}
+                    onClick={() => setTicketType(TICKET_TYPE.EVOLUTION)}
+                    style={{ cursor: 'pointer', border: ticketType === TICKET_TYPE.EVOLUTION ? '2px solid #0d6efd' : '1px solid #dee2e6' }}
+                  >
+                    <div className="rounded-circle bg-primary text-white p-2 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }}>
+                      <i className="bi bi-lightbulb-fill fs-5"></i>
+                    </div>
+                    <div>
+                      <div className="fw-bold text-dark mb-1">Demande d'évolution</div>
+                      <div className="small text-muted">Suggestion, idée de nouvelle fonctionnalité ou d'amélioration.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <FloatingLabel controlId="subject" label="Objet de la demande *" className="mb-3">
               <Form.Control 
                 type="text" 

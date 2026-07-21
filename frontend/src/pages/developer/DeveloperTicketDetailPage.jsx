@@ -6,6 +6,7 @@ import { db, storage } from '../../firebaseConfig';
 import { Badge, Form, Button, Alert, Dropdown, Spinner, Tabs, Tab, ListGroup } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
 import StatusBadge from '../../components/shared/StatusBadge';
+import TypeBadge from '../../components/shared/TypeBadge';
 import { STATUS } from '../../constants/status';
 import { DEV_PHASE_LABELS, DEV_PHASE_COLORS } from '../../constants/phases';
 import { LinkContainer } from 'react-router-bootstrap';
@@ -408,10 +409,13 @@ export default function DeveloperTicketDetailPage() {
                         <i className="bi bi-arrow-left fs-5"></i>
                     </Link>
                     <div className="flex-grow-1">
-                        <div className="text-uppercase text-secondary fw-bold" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-                            Ticket #{ticket?.id}
+                        <div className="d-flex align-items-center gap-2 mb-1">
+                            <span className="text-uppercase text-secondary fw-bold" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
+                                Ticket #{ticket?.id}
+                            </span>
+                            <TypeBadge type={ticket.type} />
                         </div>
-                        <h4 className="mb-0 fw-bold text-dark mt-1">{ticket.subject}</h4>
+                        <h4 className="mb-0 fw-bold text-dark">{ticket.subject}</h4>
                     </div>
                 </div>
                 <div className="ms-md-auto ms-5 ps-2 ps-md-0">

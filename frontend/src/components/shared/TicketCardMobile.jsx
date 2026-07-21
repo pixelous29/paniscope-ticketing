@@ -3,6 +3,7 @@ import { Card, Badge, Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { STATUS, STATUS_VARIANT } from "../../constants/status";
 import StatusBadge from "./StatusBadge";
+import TypeBadge from "./TypeBadge";
 
 const priorityVariant = {
   Faible: "secondary",
@@ -30,8 +31,11 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
       }}
     >
       <Card.Body className="p-3">
-        <div className="text-secondary fw-semibold mb-2" style={{ fontSize: "0.85rem" }}>
-          Ticket N° #{ticket.id}
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <span className="text-secondary fw-semibold" style={{ fontSize: "0.85rem" }}>
+            Ticket N° #{ticket.id}
+          </span>
+          <TypeBadge type={ticket.type} />
         </div>
         <div className="d-flex justify-content-between align-items-start mb-2">
           <div

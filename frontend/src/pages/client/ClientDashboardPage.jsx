@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { STATUS } from '../../constants/status';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
 import StatusBadge from '../../components/shared/StatusBadge';
+import TypeBadge from '../../components/shared/TypeBadge';
 
 export default function ClientDashboardPage() {
   const [tickets, setTickets] = useState([]);
@@ -169,6 +170,7 @@ export default function ClientDashboardPage() {
                   <thead className="bg-light text-secondary">
                     <tr>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Ticket N°</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Type</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Dernière mise à jour</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
@@ -180,6 +182,9 @@ export default function ClientDashboardPage() {
                     currentTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
                         <td className="px-4 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
+                        <td className="px-4 py-3 align-middle">
+                          <TypeBadge type={ticket.type} />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
@@ -205,7 +210,7 @@ export default function ClientDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={showActionsColumn ? 5 : 4} className="text-center py-5 text-muted">
+                      <td colSpan={showActionsColumn ? 6 : 5} className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-inbox fs-3"></i></div>
                         Aucun ticket en cours.
                       </td>
@@ -240,6 +245,7 @@ export default function ClientDashboardPage() {
                   <thead className="bg-light text-secondary">
                     <tr>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Ticket N°</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0">Type</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Dernière mise à jour</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
@@ -250,6 +256,9 @@ export default function ClientDashboardPage() {
                     archivedTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
                         <td className="px-4 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
+                        <td className="px-4 py-3 align-middle">
+                          <TypeBadge type={ticket.type} />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
@@ -264,7 +273,7 @@ export default function ClientDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="4" className="text-center py-5 text-muted">
+                      <td colSpan="5" className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-archive fs-3"></i></div>
                         Aucun ticket archivé.
                       </td>
