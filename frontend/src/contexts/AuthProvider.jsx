@@ -16,6 +16,7 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [userStatus, setUserStatus] = useState(null);
+  const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Fonction pour récupérer le rôle de l'utilisateur depuis Firestore
@@ -144,22 +145,26 @@ export function AuthProvider({ children }) {
               deleteDoc(tempPwdRef).catch(e => console.warn("Erreur suppression mdp provisoire:", e));
             }
 
+            setNeedsPasswordReset(userData.needsPasswordReset || false);
             setCurrentUser(enrichedUser);
             setUserRole(userData.role || 'client');
             setUserStatus(userData.status || 'approved'); // Par défaut approved pour les anciens comptes
           } else {
+            setNeedsPasswordReset(false);
             setCurrentUser(user);
             setUserRole('client');
             setUserStatus('pending');
           }
         } catch (error) {
           console.error('Erreur lors de la récupération des données utilisateur:', error);
+          setNeedsPasswordReset(false);
           setCurrentUser(user);
           const role = await fetchUserRole(user.uid);
           setUserRole(role);
           setUserStatus('pending');
         }
       } else {
+        setNeedsPasswordReset(false);
         setCurrentUser(null);
         setUserRole(null);
         setUserStatus(null);
@@ -171,10 +176,16 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
+  const setPasswordResetCompleted = () => {
+    setNeedsPasswordReset(false);
+  };
+
   const value = {
     currentUser,
     userRole,
     userStatus,
+    needsPasswordReset,
+    setPasswordResetCompleted,
     login,
     signup,
     signInWithGoogle,

@@ -22,6 +22,7 @@ import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import PendingApprovalPage from './pages/auth/PendingApprovalPage';
+import ForceChangePasswordPage from './pages/auth/ForceChangePasswordPage';
 import UpdateNotification from './components/shared/UpdateNotification';
 import RoleRedirect from './components/shared/RoleRedirect';
 import ProtectedRoute from './components/shared/ProtectedRoute';
@@ -91,6 +92,16 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/pending-approval" element={<PendingApprovalPage />} />
+          
+          {/* Route de forçage de changement de mot de passe */}
+          <Route 
+            path="/force-change-password" 
+            element={
+              <ProtectedRoute allowForcePasswordReset={true}>
+                <ForceChangePasswordPage />
+              </ProtectedRoute>
+            } 
+          />
 
           {/* Routes protégées */}
           <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>

@@ -854,6 +854,7 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
         photoURL: finalPhotoURL,
         photoBase64: photoBase64 || null, // Miniature base64 pour un chargement instantané
         lastConnection: null, // Initialisation de la dernière connexion
+        needsPasswordReset: true,
       });
 
     // 2bis. Stockage sécurisé du mot de passe temporaire pour le manager
@@ -1014,7 +1015,8 @@ exports.resetUserPasswordByManager = functions.https.onCall(async (data, context
 
     // Remettre lastConnection à null sur le profil de l'utilisateur pour qu'il soit traité comme première connexion
     await db.collection("users").doc(targetUserId).update({
-      lastConnection: null
+      lastConnection: null,
+      needsPasswordReset: true
     });
 
     return {

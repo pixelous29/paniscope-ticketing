@@ -3,8 +3,8 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Container, Spinner } from 'react-bootstrap';
 
-export default function ProtectedRoute({ children }) {
-  const { currentUser, userStatus, loading } = useAuth();
+export default function ProtectedRoute({ children, allowForcePasswordReset = false }) {
+  const { currentUser, userStatus, needsPasswordReset, loading } = useAuth();
 
   if (loading) {
     return (
@@ -16,6 +16,16 @@ export default function ProtectedRoute({ children }) {
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Redirection forcée si l'utilisateur doit réinitialiser son mot de passe
+  if (needsPasswordReset && !allowForcePasswordReset) {
+    return <Navigate to="/force-change-password" replace />;
+  }
+
+  // Redirection vers l'accueil si le reset n'est pas requis mais que l'utilisateur tente d'accéder à la page de reset
+  if (!needsPasswordReset && allowForcePasswordReset) {
+    return <Navigate to="/" replace />;
   }
 
   // Vérifier si le compte est approuvé
