@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
@@ -22,6 +22,7 @@ const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': '
 export default function ManagerTicketDetailPage() {
     const { ticketId } = useParams();
     const location = useLocation();
+    const navigate = useNavigate();
     const { currentUser } = useAuth();
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -532,9 +533,9 @@ export default function ManagerTicketDetailPage() {
             {/* En-tête du ticket */}
             <div className="flex-shrink-0 border-bottom bg-white d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center p-3 p-md-4 sticky-top z-2">
                 <div className="d-flex align-items-center gap-3 w-100 mb-3 mb-md-0">
-                    <Link to="/manager" className="text-secondary hover-primary text-decoration-none d-flex align-items-center justify-content-center bg-light rounded-circle flex-shrink-0" style={{ width: '40px', height: '40px' }} title="Retour aux tickets">
-                        <i className="bi bi-arrow-left fs-5"></i>
-                    </Link>
+                    <Button variant="light" className="rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }} onClick={() => navigate('/manager')} title="Retour aux tickets">
+                        <i className="bi bi-arrow-left fs-5 text-secondary"></i>
+                    </Button>
                     <div className="flex-grow-1">
                         <div className="d-flex align-items-center gap-2 mb-1">
                             <span className="text-uppercase text-secondary fw-bold" style={{ fontSize: '0.75rem', letterSpacing: '0.5px' }}>
