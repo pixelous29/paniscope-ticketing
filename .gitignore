@@ -10,3 +10,6 @@ venv/
 
 # Vite
 .vite/
+
+# Firebase cache
+.firebase/
