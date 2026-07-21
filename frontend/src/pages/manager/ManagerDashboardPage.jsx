@@ -5,7 +5,7 @@ import { Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Nav, For
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { STATUS } from '../../constants/status';
-import { TICKET_TYPE_PASTEL_BG } from '../../constants/type';
+import { TICKET_TYPE_PASTEL_BG, getTicketPastelBg } from '../../constants/type';
 import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
@@ -212,11 +212,13 @@ export default function ManagerDashboardPage() {
                   </thead>
                   <tbody className="border-top-0">
                   {currentTickets.length > 0 ? (
-                    currentTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer', backgroundColor: TICKET_TYPE_PASTEL_BG[ticket.type] || 'transparent' }} className="border-bottom">
-                        <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-3 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'} className="px-2 py-1">{ticket.priority}</Badge></td>
-                        <td className="px-3 py-3 fw-bold align-middle text-dark">
+                    currentTickets.map(ticket => {
+                      const bg = getTicketPastelBg(ticket.type);
+                      return (
+                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer', '--bs-table-bg': bg, backgroundColor: bg }} className="border-bottom">
+                        <td className="px-3 py-3 align-middle text-secondary fw-semibold" style={{ backgroundColor: bg }}>#{ticket.id}</td>
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'} className="px-2 py-1">{ticket.priority}</Badge></td>
+                        <td className="px-3 py-3 fw-bold align-middle text-dark" style={{ backgroundColor: bg }}>
                           <div className="d-flex align-items-center">
                             {ticket.hasNewClientMessage && (
                                <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle réponse du client')}>
@@ -236,13 +238,13 @@ export default function ManagerDashboardPage() {
                             <span>{ticket.subject}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
                           {ticket.clientName || ticket.client || ticket.clientId}
                           {ticket.companyDomain && (
                             <><br/><small className="text-muted"><i className="bi bi-building me-1"></i>{ticket.companyDomain}</small></>
                           )}
                         </td>
-                        <td className="px-3 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
                           {Array.isArray(ticket.assignedTo) && ticket.assignedTo.length > 0 ? (
                             <div className="d-flex flex-wrap gap-1">
                               {ticket.assignedTo.map(assignee => (
@@ -255,14 +257,14 @@ export default function ManagerDashboardPage() {
                             <span className="text-muted fst-italic">Non assigné</span>
                           )}
                         </td>
-                        <td className="px-3 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
-                        <td className="px-3 py-3 align-middle text-nowrap"><StatusBadge status={ticket.status} /></td>
+                        <td className="px-3 py-3 align-middle text-nowrap" style={{ backgroundColor: bg }}><StatusBadge status={ticket.status} /></td>
                         {showActionsColumn && (
-                          <td className="px-3 py-3 align-middle text-center">
+                          <td className="px-3 py-3 align-middle text-center" style={{ backgroundColor: bg }}>
                             {ticket.status === STATUS.CLOSED && (
                               <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
                                 <Button variant="light" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)} className="text-secondary hover-primary border">
@@ -273,7 +275,8 @@ export default function ManagerDashboardPage() {
                           </td>
                         )}
                       </tr>
-                    ))
+                    );
+                  })
                   ) : (
                     <tr>
                       <td colSpan={showActionsColumn ? 8 : 7} className="text-center py-5 text-muted">
@@ -321,18 +324,20 @@ export default function ManagerDashboardPage() {
                   </thead>
                   <tbody className="border-top-0">
                   {archivedTickets.length > 0 ? (
-                    archivedTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer', backgroundColor: TICKET_TYPE_PASTEL_BG[ticket.type] || 'transparent' }} className="border-bottom">
-                        <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-3 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'} className="px-2 py-1">{ticket.priority}</Badge></td>
-                        <td className="px-3 py-3 fw-bold align-middle text-dark">{ticket.subject}</td>
-                        <td className="px-3 py-3 align-middle">
+                    archivedTickets.map(ticket => {
+                      const bg = getTicketPastelBg(ticket.type);
+                      return (
+                      <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer', '--bs-table-bg': bg, backgroundColor: bg }} className="border-bottom">
+                        <td className="px-3 py-3 align-middle text-secondary fw-semibold" style={{ backgroundColor: bg }}>#{ticket.id}</td>
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}><Badge bg={priorityVariant[ticket.priority] || 'light'} text={priorityVariant[ticket.priority] === 'warning' ? 'dark' : 'white'} className="px-2 py-1">{ticket.priority}</Badge></td>
+                        <td className="px-3 py-3 fw-bold align-middle text-dark" style={{ backgroundColor: bg }}>{ticket.subject}</td>
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
                           {ticket.clientName || ticket.client || ticket.clientId}
                           {ticket.companyDomain && (
                             <><br/><small className="text-muted"><i className="bi bi-building me-1"></i>{ticket.companyDomain}</small></>
                           )}
                         </td>
-                        <td className="px-3 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
                           {Array.isArray(ticket.assignedTo) && ticket.assignedTo.length > 0 ? (
                             <div className="d-flex flex-wrap gap-1">
                               {ticket.assignedTo.map(assignee => (
@@ -345,14 +350,15 @@ export default function ManagerDashboardPage() {
                             <span className="text-muted fst-italic">Non assigné</span>
                           )}
                         </td>
-                        <td className="px-3 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
-                        <td className="px-3 py-3 align-middle text-nowrap"><StatusBadge status={ticket.status} /></td>
+                        <td className="px-3 py-3 align-middle text-nowrap" style={{ backgroundColor: bg }}><StatusBadge status={ticket.status} /></td>
                       </tr>
-                    ))
+                    );
+                  })
                   ) : (
                     <tr>
                       <td colSpan="7" className="text-center py-5 text-muted">

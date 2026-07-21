@@ -2,7 +2,7 @@ import React from "react";
 import { Card, Badge, Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { STATUS, STATUS_VARIANT } from "../../constants/status";
-import { TICKET_TYPE_PASTEL_BG } from "../../constants/type";
+import { getTicketPastelBg } from "../../constants/type";
 import StatusBadge from "./StatusBadge";
 
 const priorityVariant = {
@@ -21,7 +21,7 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
     else if (role === "developer") navigate(`/dev/ticket/${ticket.id}`);
   };
 
-  const cardBg = TICKET_TYPE_PASTEL_BG[ticket.type] || "#ffffff";
+  const cardBg = getTicketPastelBg(ticket.type);
 
   return (
     <Card

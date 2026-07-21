@@ -19,12 +19,21 @@ export const TICKET_TYPE_VARIANT = {
 };
 
 export const TICKET_TYPE_PASTEL_BG = {
-  [TICKET_TYPE.INCIDENT]: '#fff0f0', // Rouge/Orange pastel doux
-  [TICKET_TYPE.EVOLUTION]: '#edf5ff', // Bleu pastel doux
+  [TICKET_TYPE.INCIDENT]: '#fee2e2', // Rouge/Orange pastel (red-100)
+  [TICKET_TYPE.EVOLUTION]: '#dbeafe', // Bleu pastel (blue-100)
 };
 
 export const TICKET_TYPE_PASTEL_HOVER = {
-  [TICKET_TYPE.INCIDENT]: '#fce0e0', // Rouge pastel au survol
-  [TICKET_TYPE.EVOLUTION]: '#dbecfe', // Bleu pastel au survol
+  [TICKET_TYPE.INCIDENT]: '#fca5a5', 
+  [TICKET_TYPE.EVOLUTION]: '#bfdbfe', 
 };
+
+export function getTicketPastelBg(type) {
+  const norm = String(type || '').toLowerCase();
+  if (norm.includes('evolution')) {
+    return TICKET_TYPE_PASTEL_BG[TICKET_TYPE.EVOLUTION];
+  }
+  return TICKET_TYPE_PASTEL_BG[TICKET_TYPE.INCIDENT];
+}
+
 

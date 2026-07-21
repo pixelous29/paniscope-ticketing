@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
 import { STATUS } from '../../constants/status';
-import { TICKET_TYPE_PASTEL_BG } from '../../constants/type';
+import { TICKET_TYPE_PASTEL_BG, getTicketPastelBg } from '../../constants/type';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
 import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
@@ -179,21 +179,23 @@ export default function ClientDashboardPage() {
                   </thead>
                   <tbody className="border-top-0">
                   {currentTickets.length > 0 ? (
-                    currentTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer', backgroundColor: TICKET_TYPE_PASTEL_BG[ticket.type] || 'transparent' }} className="border-bottom">
-                        <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-3 py-3">
+                    currentTickets.map(ticket => {
+                      const bg = getTicketPastelBg(ticket.type);
+                      return (
+                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer', '--bs-table-bg': bg, backgroundColor: bg }} className="border-bottom">
+                        <td className="px-3 py-3 align-middle text-secondary fw-semibold" style={{ backgroundColor: bg }}>#{ticket.id}</td>
+                        <td className="px-3 py-3" style={{ backgroundColor: bg }}>
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
                             <div className="small text-muted mt-1"><i className="bi bi-person me-1"></i> Initiateur: {ticket.clientName || 'Collègue'}</div>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-secondary">{ticket.lastUpdate}</td>
-                        <td className="px-3 py-3 align-middle text-nowrap">
+                        <td className="px-3 py-3 text-secondary" style={{ backgroundColor: bg }}>{ticket.lastUpdate}</td>
+                        <td className="px-3 py-3 align-middle text-nowrap" style={{ backgroundColor: bg }}>
                           <StatusBadge status={ticket.status} />
                         </td>
                         {showActionsColumn && (
-                          <td className="px-3 py-3 text-center">
+                          <td className="px-3 py-3 text-center" style={{ backgroundColor: bg }}>
                             {ticket.status === STATUS.CLOSED && (
                               <OverlayTrigger placement="top" overlay={(props) => <Tooltip id={`tooltip-${ticket.id}`} {...props}>Archiver</Tooltip>}>
                                 <Button variant="light" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)} className="text-secondary hover-primary border">
@@ -204,7 +206,8 @@ export default function ClientDashboardPage() {
                           </td>
                         )}
                       </tr>
-                    ))
+                    );
+                  })
                   ) : (
                     <tr>
                       <td colSpan={showActionsColumn ? 5 : 4} className="text-center py-5 text-muted">
@@ -249,21 +252,24 @@ export default function ClientDashboardPage() {
                   </thead>
                   <tbody className="border-top-0">
                   {archivedTickets.length > 0 ? (
-                    archivedTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer', backgroundColor: TICKET_TYPE_PASTEL_BG[ticket.type] || 'transparent' }} className="border-bottom">
-                        <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-3 py-3">
+                    archivedTickets.map(ticket => {
+                      const bg = getTicketPastelBg(ticket.type);
+                      return (
+                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer', '--bs-table-bg': bg, backgroundColor: bg }} className="border-bottom">
+                        <td className="px-3 py-3 align-middle text-secondary fw-semibold" style={{ backgroundColor: bg }}>#{ticket.id}</td>
+                        <td className="px-3 py-3" style={{ backgroundColor: bg }}>
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
                             <div className="small text-muted mt-1"><i className="bi bi-person me-1"></i> Initiateur: {ticket.clientName || 'Collègue'}</div>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-secondary">{ticket.lastUpdate}</td>
-                        <td className="px-3 py-3 align-middle text-nowrap">
+                        <td className="px-3 py-3 text-secondary" style={{ backgroundColor: bg }}>{ticket.lastUpdate}</td>
+                        <td className="px-3 py-3 align-middle text-nowrap" style={{ backgroundColor: bg }}>
                           <StatusBadge status={ticket.status} />
                         </td>
                       </tr>
-                    ))
+                    );
+                  })
                   ) : (
                     <tr>
                       <td colSpan="4" className="text-center py-5 text-muted">

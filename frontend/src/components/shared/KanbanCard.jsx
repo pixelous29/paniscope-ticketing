@@ -3,7 +3,7 @@ import { Card } from 'react-bootstrap';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { STATUS } from '../../constants/status';
-import { TICKET_TYPE, TICKET_TYPE_PASTEL_BG } from '../../constants/type';
+import { TICKET_TYPE, getTicketPastelBg } from '../../constants/type';
 
 // Couleurs pastel selon la priorité
 const PRIORITY_BG = {
@@ -53,7 +53,7 @@ export default function KanbanCard({ ticket, onClick }) {
   };
 
   const isNewTicket = ticket.status === STATUS.NEW;
-  const cardBg = TICKET_TYPE_PASTEL_BG[ticket.type] || '#edf5ff';
+  const cardBg = getTicketPastelBg(ticket.type);
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
