@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
 import { STATUS } from '../../constants/status';
+import { TICKET_TYPE_PASTEL_BG } from '../../constants/type';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
 import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
@@ -170,7 +171,6 @@ export default function ClientDashboardPage() {
                   <thead className="bg-light text-secondary text-nowrap">
                     <tr>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Type</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Dernière mise à jour</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0 text-nowrap">Statut</th>
@@ -180,11 +180,8 @@ export default function ClientDashboardPage() {
                   <tbody className="border-top-0">
                   {currentTickets.length > 0 ? (
                     currentTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
+                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer', backgroundColor: TICKET_TYPE_PASTEL_BG[ticket.type] || 'transparent' }} className="border-bottom">
                         <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-3 py-3 align-middle">
-                          <TypeBadge type={ticket.type} />
-                        </td>
                         <td className="px-3 py-3">
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
@@ -210,7 +207,7 @@ export default function ClientDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={showActionsColumn ? 6 : 5} className="text-center py-5 text-muted">
+                      <td colSpan={showActionsColumn ? 5 : 4} className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-inbox fs-3"></i></div>
                         Aucun ticket en cours.
                       </td>
@@ -245,7 +242,6 @@ export default function ClientDashboardPage() {
                   <thead className="bg-light text-secondary text-nowrap">
                     <tr>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Type</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Dernière mise à jour</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0 text-nowrap">Statut</th>
@@ -254,11 +250,8 @@ export default function ClientDashboardPage() {
                   <tbody className="border-top-0">
                   {archivedTickets.length > 0 ? (
                     archivedTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
+                      <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer', backgroundColor: TICKET_TYPE_PASTEL_BG[ticket.type] || 'transparent' }} className="border-bottom">
                         <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-3 py-3 align-middle">
-                          <TypeBadge type={ticket.type} />
-                        </td>
                         <td className="px-3 py-3">
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
@@ -273,7 +266,7 @@ export default function ClientDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="5" className="text-center py-5 text-muted">
+                      <td colSpan="4" className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-archive fs-3"></i></div>
                         Aucun ticket archivé.
                       </td>

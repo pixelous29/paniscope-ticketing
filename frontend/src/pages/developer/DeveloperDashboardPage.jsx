@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
 import { STATUS } from '../../constants/status';
+import { TICKET_TYPE_PASTEL_BG } from '../../constants/type';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
 import TypeBadge from '../../components/shared/TypeBadge';
 import toast from 'react-hot-toast';
@@ -211,7 +212,6 @@ export default function DeveloperDashboardPage() {
                   <thead className="bg-light text-secondary text-nowrap">
                     <tr>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Type</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Priorité</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Client</th>
@@ -222,9 +222,8 @@ export default function DeveloperDashboardPage() {
                   <tbody className="border-top-0">
                   {currentTickets.length > 0 ? (
                     currentTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
+                      <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer', backgroundColor: TICKET_TYPE_PASTEL_BG[ticket.type] || 'transparent' }} className="border-bottom">
                         <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-3 py-3 align-middle"><TypeBadge type={ticket.type} /></td>
                         <td className="px-3 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge></td>
                         <td className="px-3 py-3 fw-bold align-middle text-dark">
                           <div className="d-flex align-items-center">
@@ -262,7 +261,7 @@ export default function DeveloperDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={showActionsColumn ? 7 : 6} className="text-center py-5 text-muted">
+                      <td colSpan={showActionsColumn ? 6 : 5} className="text-center py-5 text-muted">
                          <div className="mb-2"><i className="bi bi-inbox fs-3"></i></div>
                         Aucun ticket en cours.
                       </td>
@@ -297,7 +296,6 @@ export default function DeveloperDashboardPage() {
                   <thead className="bg-light text-secondary text-nowrap">
                     <tr>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Type</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Priorité</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-3 fw-semibold border-bottom-0">Client</th>
@@ -307,9 +305,8 @@ export default function DeveloperDashboardPage() {
                   <tbody className="border-top-0">
                   {archivedTickets.length > 0 ? (
                     archivedTickets.map(ticket => (
-                      <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
+                      <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer', backgroundColor: TICKET_TYPE_PASTEL_BG[ticket.type] || 'transparent' }} className="border-bottom">
                         <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-3 py-3 align-middle"><TypeBadge type={ticket.type} /></td>
                         <td className="px-3 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge></td>
                         <td className="px-3 py-3 fw-bold align-middle text-dark">{ticket.subject}</td>
                         <td className="px-3 py-3 align-middle">
@@ -327,7 +324,7 @@ export default function DeveloperDashboardPage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="text-center py-5 text-muted">
+                      <td colSpan="5" className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-archive fs-3"></i></div>
                         Aucun ticket archivé.
                       </td>

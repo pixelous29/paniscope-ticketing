@@ -2,8 +2,8 @@ import React from "react";
 import { Card, Badge, Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { STATUS, STATUS_VARIANT } from "../../constants/status";
+import { TICKET_TYPE_PASTEL_BG } from "../../constants/type";
 import StatusBadge from "./StatusBadge";
-import TypeBadge from "./TypeBadge";
 
 const priorityVariant = {
   Faible: "secondary",
@@ -21,12 +21,15 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
     else if (role === "developer") navigate(`/dev/ticket/${ticket.id}`);
   };
 
+  const cardBg = TICKET_TYPE_PASTEL_BG[ticket.type] || "#ffffff";
+
   return (
     <Card
-      className="mb-3 shadow-sm ticket-card-mobile"
+      className="mb-3 shadow-sm ticket-card-mobile border-0"
       onClick={handleClick}
       style={{
         cursor: "pointer",
+        backgroundColor: cardBg,
         borderLeft: `4px solid var(--bs-${STATUS_VARIANT[ticket.status] || "secondary"})`,
       }}
     >
@@ -35,7 +38,6 @@ export default function TicketCardMobile({ ticket, role, onArchive }) {
           <span className="text-secondary fw-semibold" style={{ fontSize: "0.85rem" }}>
             Ticket N° #{ticket.id}
           </span>
-          <TypeBadge type={ticket.type} />
         </div>
         <div className="d-flex justify-content-between align-items-start mb-2">
           <div
