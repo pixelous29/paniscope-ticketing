@@ -80,7 +80,7 @@ export default function AddClientPage() {
       {/* Header */}
       <div className="flex-shrink-0 border-bottom bg-white p-3 p-md-4 sticky-top z-2">
         <div className="d-flex align-items-center gap-3">
-          <Button variant="light" className="rounded-circle p-2 d-flex align-items-center justify-content-center" onClick={() => navigate('/admin/users')} title="Retour">
+          <Button variant="light" className="rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }} onClick={() => navigate('/admin/users')} title="Retour">
             <i className="bi bi-arrow-left fs-5 text-secondary"></i>
           </Button>
           <h4 className="fs-4 mb-0 fw-bold d-flex align-items-center text-dark">
