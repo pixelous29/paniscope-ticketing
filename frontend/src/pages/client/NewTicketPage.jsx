@@ -180,8 +180,8 @@ export default function NewTicketPage() {
                     onClick={() => setTicketType(TICKET_TYPE.INCIDENT)}
                     style={{ cursor: 'pointer', border: ticketType === TICKET_TYPE.INCIDENT ? '2px solid #dc3545' : '1px solid #dee2e6' }}
                   >
-                    <div className="rounded-circle bg-danger text-white p-2 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }}>
-                      <i className="bi bi-exclamation-triangle-fill fs-5"></i>
+                    <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '42px', height: '42px' }}>
+                      <i className="bi bi-exclamation-triangle-fill fs-5" style={{ lineHeight: 0 }}></i>
                     </div>
                     <div>
                       <div className="fw-bold text-dark mb-1">Signalement d'incident</div>
@@ -195,8 +195,8 @@ export default function NewTicketPage() {
                     onClick={() => setTicketType(TICKET_TYPE.EVOLUTION)}
                     style={{ cursor: 'pointer', border: ticketType === TICKET_TYPE.EVOLUTION ? '2px solid #0d6efd' : '1px solid #dee2e6' }}
                   >
-                    <div className="rounded-circle bg-primary text-white p-2 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }}>
-                      <i className="bi bi-lightbulb-fill fs-5"></i>
+                    <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '42px', height: '42px' }}>
+                      <i className="bi bi-lightbulb-fill fs-5" style={{ lineHeight: 0 }}></i>
                     </div>
                     <div>
                       <div className="fw-bold text-dark mb-1">Demande d'évolution</div>
