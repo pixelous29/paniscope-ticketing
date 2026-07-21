@@ -206,7 +206,7 @@ export default function ManagerDashboardPage() {
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Client</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Assigné à</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Tags</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0 text-nowrap">Statut</th>
                       {showActionsColumn && <th className="py-3 px-4 fw-semibold border-bottom-0 text-center">Actions</th>}
                     </tr>
                   </thead>
@@ -261,7 +261,7 @@ export default function ManagerDashboardPage() {
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
-                        <td className="px-4 py-3 align-middle"><StatusBadge status={ticket.status} /></td>
+                        <td className="px-4 py-3 align-middle text-nowrap"><StatusBadge status={ticket.status} /></td>
                         {showActionsColumn && (
                           <td className="px-4 py-3 align-middle text-center">
                             {ticket.status === STATUS.CLOSED && (
@@ -318,7 +318,7 @@ export default function ManagerDashboardPage() {
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Client</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Assigné à</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Tags</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0 text-nowrap">Statut</th>
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
@@ -353,7 +353,7 @@ export default function ManagerDashboardPage() {
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
-                        <td className="px-4 py-3 align-middle"><StatusBadge status={ticket.status} /></td>
+                        <td className="px-4 py-3 align-middle text-nowrap"><StatusBadge status={ticket.status} /></td>
                       </tr>
                     ))
                   ) : (

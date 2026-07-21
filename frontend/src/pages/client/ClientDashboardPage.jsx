@@ -173,7 +173,7 @@ export default function ClientDashboardPage() {
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Type</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Dernière mise à jour</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0 text-nowrap">Statut</th>
                       {showActionsColumn && <th className="py-3 px-4 fw-semibold border-bottom-0 text-center">Actions</th>}
                     </tr>
                   </thead>
@@ -192,7 +192,7 @@ export default function ClientDashboardPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-secondary">{ticket.lastUpdate}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-middle text-nowrap">
                           <StatusBadge status={ticket.status} />
                         </td>
                         {showActionsColumn && (
@@ -248,7 +248,7 @@ export default function ClientDashboardPage() {
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Type</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
                       <th className="py-3 px-4 fw-semibold border-bottom-0">Dernière mise à jour</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Statut</th>
+                      <th className="py-3 px-4 fw-semibold border-bottom-0 text-nowrap">Statut</th>
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
@@ -266,7 +266,7 @@ export default function ClientDashboardPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-secondary">{ticket.lastUpdate}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 align-middle text-nowrap">
                           <StatusBadge status={ticket.status} />
                         </td>
                       </tr>

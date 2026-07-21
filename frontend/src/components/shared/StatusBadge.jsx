@@ -17,7 +17,7 @@ export default function StatusBadge({ status, className = "" }) {
             placement="bottom"
             overlay={<Tooltip id={`tooltip-status-${status.replace(/\s+/g, '-')}`}>{desc}</Tooltip>}
         >
-            <Badge bg={variant} pill className={className} style={{ cursor: 'help' }}>
+            <Badge bg={variant} pill className={`text-nowrap ${className}`} style={{ cursor: 'help' }}>
                 {status}
             </Badge>
         </OverlayTrigger>
