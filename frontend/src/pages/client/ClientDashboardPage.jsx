@@ -165,38 +165,38 @@ export default function ClientDashboardPage() {
               </div>
 
               {/* Vue Desktop (>= md) */}
-              <div className="bg-white rounded-3 shadow-sm border overflow-hidden d-none d-md-block mb-4">
+              <div className="bg-white rounded-3 shadow-sm border d-none d-md-block mb-4 overflow-x-auto">
                 <Table hover responsive className="m-0 align-middle">
-                  <thead className="bg-light text-secondary">
+                  <thead className="bg-light text-secondary text-nowrap">
                     <tr>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Type</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Dernière mise à jour</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0 text-nowrap">Statut</th>
-                      {showActionsColumn && <th className="py-3 px-4 fw-semibold border-bottom-0 text-center">Actions</th>}
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Type</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Dernière mise à jour</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0 text-nowrap">Statut</th>
+                      {showActionsColumn && <th className="py-3 px-3 fw-semibold border-bottom-0 text-center">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
                   {currentTickets.length > 0 ? (
                     currentTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
-                        <td className="px-4 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-4 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
+                        <td className="px-3 py-3 align-middle">
                           <TypeBadge type={ticket.type} />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
                             <div className="small text-muted mt-1"><i className="bi bi-person me-1"></i> Initiateur: {ticket.clientName || 'Collègue'}</div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-secondary">{ticket.lastUpdate}</td>
-                        <td className="px-4 py-3 align-middle text-nowrap">
+                        <td className="px-3 py-3 text-secondary">{ticket.lastUpdate}</td>
+                        <td className="px-3 py-3 align-middle text-nowrap">
                           <StatusBadge status={ticket.status} />
                         </td>
                         {showActionsColumn && (
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 py-3 text-center">
                             {ticket.status === STATUS.CLOSED && (
                               <OverlayTrigger placement="top" overlay={(props) => <Tooltip id={`tooltip-${ticket.id}`} {...props}>Archiver</Tooltip>}>
                                 <Button variant="light" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)} className="text-secondary hover-primary border">
@@ -240,33 +240,33 @@ export default function ClientDashboardPage() {
               </div>
 
               {/* Vue Desktop (>= md) */}
-              <div className="bg-white rounded-3 shadow-sm border overflow-hidden d-none d-md-block mb-4">
+              <div className="bg-white rounded-3 shadow-sm border d-none d-md-block mb-4 overflow-x-auto">
                 <Table hover responsive className="m-0 align-middle">
-                  <thead className="bg-light text-secondary">
+                  <thead className="bg-light text-secondary text-nowrap">
                     <tr>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Type</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Dernière mise à jour</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0 text-nowrap">Statut</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Type</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Dernière mise à jour</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0 text-nowrap">Statut</th>
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
                   {archivedTickets.length > 0 ? (
                     archivedTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
-                        <td className="px-4 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-4 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
+                        <td className="px-3 py-3 align-middle">
                           <TypeBadge type={ticket.type} />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <div className="fw-bold text-dark">{ticket.subject}</div>
                           {ticket.companyDomain && ticket.clientUid !== currentUser.uid && (
                             <div className="small text-muted mt-1"><i className="bi bi-person me-1"></i> Initiateur: {ticket.clientName || 'Collègue'}</div>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-secondary">{ticket.lastUpdate}</td>
-                        <td className="px-4 py-3 align-middle text-nowrap">
+                        <td className="px-3 py-3 text-secondary">{ticket.lastUpdate}</td>
+                        <td className="px-3 py-3 align-middle text-nowrap">
                           <StatusBadge status={ticket.status} />
                         </td>
                       </tr>

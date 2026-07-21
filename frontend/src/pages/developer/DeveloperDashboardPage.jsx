@@ -206,27 +206,27 @@ export default function DeveloperDashboardPage() {
               </div>
 
               {/* Vue Desktop (>= md) */}
-              <div className="bg-white rounded-3 shadow-sm border overflow-hidden d-none d-md-block mb-4">
+              <div className="bg-white rounded-3 shadow-sm border d-none d-md-block mb-4 overflow-x-auto">
                 <Table hover responsive className="m-0 align-middle">
-                  <thead className="bg-light text-secondary">
+                  <thead className="bg-light text-secondary text-nowrap">
                     <tr>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Type</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Priorité</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Client</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Tags</th>
-                      {showActionsColumn && <th className="py-3 px-4 fw-semibold border-bottom-0 text-center">Actions</th>}
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Type</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Priorité</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Client</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Tags</th>
+                      {showActionsColumn && <th className="py-3 px-3 fw-semibold border-bottom-0 text-center">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
                   {currentTickets.length > 0 ? (
                     currentTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
-                        <td className="px-4 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-4 py-3 align-middle"><TypeBadge type={ticket.type} /></td>
-                        <td className="px-4 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge></td>
-                        <td className="px-4 py-3 fw-bold align-middle text-dark">
+                        <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
+                        <td className="px-3 py-3 align-middle"><TypeBadge type={ticket.type} /></td>
+                        <td className="px-3 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge></td>
+                        <td className="px-3 py-3 fw-bold align-middle text-dark">
                           <div className="d-flex align-items-center">
                             {ticket.hasNewManagerMessage && (
                                <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle note du manager')}>
@@ -236,19 +236,19 @@ export default function DeveloperDashboardPage() {
                             <span>{ticket.subject}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle">
                           {ticket.clientName || ticket.client || ticket.clientId}
                           {ticket.companyDomain && (
                             <><br/><small className="text-muted"><i className="bi bi-building me-1"></i>{ticket.companyDomain}</small></>
                           )}
                         </td>
-                        <td className="px-4 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle">
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
                         {showActionsColumn && (
-                          <td className="px-4 py-3 align-middle text-center">
+                          <td className="px-3 py-3 align-middle text-center">
                             {ticket.status === STATUS.CLOSED && (
                               <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Archiver le ticket')}>
                                 <Button variant="light" size="sm" onClick={(e) => handleArchiveTicket(e, ticket.id)} className="text-secondary hover-primary border">
@@ -292,33 +292,33 @@ export default function DeveloperDashboardPage() {
               </div>
 
               {/* Vue Desktop (>= md) */}
-              <div className="bg-white rounded-3 shadow-sm border overflow-hidden d-none d-md-block mb-4">
+              <div className="bg-white rounded-3 shadow-sm border d-none d-md-block mb-4 overflow-x-auto">
                 <Table hover responsive className="m-0 align-middle">
-                  <thead className="bg-light text-secondary">
+                  <thead className="bg-light text-secondary text-nowrap">
                     <tr>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Type</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Priorité</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Sujet</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Client</th>
-                      <th className="py-3 px-4 fw-semibold border-bottom-0">Tags</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Type</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Priorité</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Client</th>
+                      <th className="py-3 px-3 fw-semibold border-bottom-0">Tags</th>
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
                   {archivedTickets.length > 0 ? (
                     archivedTickets.map(ticket => (
                       <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer' }} className="border-bottom">
-                        <td className="px-4 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
-                        <td className="px-4 py-3 align-middle"><TypeBadge type={ticket.type} /></td>
-                        <td className="px-4 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge></td>
-                        <td className="px-4 py-3 fw-bold align-middle text-dark">{ticket.subject}</td>
-                        <td className="px-4 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle text-secondary fw-semibold">#{ticket.id}</td>
+                        <td className="px-3 py-3 align-middle"><TypeBadge type={ticket.type} /></td>
+                        <td className="px-3 py-3 align-middle"><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge></td>
+                        <td className="px-3 py-3 fw-bold align-middle text-dark">{ticket.subject}</td>
+                        <td className="px-3 py-3 align-middle">
                           {ticket.clientName || ticket.client || ticket.clientId}
                           {ticket.companyDomain && (
                             <><br/><small className="text-muted"><i className="bi bi-building me-1"></i>{ticket.companyDomain}</small></>
                           )}
                         </td>
-                        <td className="px-4 py-3 align-middle">
+                        <td className="px-3 py-3 align-middle">
                           {ticket.tags?.map(tag => (
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
