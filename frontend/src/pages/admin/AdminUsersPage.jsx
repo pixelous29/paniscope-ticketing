@@ -329,7 +329,7 @@ export default function AdminUsersPage() {
                 const RoleIcon = roleBadge.icon;
                 const StatusIcon = statusBadge.icon;
                 const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
-                const isEditableCompany = user.role === 'client' && !isSuperAdmin;
+
                 
                 return (
                   <tr key={user.id}>
@@ -359,12 +359,7 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td 
-                      className={`align-middle ${isEditableCompany ? 'company-cell-interactive' : ''}`}
-                      onClick={isEditableCompany ? () => {
-                        setSelectedUserForCompany(user);
-                        setShowCompanyModal(true);
-                      } : undefined}
-                      title={isEditableCompany ? "Cliquez pour modifier la société" : undefined}
+                      className="align-middle"
                       style={{ whiteSpace: 'nowrap' }}
                     >
                       <div className="d-flex flex-column">
@@ -473,6 +468,19 @@ export default function AdminUsersPage() {
                         <span className="text-muted fst-italic">—</span>
                       ) : (
                         <div className="d-flex gap-1 flex-nowrap">
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            className="text-nowrap d-flex align-items-center"
+                            onClick={() => {
+                              setSelectedUserForCompany(user);
+                              setShowCompanyModal(true);
+                            }}
+                            title="Modifier l'utilisateur"
+                          >
+                            <Edit2 size={16} className="me-1" />
+                            Modifier
+                          </Button>
                           {user.status === 'pending' && (
                             <>
                               <Button
@@ -565,7 +573,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Modale d'édition de la société */}
+      {/* Modale d'édition de la société et de la sécurité */}
       <CompanyDomainModal
         show={showCompanyModal}
         onHide={() => {
@@ -574,6 +582,13 @@ export default function AdminUsersPage() {
         }}
         user={selectedUserForCompany}
         onUpdate={handleCompanyUpdate}
+        temporaryPassword={selectedUserForCompany ? temporaryPasswords[selectedUserForCompany.id] : null}
+        onPasswordGenerated={(userId, pwd) => {
+          setTemporaryPasswords(prev => ({
+            ...prev,
+            [userId]: pwd
+          }));
+        }}
       />
     </div>
   );

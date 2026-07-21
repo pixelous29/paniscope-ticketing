@@ -952,6 +952,86 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
 });
 
 /**
+ * 4bis. REINITIALISATION DE MOT DE PASSE PAR UN MANAGER
+ * Permet à un Manager de définir un mot de passe temporaire pour un utilisateur
+ */
+exports.resetUserPasswordByManager = functions.https.onCall(async (data, context) => {
+  // Vérifier que l'appelant est authentifié
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      "unauthenticated",
+      "Vous devez être connecté pour effectuer cette action.",
+    );
+  }
+
+  // Vérifier que l'appelant est un manager
+  const callerId = context.auth.uid;
+  const callerDoc = await db.collection("users").doc(callerId).get();
+  if (!callerDoc.exists || callerDoc.data().role !== "manager") {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Seuls les managers peuvent réinitialiser les mots de passe.",
+    );
+  }
+
+  const { targetUserId } = data;
+  if (!targetUserId) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "L'ID de l'utilisateur cible doit être fourni.",
+    );
+  }
+
+  try {
+    const targetUserRecord = await admin.auth().getUser(targetUserId);
+    
+    // Protection : Un manager standard ne peut pas réinitialiser le mot de passe du super administrateur
+    const superAdminEmail = "yves@paniscope.fr";
+    if (targetUserRecord.email.toLowerCase().trim() === superAdminEmail && context.auth.token.email.toLowerCase().trim() !== superAdminEmail) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Vous n'êtes pas autorisé à modifier le mot de passe du super administrateur.",
+      );
+    }
+
+    // Générer un mot de passe temporaire aléatoire (10 caractères)
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let temporaryPassword = "";
+    for (let i = 0; i < 10; i++) {
+      temporaryPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    // Mettre à jour le mot de passe dans Firebase Auth
+    await admin.auth().updateUser(targetUserId, {
+      password: temporaryPassword
+    });
+
+    // Stocker le mot de passe temporaire dans Firestore
+    await db.collection("temporaryPasswords").doc(targetUserId).set({
+      password: temporaryPassword,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Remettre lastConnection à null sur le profil de l'utilisateur pour qu'il soit traité comme première connexion
+    await db.collection("users").doc(targetUserId).update({
+      lastConnection: null
+    });
+
+    return {
+      success: true,
+      temporaryPassword: temporaryPassword
+    };
+  } catch (error) {
+    console.error("Erreur lors de la réinitialisation par le manager :", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      error.message || "Une erreur est survenue lors de la réinitialisation du mot de passe.",
+    );
+  }
+});
+
+
+/**
  * 5. NOTIFICATION EMAIL - REPONSE AU CLIENT (Outbound)
  * Se déclenche quand un manager/dev répond à un ticket,
  * envoie un mail au client avec l'ID du ticket dans le sujet.

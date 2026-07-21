@@ -3,16 +3,49 @@ import { Modal, Form, Button, InputGroup, Alert } from 'react-bootstrap';
 import { db } from '../../firebaseConfig';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
-import { Building, Globe, Upload } from 'lucide-react';
+import { Building, Globe, Upload, Key, Copy, Check, User } from 'lucide-react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { resizeImage } from '../../utils/imageResize';
 
-export default function CompanyDomainModal({ show, onHide, user, onUpdate }) {
+export default function CompanyDomainModal({ show, onHide, user, onUpdate, temporaryPassword, onPasswordGenerated }) {
   const [loading, setLoading] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState({
     companyName: '',
     companyDomain: '',
     companyLogoBase64: ''
   });
+
+  const handleGenerateTemporaryPassword = async () => {
+    if (!user) return;
+    setResettingPassword(true);
+    try {
+      const functionsInstance = getFunctions();
+      const resetUserPasswordByManager = httpsCallable(functionsInstance, 'resetUserPasswordByManager');
+      const result = await resetUserPasswordByManager({ targetUserId: user.id });
+      
+      if (result.data.success) {
+        const newPwd = result.data.temporaryPassword;
+        toast.success('Nouveau mot de passe temporaire généré !');
+        if (onPasswordGenerated) {
+          onPasswordGenerated(user.id, newPwd);
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors de la génération du mot de passe :", error);
+      toast.error(error.message || 'Impossible de générer le mot de passe temporaire');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const handleCopyPassword = (pwd) => {
+    navigator.clipboard.writeText(pwd);
+    setCopied(true);
+    toast.success('Mot de passe copié !');
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Charger les données de la compagnie s'il y a déjà un domaine, ou utiliser les infos du user
   useEffect(() => {
@@ -145,12 +178,17 @@ export default function CompanyDomainModal({ show, onHide, user, onUpdate }) {
     <Modal show={show} onHide={onHide} centered>
       <Modal.Header closeButton>
         <Modal.Title>
-          <Building className="me-2 text-primary" size={24} />
-          Société & Domaine d'assistance
+          <User className="me-2 text-primary" size={24} />
+          Fiche & Gestion de l'utilisateur
         </Modal.Title>
       </Modal.Header>
       <Form onSubmit={handleSubmit}>
         <Modal.Body>
+          <h5 className="mb-3 text-secondary d-flex align-items-center">
+            <Building className="me-2" size={18} />
+            Société & Domaine d'assistance
+          </h5>
+
           <Alert variant="info" className="small">
             Liez ce client à un nom de domaine (ex: <strong>entreprise.fr</strong>) 
             pour qu'il puisse voir tous les tickets de sa société, et que les futurs 
@@ -225,6 +263,52 @@ export default function CompanyDomainModal({ show, onHide, user, onUpdate }) {
                 </div>
               </Form.Group>
           )}
+
+          <hr className="my-4" />
+
+          <h5 className="mb-3 text-secondary d-flex align-items-center">
+            <Key className="me-2" size={18} />
+            Sécurité & Accès
+          </h5>
+
+          <div className="bg-light p-3 rounded border">
+            {temporaryPassword ? (
+              <div>
+                <p className="small text-muted mb-2">
+                  Un mot de passe temporaire est actuellement actif pour cet utilisateur. Il sera supprimé automatiquement après sa première connexion.
+                </p>
+                <div className="d-flex align-items-center gap-2">
+                  <div className="bg-white px-3 py-2 border rounded font-monospace flex-grow-1 text-center fw-bold fs-5 text-dark" style={{ letterSpacing: '1px' }}>
+                    {temporaryPassword}
+                  </div>
+                  <Button 
+                    type="button"
+                    variant="outline-primary"
+                    onClick={() => handleCopyPassword(temporaryPassword)}
+                    title="Copier le mot de passe"
+                  >
+                    {copied ? <Check size={18} className="text-success" /> : <Copy size={18} />}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="small text-muted mb-3">
+                  Si cet utilisateur a oublié son mot de passe ou rencontre des difficultés à recevoir les e-mails de réinitialisation automatique, vous pouvez forcer la création d'un mot de passe temporaire qu'il pourra utiliser immédiatement.
+                </p>
+                <div className="text-center">
+                  <Button
+                    type="button"
+                    variant="outline-warning"
+                    disabled={resettingPassword}
+                    onClick={handleGenerateTemporaryPassword}
+                  >
+                    {resettingPassword ? 'Génération...' : 'Générer un mot de passe temporaire'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
 
         </Modal.Body>
         <Modal.Footer>
