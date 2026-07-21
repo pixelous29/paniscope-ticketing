@@ -1,20 +1,15 @@
-import React, { useRef } from 'react';
-import { Form, Button, Row, Col } from 'react-bootstrap';
+import React, { useRef, useEffect } from 'react';
+import { Button } from 'react-bootstrap';
 import { Upload, X } from 'lucide-react';
 
 /**
- * Composant pour gérer l'upload multiple d'images
- * @param {Array} images - Tableau des fichiers images sélectionnés
- * @param {Array} previews - Tableau des URLs (Base64) de prévisualisation des images
- * @param {Function} onAddImage - Callback pour ajouter une novelle image
- * @param {Function} onRemoveImage - Callback pour retirer une image spécifique (index)
- * @param {string} error - Éventuelle erreur liée à l'upload ou à la taille des images
- * @param {number} maxImages - Nombre maximum d'images autorisées
+ * Composant pour gérer l'upload multiple d'images et le collage via Ctrl+V
+ * supportant le presse-papier système (captures d'écran, etc.)
  */
 export default function MultiImageUpload({ 
   id = `multi-image-input-${Math.random().toString(36).substr(2, 9)}`,
-  images, 
-  previews, 
+  images = [], 
+  previews = [], 
   onAddImage, 
   onRemoveImage, 
   error,
@@ -22,11 +17,43 @@ export default function MultiImageUpload({
 }) {
   const fileInputRef = useRef(null);
 
+  // Écoute des événements de collage (Ctrl+V) depuis le presse-papier
+  useEffect(() => {
+    const handlePaste = (e) => {
+      if (e.defaultPrevented) return;
+      if (!images || images.length >= maxImages) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      let imagePasted = false;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type && items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            const extension = items[i].type.split('/')[1] || 'png';
+            const fileName = (file.name && file.name !== 'image.png') 
+              ? file.name 
+              : `capture_${Date.now()}.${extension}`;
+            const namedFile = new File([file], fileName, { type: file.type });
+            onAddImage(namedFile);
+            imagePasted = true;
+          }
+        }
+      }
+      if (imagePasted) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [images, maxImages, onAddImage]);
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       onAddImage(file);
-      // Reset the file input to allow selecting the same file again if it was removed
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -35,7 +62,6 @@ export default function MultiImageUpload({
 
   return (
     <div className="mb-4">
-      
       {error && <div className="text-danger small mb-2">{error}</div>}
 
       <div className="d-flex flex-wrap gap-2 align-items-center mb-1 mt-2">
@@ -72,18 +98,19 @@ export default function MultiImageUpload({
               borderWidth: '2px',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
-              width: '180px',
+              minWidth: '200px',
               height: '70px',
+              padding: '0 12px',
               backgroundColor: '#f8f9fa',
               opacity: '0.8'
             }}
             onMouseOver={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.backgroundColor = '#eef2ff'; e.currentTarget.style.borderColor = '#0d6efd'; }}
             onMouseOut={(e) => { e.currentTarget.style.opacity = '0.8'; e.currentTarget.style.backgroundColor = '#f8f9fa'; e.currentTarget.style.borderColor = '#dee2e6'; }}
-            title="Ajouter une photo ou capture"
+            title="Ajouter une photo ou coller une capture (Ctrl+V)"
           >
             <div className="d-flex align-items-center gap-2">
                <Upload size={18} />
-               <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>Ajouter une image</span>
+               <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>Ajouter ou coller (Ctrl+V)</span>
             </div>
             <span style={{ fontSize: '0.65rem', marginTop: '4px', opacity: 0.7 }}>
                (Max {maxImages} - Reste {maxImages - images.length})
