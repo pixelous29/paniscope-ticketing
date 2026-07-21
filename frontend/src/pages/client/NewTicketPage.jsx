@@ -152,7 +152,7 @@ export default function NewTicketPage() {
     <div className="d-flex flex-column h-100 w-100 bg-light">
       <div className="flex-shrink-0 border-bottom bg-white d-flex align-items-center p-3 p-md-4 sticky-top z-2">
           <div className="d-flex align-items-center gap-3">
-              <Link to="/" className="text-secondary hover-primary text-decoration-none d-flex align-items-center justify-content-center bg-light rounded-circle p-2" title="Retour aux tickets">
+              <Link to="/" className="text-secondary hover-primary text-decoration-none d-flex align-items-center justify-content-center bg-light rounded-circle flex-shrink-0" style={{ width: '40px', height: '40px' }} title="Retour aux tickets">
                   <i className="bi bi-arrow-left fs-5"></i>
               </Link>
               <div>
