@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
-import { Table, Form, Button, Spinner, Alert, Badge, OverlayTrigger, Tooltip, Stack } from 'react-bootstrap';
-import { Shield, User, Code, Check, X, Clock, Copy, Building, Edit2, Globe } from 'lucide-react';
+import { Table, Form, Button, Spinner, Alert, Badge, OverlayTrigger, Tooltip, Stack, InputGroup } from 'react-bootstrap';
+import { Shield, User, Code, Check, X, Clock, Copy, Building, Edit2, Globe, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CompanyDomainModal from '../../components/admin/CompanyDomainModal';
+import { getUserType, getUserTypeBadgeConfig, isUserHidden } from '../../utils/userUtils';
 
 // Email du super admin protégé : ne peut être ni bloqué, ni révoqué, ni modifié
 const SUPER_ADMIN_EMAIL = 'yves@paniscope.fr';
@@ -35,6 +36,8 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // all, pending, approved, rejected
+  const [userTypeFilter, setUserTypeFilter] = useState('all'); // all, internal, client
+  const [searchTerm, setSearchTerm] = useState('');
   
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [selectedUserForCompany, setSelectedUserForCompany] = useState(null);
@@ -145,19 +148,63 @@ export default function AdminUsersPage() {
     return badges[status] || badges.pending;
   };
 
-  const filteredUsers = users.filter(user => {
-    if (filter === 'all') return true;
-    return user.status === filter;
+  const visibleUsers = users.filter(u => !isUserHidden(u));
+  const internalCount = visibleUsers.filter(u => getUserType(u) === 'internal').length;
+  const clientCount = visibleUsers.filter(u => getUserType(u) === 'client').length;
+
+  const filteredUsers = visibleUsers.filter(user => {
+    const matchesStatus = filter === 'all' || user.status === filter;
+    const userType = getUserType(user);
+    const matchesType = userTypeFilter === 'all' || userType === userTypeFilter;
+
+    const term = searchTerm.toLowerCase().trim();
+    const matchesSearch = !term || (() => {
+      const fullName = `${user.firstName || ''} ${user.lastName || ''} ${user.displayName || ''}`.toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const company = (user.company || '').toLowerCase();
+      const companyDomain = (user.companyDomain || '').toLowerCase();
+      return fullName.includes(term) || email.includes(term) || company.includes(term) || companyDomain.includes(term);
+    })();
+
+    return matchesStatus && matchesType && matchesSearch;
   }).sort((a, b) => {
-    if (a.email === SUPER_ADMIN_EMAIL) return -1;
-    if (b.email === SUPER_ADMIN_EMAIL) return 1;
-    
-    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-    return dateB - dateA;
+    // 1. Super Admin (yves@paniscope.fr) tout en haut
+    const emailA = (a.email || '').toLowerCase().trim();
+    const emailB = (b.email || '').toLowerCase().trim();
+    const superAdminEmail = SUPER_ADMIN_EMAIL.toLowerCase();
+
+    if (emailA === superAdminEmail) return -1;
+    if (emailB === superAdminEmail) return 1;
+
+    const typeA = getUserType(a);
+    const typeB = getUserType(b);
+
+    const getFullName = (u) => {
+      const name = `${u.lastName || ''} ${u.firstName || ''}`.trim() || u.displayName || u.email || '';
+      return name.toLowerCase();
+    };
+
+    // 2. Les utilisateurs "internal" (Paniscope) précèdent les "client"
+    if (typeA === 'internal' && typeB !== 'internal') return -1;
+    if (typeA !== 'internal' && typeB === 'internal') return 1;
+
+    // 3. Entre membres "internal" (Paniscope) : Ordre alphabétique des noms
+    if (typeA === 'internal' && typeB === 'internal') {
+      return getFullName(a).localeCompare(getFullName(b), 'fr', { sensitivity: 'base' });
+    }
+
+    // 4. Entre membres "client" : Tri par Société (alphabétique) puis par Nom (alphabétique)
+    const companyA = (a.company || 'zzz_non_renseignee').toLowerCase().trim();
+    const companyB = (b.company || 'zzz_non_renseignee').toLowerCase().trim();
+
+    if (companyA !== companyB) {
+      return companyA.localeCompare(companyB, 'fr', { sensitivity: 'base' });
+    }
+
+    return getFullName(a).localeCompare(getFullName(b), 'fr', { sensitivity: 'base' });
   });
 
-  const pendingCount = users.filter(u => u.status === 'pending').length;
+  const pendingCount = visibleUsers.filter(u => u.status === 'pending').length;
 
   const copyToClipboard = async (text) => {
     try {
@@ -214,14 +261,47 @@ export default function AdminUsersPage() {
             <strong>Note :</strong> Approuvez les nouveaux comptes et modifiez les rôles des utilisateurs pour contrôler leurs accès à l'application.
           </Alert>
 
-          <div className="mb-4">
-            <Form.Label htmlFor="statusFilter">Filtrer par statut :</Form.Label>
-            <Form.Select id="statusFilter" name="statusFilter" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: '200px' }}>
-              <option value="all">Tous les utilisateurs</option>
-              <option value="pending">En attente ({users.filter(u => u.status === 'pending').length})</option>
-              <option value="approved">Approuvés ({users.filter(u => u.status === 'approved').length})</option>
-              <option value="rejected">Rejetés ({users.filter(u => u.status === 'rejected').length})</option>
-            </Form.Select>
+          <div className="d-flex flex-wrap align-items-end gap-3 mb-4">
+            <div>
+              <Form.Label htmlFor="statusFilter" className="mb-1 small fw-semibold text-secondary">Filtrer par statut :</Form.Label>
+              <Form.Select id="statusFilter" name="statusFilter" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ minWidth: '180px' }}>
+                <option value="all">Tous les statuts ({visibleUsers.length})</option>
+                <option value="pending">En attente ({visibleUsers.filter(u => u.status === 'pending').length})</option>
+                <option value="approved">Approuvés ({visibleUsers.filter(u => u.status === 'approved').length})</option>
+                <option value="rejected">Rejetés ({visibleUsers.filter(u => u.status === 'rejected').length})</option>
+              </Form.Select>
+            </div>
+
+            <div>
+              <Form.Label htmlFor="userTypeFilter" className="mb-1 small fw-semibold text-secondary">Filtrer par type d'utilisateur :</Form.Label>
+              <Form.Select id="userTypeFilter" name="userTypeFilter" value={userTypeFilter} onChange={(e) => setUserTypeFilter(e.target.value)} style={{ minWidth: '200px' }}>
+                <option value="all">Tous les types ({visibleUsers.length})</option>
+                <option value="internal">Internes Paniscope ({internalCount})</option>
+                <option value="client">Clients ({clientCount})</option>
+              </Form.Select>
+            </div>
+
+            <div className="flex-grow-1" style={{ minWidth: '240px', maxWidth: '400px' }}>
+              <Form.Label htmlFor="userSearchInput" className="mb-1 small fw-semibold text-secondary">Recherche :</Form.Label>
+              <InputGroup>
+                <InputGroup.Text bg="white" className="bg-white border-end-0">
+                  <Search size={16} className="text-muted" />
+                </InputGroup.Text>
+                <Form.Control
+                  id="userSearchInput"
+                  type="text"
+                  placeholder="Rechercher par nom, email, société..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="border-start-0 ps-0"
+                />
+                {searchTerm && (
+                  <Button variant="outline-secondary" className="border-start-0" onClick={() => setSearchTerm('')} title="Effacer la recherche">
+                    <X size={16} />
+                  </Button>
+                )}
+              </InputGroup>
+            </div>
           </div>
           
           <div className="table-responsive">
@@ -230,6 +310,7 @@ export default function AdminUsersPage() {
               <tr>
                 <th>Utilisateur</th>
                 <th>Société</th>
+                <th>Type</th>
                 <th>Email</th>
                 <th>Dernière connexion</th>
                 <th>Statut</th>
@@ -243,6 +324,8 @@ export default function AdminUsersPage() {
               {filteredUsers.map(user => {
                 const roleBadge = getRoleBadge(user.role);
                 const statusBadge = getStatusBadge(user.status || 'approved');
+                const userType = getUserType(user);
+                const userTypeBadge = getUserTypeBadgeConfig(userType);
                 const RoleIcon = roleBadge.icon;
                 const StatusIcon = statusBadge.icon;
                 const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
@@ -324,6 +407,12 @@ export default function AdminUsersPage() {
                           })()
                         )}
                       </div>
+                    </td>
+                    <td className="align-middle">
+                      <Badge bg={userTypeBadge.variant} className="text-nowrap d-inline-flex align-items-center">
+                        <i className={`bi ${userTypeBadge.icon} me-1`}></i>
+                        {userTypeBadge.label}
+                      </Badge>
                     </td>
                     <td className="align-middle" style={{ whiteSpace: 'nowrap', minWidth: '100px' }}>
                       {(() => {
