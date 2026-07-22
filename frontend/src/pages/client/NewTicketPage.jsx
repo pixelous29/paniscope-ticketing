@@ -5,7 +5,6 @@ import { doc, setDoc, runTransaction, serverTimestamp } from 'firebase/firestore
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
 import { STATUS } from '../../constants/status';
-import { TICKET_TYPE } from '../../constants/type';
 import { Form, Button, FloatingLabel, Spinner, Alert } from 'react-bootstrap';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
 
@@ -15,7 +14,7 @@ export default function NewTicketPage() {
     subject: '',
     description: ''
   });
-  const [ticketType, setTicketType] = useState(TICKET_TYPE.INCIDENT);
+  const [priority, setPriority] = useState('Normale');
   
   // Nouveaux états pour MultiImageUpload
   const [images, setImages] = useState([]);
@@ -89,14 +88,14 @@ export default function NewTicketPage() {
 
       // 2. Création du ticket
       const ticketData = {
-        type: ticketType,
+        type: null,
         subject: formData.subject,
         clientUid: currentUser.uid,
         clientEmail: currentUser.email,
         clientName: (currentUser.displayName && currentUser.company) ? `${currentUser.displayName} (${currentUser.company})` : (currentUser.company || currentUser.displayName || currentUser.email),
         companyDomain: currentUser.companyDomain || null,
         status: STATUS.NEW,
-        priority: 'Normale',
+        priority: priority,
         submittedAt: serverTimestamp(),
         lastUpdate: serverTimestamp(),
         hasNewClientMessage: false,
@@ -168,39 +167,72 @@ export default function NewTicketPage() {
         <div className="w-100" style={{ maxWidth: '800px' }}>
           <div className="bg-white rounded shadow-sm border p-4 p-md-5">
           {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
-          
-          <Form onSubmit={handleSubmit}>
-            {/* Choix du type de ticket */}
+              <Form onSubmit={handleSubmit}>
+            {/* Choix du niveau d'urgence */}
             <div className="mb-4">
-              <Form.Label className="fw-bold text-dark mb-2">Nature de votre demande *</Form.Label>
+              <Form.Label className="fw-bold text-dark mb-2">Niveau d'urgence de votre demande *</Form.Label>
               <div className="row g-3">
-                <div className="col-12 col-md-6">
+                {/* Faible */}
+                <div className="col-12 col-sm-6 col-md-3">
                   <div 
-                    className={`p-3 rounded border h-100 d-flex align-items-start gap-3 user-select-none transition-all ${ticketType === TICKET_TYPE.INCIDENT ? 'bg-danger-subtle shadow-sm' : 'bg-light'}`}
-                    onClick={() => setTicketType(TICKET_TYPE.INCIDENT)}
-                    style={{ cursor: 'pointer', border: ticketType === TICKET_TYPE.INCIDENT ? '2px solid #dc3545' : '1px solid #dee2e6' }}
+                    className={`p-3 rounded border h-100 d-flex flex-column align-items-center text-center gap-2 user-select-none transition-all ${priority === 'Faible' ? 'bg-secondary-subtle shadow-sm' : 'bg-light'}`}
+                    onClick={() => setPriority('Faible')}
+                    style={{ cursor: 'pointer', border: priority === 'Faible' ? '2px solid #6c757d' : '1px solid #dee2e6' }}
                   >
-                    <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '42px', height: '42px' }}>
-                      <i className="bi bi-exclamation-triangle-fill fs-5" style={{ lineHeight: 0, transform: 'translateY(-1.5px)' }}></i>
+                    <div className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }}>
+                      <i className="bi bi-arrow-down-circle fs-5" style={{ lineHeight: 0 }}></i>
                     </div>
                     <div>
-                      <div className="fw-bold text-dark mb-1">Signalement d'incident</div>
-                      <div className="small text-muted">Dysfonctionnement, erreur ou problème de fonctionnement.</div>
+                      <div className="fw-bold text-dark" style={{ fontSize: '0.9rem' }}>Faible</div>
+                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Question ou demande non bloquante.</div>
                     </div>
                   </div>
                 </div>
-                <div className="col-12 col-md-6">
+                {/* Normale */}
+                <div className="col-12 col-sm-6 col-md-3">
                   <div 
-                    className={`p-3 rounded border h-100 d-flex align-items-start gap-3 user-select-none transition-all ${ticketType === TICKET_TYPE.EVOLUTION ? 'bg-primary-subtle shadow-sm' : 'bg-light'}`}
-                    onClick={() => setTicketType(TICKET_TYPE.EVOLUTION)}
-                    style={{ cursor: 'pointer', border: ticketType === TICKET_TYPE.EVOLUTION ? '2px solid #0d6efd' : '1px solid #dee2e6' }}
+                    className={`p-3 rounded border h-100 d-flex flex-column align-items-center text-center gap-2 user-select-none transition-all ${priority === 'Normale' ? 'bg-success-subtle shadow-sm' : 'bg-light'}`}
+                    onClick={() => setPriority('Normale')}
+                    style={{ cursor: 'pointer', border: priority === 'Normale' ? '2px solid #28a745' : '1px solid #dee2e6' }}
                   >
-                    <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '42px', height: '42px' }}>
-                      <i className="bi bi-lightbulb-fill fs-5" style={{ lineHeight: 0 }}></i>
+                    <div className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }}>
+                      <i className="bi bi-check-circle-fill fs-5" style={{ lineHeight: 0 }}></i>
                     </div>
                     <div>
-                      <div className="fw-bold text-dark mb-1">Demande d'évolution</div>
-                      <div className="small text-muted">Suggestion, idée de nouvelle fonctionnalité ou d'amélioration.</div>
+                      <div className="fw-bold text-dark" style={{ fontSize: '0.9rem' }}>Normale</div>
+                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Fonctionnement général préservé.</div>
+                    </div>
+                  </div>
+                </div>
+                {/* Haute */}
+                <div className="col-12 col-sm-6 col-md-3">
+                  <div 
+                    className={`p-3 rounded border h-100 d-flex flex-column align-items-center text-center gap-2 user-select-none transition-all ${priority === 'Haute' ? 'bg-warning-subtle shadow-sm' : 'bg-light'}`}
+                    onClick={() => setPriority('Haute')}
+                    style={{ cursor: 'pointer', border: priority === 'Haute' ? '2px solid #fd7e14' : '1px solid #dee2e6' }}
+                  >
+                    <div className="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }}>
+                      <i className="bi bi-exclamation-triangle-fill fs-5" style={{ lineHeight: 0 }}></i>
+                    </div>
+                    <div>
+                      <div className="fw-bold text-dark" style={{ fontSize: '0.9rem' }}>Haute</div>
+                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Gêne importante sur l'utilisation.</div>
+                    </div>
+                  </div>
+                </div>
+                {/* Critique */}
+                <div className="col-12 col-sm-6 col-md-3">
+                  <div 
+                    className={`p-3 rounded border h-100 d-flex flex-column align-items-center text-center gap-2 user-select-none transition-all ${priority === 'Critique' ? 'bg-danger-subtle shadow-sm' : 'bg-light'}`}
+                    onClick={() => setPriority('Critique')}
+                    style={{ cursor: 'pointer', border: priority === 'Critique' ? '2px solid #dc3545' : '1px solid #dee2e6' }}
+                  >
+                    <div className="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }}>
+                      <i className="bi bi-fire fs-5" style={{ lineHeight: 0 }}></i>
+                    </div>
+                    <div>
+                      <div className="fw-bold text-dark" style={{ fontSize: '0.9rem' }}>Critique</div>
+                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Application bloquée ou indisponible.</div>
                     </div>
                   </div>
                 </div>

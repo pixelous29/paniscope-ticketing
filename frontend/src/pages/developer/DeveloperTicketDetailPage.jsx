@@ -9,6 +9,7 @@ import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
 import { STATUS } from '../../constants/status';
 import { DEV_PHASE_LABELS, DEV_PHASE_COLORS } from '../../constants/phases';
+import { TICKET_TYPE, TICKET_TYPE_LABEL, TICKET_TYPE_VARIANT } from '../../constants/type';
 import { LinkContainer } from 'react-router-bootstrap';
 import { useAuth } from '../../hooks/useAuth';
 import { Reply, X } from 'lucide-react';
@@ -349,6 +350,16 @@ export default function DeveloperTicketDetailPage() {
         }
     };
 
+    const handleTypeChange = async (newType) => {
+        const docRef = doc(db, "tickets", ticketId);
+        try {
+            await updateDoc(docRef, { type: newType });
+        } catch (err) {
+            console.error("Erreur lors de la mise à jour de la nature: ", err);
+            showAlert('Erreur', 'Impossible de mettre à jour la nature du ticket.');
+        }
+    };
+
     const handleMarkAsDone = async () => {
         if (ticket.status === STATUS.PENDING_VALIDATION) {
             const docRef = doc(db, "tickets", ticketId);
@@ -671,10 +682,30 @@ export default function DeveloperTicketDetailPage() {
                                      </Dropdown.Menu>
                                  </Dropdown>
                              </div>
-                             <div>
+                              <div>
                                 <strong>Priorité :</strong>{' '}
                                 <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'}>{ticket.priority}</Badge>
-                            </div>
+                             </div>
+                              <div className="mb-3 d-flex flex-column align-items-start gap-1 mt-3">
+                                  <strong>Nature du ticket :</strong>
+                                  <Dropdown>
+                                      <Dropdown.Toggle as={Badge} bg={TICKET_TYPE_VARIANT[ticket.type] || 'light'} text={(TICKET_TYPE_VARIANT[ticket.type] || 'light') === 'warning' ? 'dark' : 'white'} style={{ cursor: isTicketClosed ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }} className="border-0 shadow-sm" disabled={isTicketClosed}>
+                                          {TICKET_TYPE_LABEL[ticket.type] || 'Non classifié'}
+                                      </Dropdown.Toggle>
+                                      <Dropdown.Menu>
+                                          <Dropdown.Item onClick={() => handleTypeChange(null)} className="py-2 px-3 dropdown-item-premium">
+                                              <Badge bg="light" text="dark" className="me-2">Non classifié</Badge>
+                                              {!ticket.type && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
+                                          </Dropdown.Item>
+                                          {Object.entries(TICKET_TYPE_LABEL).map(([key, label]) => (
+                                              <Dropdown.Item key={key} onClick={() => handleTypeChange(key)} className="py-2 px-3 dropdown-item-premium">
+                                                  <Badge bg={TICKET_TYPE_VARIANT[key]} text={TICKET_TYPE_VARIANT[key] === 'warning' ? 'dark' : 'white'} className="me-2">{label}</Badge>
+                                                  {ticket.type === key && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
+                                              </Dropdown.Item>
+                                          ))}
+                                      </Dropdown.Menu>
+                                  </Dropdown>
+                              </div>
                             <div className="mt-2">
                                 <strong>Tags :</strong>{' '}
                                 {ticket.tags?.map(tag => <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>)}

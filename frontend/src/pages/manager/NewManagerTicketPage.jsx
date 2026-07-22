@@ -188,7 +188,7 @@ export default function NewManagerTicketPage() {
             <div className="mb-4">
               <Form.Label className="fw-bold text-dark mb-2">Nature du ticket *</Form.Label>
               <div className="row g-3">
-                <div className="col-12 col-md-6">
+                <div className="col-12 col-md-4">
                   <div 
                     className={`p-3 rounded border h-100 d-flex align-items-start gap-3 user-select-none transition-all ${ticketType === TICKET_TYPE.INCIDENT ? 'bg-danger-subtle shadow-sm' : 'bg-light'}`}
                     onClick={() => setTicketType(TICKET_TYPE.INCIDENT)}
@@ -198,12 +198,12 @@ export default function NewManagerTicketPage() {
                       <i className="bi bi-exclamation-triangle-fill fs-5" style={{ lineHeight: 0, transform: 'translateY(-1.5px)' }}></i>
                     </div>
                     <div>
-                      <div className="fw-bold text-dark mb-1">Signalement d'incident</div>
-                      <div className="small text-muted">Dysfonctionnement, erreur ou problème de fonctionnement.</div>
+                      <div className="fw-bold text-dark mb-1">Incident / Bug</div>
+                      <div className="small text-muted" style={{ fontSize: '0.75rem' }}>Dysfonctionnement, erreur ou problème de fonctionnement.</div>
                     </div>
                   </div>
                 </div>
-                <div className="col-12 col-md-6">
+                <div className="col-12 col-md-4">
                   <div 
                     className={`p-3 rounded border h-100 d-flex align-items-start gap-3 user-select-none transition-all ${ticketType === TICKET_TYPE.EVOLUTION ? 'bg-primary-subtle shadow-sm' : 'bg-light'}`}
                     onClick={() => setTicketType(TICKET_TYPE.EVOLUTION)}
@@ -213,8 +213,23 @@ export default function NewManagerTicketPage() {
                       <i className="bi bi-lightbulb-fill fs-5" style={{ lineHeight: 0 }}></i>
                     </div>
                     <div>
-                      <div className="fw-bold text-dark mb-1">Demande d'évolution</div>
-                      <div className="small text-muted">Suggestion, idée de nouvelle fonctionnalité ou d'amélioration.</div>
+                      <div className="fw-bold text-dark mb-1">Évolution / Feature</div>
+                      <div className="small text-muted" style={{ fontSize: '0.75rem' }}>Suggestion, idée de nouvelle fonctionnalité ou d'amélioration.</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="col-12 col-md-4">
+                  <div 
+                    className={`p-3 rounded border h-100 d-flex align-items-start gap-3 user-select-none transition-all ${ticketType === TICKET_TYPE.QUESTION ? 'bg-secondary-subtle shadow-sm' : 'bg-light'}`}
+                    onClick={() => setTicketType(TICKET_TYPE.QUESTION)}
+                    style={{ cursor: 'pointer', border: ticketType === TICKET_TYPE.QUESTION ? '2px solid #6c757d' : '1px solid #dee2e6' }}
+                  >
+                    <div className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '42px', height: '42px' }}>
+                      <i className="bi bi-question-circle-fill fs-5" style={{ lineHeight: 0 }}></i>
+                    </div>
+                    <div>
+                      <div className="fw-bold text-dark mb-1">Simple question</div>
+                      <div className="small text-muted" style={{ fontSize: '0.75rem' }}>Demande d'information, question ou clarification.</div>
                     </div>
                   </div>
                 </div>

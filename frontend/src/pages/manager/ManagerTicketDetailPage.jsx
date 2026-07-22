@@ -9,6 +9,7 @@ import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
 import { STATUS } from '../../constants/status';
 import { DEV_PHASE_LABELS, DEV_PHASE_COLORS } from '../../constants/phases';
+import { TICKET_TYPE, TICKET_TYPE_LABEL, TICKET_TYPE_VARIANT } from '../../constants/type';
 import { useAuth } from '../../hooks/useAuth';
 import { Reply, X } from 'lucide-react';
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
@@ -832,6 +833,26 @@ export default function ManagerTicketDetailPage() {
                                     <Dropdown.Item key={prio} onClick={() => handleInlineUpdate('priority', prio)} className="py-2 px-3 dropdown-item-premium">
                                         <Badge bg={priorityVariant[prio]} text={priorityVariant[prio] === 'warning' ? 'dark' : 'white'} className="me-2">{prio}</Badge>
                                         {ticket.priority === prio && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
+                                    </Dropdown.Item>
+                                ))}
+                            </Dropdown.Menu>
+                        </Dropdown>
+                    </div>
+                    <div className="mb-3 d-flex flex-column align-items-start gap-1">
+                        <strong>Nature du ticket:</strong>
+                        <Dropdown>
+                            <Dropdown.Toggle as={Badge} bg={TICKET_TYPE_VARIANT[ticket.type] || 'light'} text={(TICKET_TYPE_VARIANT[ticket.type] || 'light') === 'warning' ? 'dark' : 'white'} style={{ cursor: 'pointer', fontSize: '0.9rem' }} className="border-0 shadow-sm">
+                                {TICKET_TYPE_LABEL[ticket.type] || 'Non classifié'}
+                            </Dropdown.Toggle>
+                            <Dropdown.Menu>
+                                <Dropdown.Item onClick={() => handleInlineUpdate('type', null)} className="py-2 px-3 dropdown-item-premium">
+                                    <Badge bg="light" text="dark" className="me-2">Non classifié</Badge>
+                                    {!ticket.type && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
+                                </Dropdown.Item>
+                                {Object.entries(TICKET_TYPE_LABEL).map(([key, label]) => (
+                                    <Dropdown.Item key={key} onClick={() => handleInlineUpdate('type', key)} className="py-2 px-3 dropdown-item-premium">
+                                        <Badge bg={TICKET_TYPE_VARIANT[key]} text={TICKET_TYPE_VARIANT[key] === 'warning' ? 'dark' : 'white'} className="me-2">{label}</Badge>
+                                        {ticket.type === key && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
                                     </Dropdown.Item>
                                 ))}
                             </Dropdown.Menu>
