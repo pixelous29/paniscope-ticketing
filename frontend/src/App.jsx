@@ -137,11 +137,21 @@ export default function App() {
               } 
             />
 
+            {/* Route création ticket interne partagée */}
+            <Route 
+              path="/nouveau-ticket-interne" 
+              element={
+                <RoleBasedRoute allowedRoles={['manager', 'developer']}>
+                  <NewManagerTicketPage />
+                </RoleBasedRoute>
+              } 
+            />
+
             {/* Routes Manager */}
             <Route 
               path="/manager" 
               element={
-                <RoleBasedRoute allowedRoles={['manager', 'developer']}>
+                <RoleBasedRoute allowedRoles={['manager']}>
                   <ManagerDashboardPage />
                 </RoleBasedRoute>
               } 
@@ -149,7 +159,7 @@ export default function App() {
             <Route 
               path="/manager/new-ticket" 
               element={
-                <RoleBasedRoute allowedRoles={['manager', 'developer']}>
+                <RoleBasedRoute allowedRoles={['manager']}>
                   <NewManagerTicketPage />
                 </RoleBasedRoute>
               } 
@@ -157,7 +167,7 @@ export default function App() {
             <Route 
               path="/manager/ticket/:ticketId" 
               element={
-                <RoleBasedRoute allowedRoles={['manager', 'developer']}>
+                <RoleBasedRoute allowedRoles={['manager']}>
                   <ManagerTicketDetailPage />
                 </RoleBasedRoute>
               } 
@@ -183,7 +193,7 @@ export default function App() {
             <Route 
               path="/dev" 
               element={
-                <RoleBasedRoute allowedRoles={['developer', 'manager']}>
+                <RoleBasedRoute allowedRoles={['developer']}>
                   <DeveloperDashboardPage />
                 </RoleBasedRoute>
               } 
@@ -201,7 +211,7 @@ export default function App() {
             <Route 
               path="/dev/ticket/:ticketId" 
               element={
-                <RoleBasedRoute allowedRoles={['developer', 'manager']}>
+                <RoleBasedRoute allowedRoles={['developer']}>
                   <DeveloperTicketDetailPage />
                 </RoleBasedRoute>
               } 
