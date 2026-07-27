@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, doc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, doc, updateDoc } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
 import { Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Nav, Form, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,6 @@ import { TICKET_TYPE_PASTEL_BG, getTicketPastelBg } from '../../constants/type';
 import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
-import toast from 'react-hot-toast';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
@@ -19,35 +18,44 @@ export default function ManagerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState('current'); // 'current' or 'archived' or 'board'
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const { showAlert } = useModal();
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    let val = e.target.search.value.trim();
-    if (!val) return;
-    val = val.replace(/^#/, '');
+  const matchesSearch = (ticket, term) => {
+    if (!term) return true;
+    const lowerTerm = term.toLowerCase().trim();
 
-    if (/^\d+$/.test(val)) {
-      val = val.padStart(7, '0');
-    }
+    const ticketId = (ticket.id || '').toLowerCase();
+    const formattedId = `#${ticketId}`;
+    const subject = (ticket.subject || '').toLowerCase();
+    const priority = (ticket.priority || '').toLowerCase();
+    const clientName = (ticket.clientName || ticket.client || ticket.clientId || '').toLowerCase();
+    const companyDomain = (ticket.companyDomain || '').toLowerCase();
+    const status = (ticket.status || '').toLowerCase();
 
-    setIsSearching(true);
-    try {
-      const docRef = doc(db, "tickets", val);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        navigate(`/manager/ticket/${val}`);
-      } else {
-        toast.error('Ticket non trouvé.', { position: 'top-center' });
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Erreur lors de la recherche.', { position: 'top-center' });
-    } finally {
-      setIsSearching(false);
-    }
+    const assigned = Array.isArray(ticket.assignedTo) 
+      ? ticket.assignedTo.join(' ').toLowerCase() 
+      : (ticket.assignedTo || '').toLowerCase();
+
+    const tags = Array.isArray(ticket.tags) 
+      ? ticket.tags.join(' ').toLowerCase() 
+      : (ticket.tags || '').toLowerCase();
+
+    const type = (ticket.type || '').toLowerCase();
+
+    return (
+      ticketId.includes(lowerTerm) ||
+      formattedId.includes(lowerTerm) ||
+      subject.includes(lowerTerm) ||
+      priority.includes(lowerTerm) ||
+      clientName.includes(lowerTerm) ||
+      companyDomain.includes(lowerTerm) ||
+      status.includes(lowerTerm) ||
+      assigned.includes(lowerTerm) ||
+      tags.includes(lowerTerm) ||
+      type.includes(lowerTerm)
+    );
   };
 
   useEffect(() => {
@@ -116,7 +124,11 @@ export default function ManagerDashboardPage() {
       const getTimestamp = (t) => (t.lastUpdate?.toMillis ? t.lastUpdate.toMillis() : (t.createdAt?.toMillis ? t.createdAt.toMillis() : 0));
       return getTimestamp(b) - getTimestamp(a);
     });
-  const showActionsColumn = currentTickets.some(ticket => ticket.status === STATUS.CLOSED);
+
+  const filteredCurrentTickets = currentTickets.filter(ticket => matchesSearch(ticket, searchTerm));
+  const filteredArchivedTickets = archivedTickets.filter(ticket => matchesSearch(ticket, searchTerm));
+
+  const showActionsColumn = filteredCurrentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (
     <div className="d-flex flex-column h-100 w-100 bg-light">
@@ -125,49 +137,60 @@ export default function ManagerDashboardPage() {
           <div className="d-flex justify-content-between align-items-center mb-3 mb-md-4">
             <h4 className="m-0 fw-bold text-dark">Tableau de bord</h4>
             <div className="d-md-none">
-              <Form onSubmit={handleSearch} className="d-flex">
-                <InputGroup size="sm" style={{ width: '150px' }}>
-                  <InputGroup.Text id="search-addon-mobile" className="bg-light fw-bold">#</InputGroup.Text>
-                  <Form.Control
-                    name="search"
-                    autoComplete="off"
-                    placeholder="ID ticket..."
-                    aria-label="Recherche ticket"
-                    aria-describedby="search-addon-mobile"
-                  />
-                  <Button type="submit" variant="primary" disabled={isSearching}>
-                    {isSearching ? <Spinner animation="border" size="sm" /> : <i className="bi bi-search"></i>}
+              <InputGroup size="sm" style={{ width: '180px' }}>
+                <InputGroup.Text id="search-addon-mobile" className="bg-light text-muted">
+                  <i className="bi bi-search"></i>
+                </InputGroup.Text>
+                <Form.Control
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoComplete="off"
+                  placeholder="Rechercher..."
+                  aria-label="Recherche ticket"
+                  aria-describedby="search-addon-mobile"
+                />
+                {searchTerm && (
+                  <Button variant="light" size="sm" className="border" onClick={() => setSearchTerm('')}>
+                    <i className="bi bi-x"></i>
                   </Button>
-                </InputGroup>
-              </Form>
+                )}
+              </InputGroup>
             </div>
           </div>
           <div className="d-flex justify-content-between align-items-end">
             <Nav variant="tabs" className="custom-tabs border-bottom-0" activeKey={view} onSelect={(k) => setView(k)}>
               <Nav.Item>
-                <Nav.Link eventKey="current" className="fw-semibold">Tickets en cours ({currentTickets.length})</Nav.Link>
+                <Nav.Link eventKey="current" className="fw-semibold">
+                  Tickets en cours ({filteredCurrentTickets.length}{searchTerm ? ` / ${currentTickets.length}` : ''})
+                </Nav.Link>
               </Nav.Item>
               <Nav.Item>
-                <Nav.Link eventKey="archived" className="fw-semibold">Archivés ({archivedTickets.length})</Nav.Link>
+                <Nav.Link eventKey="archived" className="fw-semibold">
+                  Archivés ({filteredArchivedTickets.length}{searchTerm ? ` / ${archivedTickets.length}` : ''})
+                </Nav.Link>
               </Nav.Item>
             </Nav>
 
             <div className="d-none d-md-block mb-2">
-              <Form onSubmit={handleSearch} className="d-flex" style={{ width: '250px' }}>
-                <InputGroup size="sm">
-                  <InputGroup.Text id="search-addon" className="bg-light fw-bold border-end-0">#</InputGroup.Text>
-                  <Form.Control
-                    name="search"
-                    autoComplete="off"
-                    placeholder="Chercher un ticket..."
-                    aria-label="Recherche ticket"
-                    aria-describedby="search-addon"
-                  />
-                  <Button type="submit" variant="primary" disabled={isSearching}>
-                    {isSearching ? <Spinner animation="border" size="sm" /> : <i className="bi bi-search"></i>}
+              <InputGroup size="sm" style={{ width: '280px' }}>
+                <InputGroup.Text id="search-addon" className="bg-light text-muted border-end-0">
+                  <i className="bi bi-search"></i>
+                </InputGroup.Text>
+                <Form.Control
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoComplete="off"
+                  placeholder="Rechercher (sujet, client, dev...)"
+                  aria-label="Recherche ticket"
+                  aria-describedby="search-addon"
+                  className="border-start-0"
+                />
+                {searchTerm && (
+                  <Button variant="light" size="sm" className="border border-start-0" onClick={() => setSearchTerm('')}>
+                    <i className="bi bi-x"></i>
                   </Button>
-                </InputGroup>
-              </Form>
+                )}
+              </InputGroup>
             </div>
           </div>
         </div>
@@ -179,8 +202,8 @@ export default function ManagerDashboardPage() {
             <>
               {/* Vue Mobile (< md) */}
               <div className="d-md-none p-2 bg-light">
-                {currentTickets.length > 0 ? (
-                  currentTickets.map(ticket => (
+                {filteredCurrentTickets.length > 0 ? (
+                  filteredCurrentTickets.map(ticket => (
                     <TicketCardMobile 
                       key={ticket.id} 
                       ticket={ticket} 
@@ -190,7 +213,7 @@ export default function ManagerDashboardPage() {
                   ))
                 ) : (
                   <div className="text-center p-4 text-muted border rounded bg-white">
-                    Aucun ticket en cours.
+                    {searchTerm ? 'Aucun ticket ne correspond à la recherche.' : 'Aucun ticket en cours.'}
                   </div>
                 )}
               </div>
@@ -211,8 +234,8 @@ export default function ManagerDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
-                  {currentTickets.length > 0 ? (
-                    currentTickets.map(ticket => {
+                  {filteredCurrentTickets.length > 0 ? (
+                    filteredCurrentTickets.map(ticket => {
                       const bg = getTicketPastelBg(ticket.type);
                       return (
                       <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer', '--bs-table-bg': bg, backgroundColor: bg }} className="border-bottom">
@@ -281,7 +304,7 @@ export default function ManagerDashboardPage() {
                     <tr>
                       <td colSpan={showActionsColumn ? 8 : 7} className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-inbox fs-3"></i></div>
-                        Aucun ticket en cours.
+                        {searchTerm ? 'Aucun ticket ne correspond à la recherche.' : 'Aucun ticket en cours.'}
                       </td>
                     </tr>
                   )}
@@ -293,8 +316,8 @@ export default function ManagerDashboardPage() {
             <>
               {/* Vue Mobile (< md) */}
               <div className="d-md-none p-2 bg-light">
-                {archivedTickets.length > 0 ? (
-                  archivedTickets.map(ticket => (
+                {filteredArchivedTickets.length > 0 ? (
+                  filteredArchivedTickets.map(ticket => (
                     <TicketCardMobile 
                       key={ticket.id} 
                       ticket={ticket} 
@@ -303,7 +326,7 @@ export default function ManagerDashboardPage() {
                   ))
                 ) : (
                   <div className="text-center p-4 text-muted border rounded bg-white">
-                    Aucun ticket archivé.
+                    {searchTerm ? 'Aucun ticket ne correspond à la recherche.' : 'Aucun ticket archivé.'}
                   </div>
                 )}
               </div>
@@ -323,8 +346,8 @@ export default function ManagerDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
-                  {archivedTickets.length > 0 ? (
-                    archivedTickets.map(ticket => {
+                  {filteredArchivedTickets.length > 0 ? (
+                    filteredArchivedTickets.map(ticket => {
                       const bg = getTicketPastelBg(ticket.type);
                       return (
                       <tr key={ticket.id} onClick={() => navigate(`/manager/ticket/${ticket.id}`)} style={{ cursor: 'pointer', '--bs-table-bg': bg, backgroundColor: bg }} className="border-bottom">
@@ -363,7 +386,7 @@ export default function ManagerDashboardPage() {
                     <tr>
                       <td colSpan="7" className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-archive fs-3"></i></div>
-                        Aucun ticket archivé.
+                        {searchTerm ? 'Aucun ticket ne correspond à la recherche.' : 'Aucun ticket archivé.'}
                       </td>
                     </tr>
                   )}
