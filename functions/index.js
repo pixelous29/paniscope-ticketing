@@ -464,8 +464,12 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       }
 
       let userRole = userData && userData.role ? userData.role : "client";
-      let isManager = (userRole === "manager" || userRole === "admin" || userRole === "dev");
-      let messageAuthor = isManager ? "Support" : "Client";
+      let messageAuthor = "Client";
+      if (userRole === "manager" || userRole === "admin") {
+        messageAuthor = "Manager";
+      } else if (userRole === "developer" || userRole === "dev") {
+        messageAuthor = "Développeur";
+      }
 
       const initialMessage = {
         author: messageAuthor,

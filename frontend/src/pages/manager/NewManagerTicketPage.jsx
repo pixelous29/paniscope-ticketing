@@ -10,7 +10,7 @@ import { Form, Button, FloatingLabel, Spinner, Alert, Dropdown, Badge } from 're
 import MultiImageUpload from '../../components/shared/MultiImageUpload';
 
 export default function NewManagerTicketPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, userRole } = useAuth();
   const [formData, setFormData] = useState({
     subject: '',
     description: ''
@@ -135,10 +135,11 @@ export default function NewManagerTicketPage() {
       });
 
       // 3. Message initial (note interne)
+      const authorRole = userRole === 'developer' ? 'Développeur' : 'Manager';
       const initialMessage = {
-        author: 'Manager',
+        author: authorRole,
         uid: currentUser.uid,
-        displayName: currentUser.displayName || 'Manager',
+        displayName: currentUser.displayName || authorRole,
         photoURL: currentUser.photoURL || null,
         text: formData.description,
         timestamp: new Date() 
@@ -153,7 +154,11 @@ export default function NewManagerTicketPage() {
       const docRef = doc(db, "tickets", nextIdStr);
       await setDoc(docRef, ticketData);
       
-      navigate('/manager'); 
+      if (userRole === 'developer') {
+        navigate('/dev');
+      } else {
+        navigate('/manager'); 
+      }
 
     } catch (err) {
       console.error("Error adding document: ", err);
@@ -166,7 +171,7 @@ export default function NewManagerTicketPage() {
     <div className="d-flex flex-column h-100 w-100 bg-light">
       <div className="flex-shrink-0 border-bottom bg-white d-flex align-items-center p-3 p-md-4 sticky-top z-2">
           <div className="d-flex align-items-center gap-3">
-              <Button variant="light" className="rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }} onClick={() => navigate('/manager')} title="Retour aux tickets">
+              <Button variant="light" className="rounded-circle p-0 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '40px', height: '40px' }} onClick={() => navigate(userRole === 'developer' ? '/dev' : '/manager')} title="Retour aux tickets">
                   <i className="bi bi-arrow-left fs-5 text-secondary"></i>
               </Button>
               <div>
