@@ -38,12 +38,19 @@ export default function NewManagerTicketPage() {
                 name: d.data().displayName || d.data().email
             }));
             setDevelopers(devs);
+
+            if (userRole === 'developer' && currentUser) {
+                const currentDevName = currentUser.displayName || currentUser.email;
+                if (currentDevName) {
+                    setAssignedTo([currentDevName]);
+                }
+            }
         } catch (err) {
             console.error("Erreur lors de la récupération des développeurs:", err);
         }
     };
     fetchDevelopers();
-  }, []);
+  }, [currentUser, userRole]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -99,6 +106,14 @@ export default function NewManagerTicketPage() {
         attachmentUrls.push(url);
       }
 
+      let finalAssignedTo = assignedTo;
+      if (userRole === 'developer' && currentUser && (!finalAssignedTo || finalAssignedTo.length === 0)) {
+        const currentDevName = currentUser.displayName || currentUser.email;
+        if (currentDevName) {
+          finalAssignedTo = [currentDevName];
+        }
+      }
+
       // 2. Création du ticket
       const ticketData = {
         type: ticketType,
@@ -115,7 +130,7 @@ export default function NewManagerTicketPage() {
         hasNewClientMessage: false,
         hasNewDeveloperMessage: false,
         hasNewManagerMessage: false,
-        assignedTo: assignedTo,
+        assignedTo: finalAssignedTo,
       };
 
       if (attachmentUrls.length > 0) {
