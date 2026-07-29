@@ -7,11 +7,37 @@ import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
 import { STATUS } from '../../constants/status';
 import { TICKET_TYPE_PASTEL_BG, getTicketPastelBg } from '../../constants/type';
+import { DEV_PHASE_LABELS, DEV_PHASE_COLORS, DEV_PHASES_ORDER } from '../../constants/phases';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
 import TypeBadge from '../../components/shared/TypeBadge';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
+const devPhaseIcons = {
+  PLANNING: "bi-clipboard-data",
+  DEVELOPMENT: "bi-code-slash",
+  TESTING: "bi-bug",
+  READY_FOR_DEPLOY: "bi-rocket-takeoff",
+};
+
+const getTicketDateMs = (t) => {
+  const ts = t.submittedAt || t.createdAt || t.lastUpdate;
+  if (!ts) return 0;
+  return ts.toMillis ? ts.toMillis() : new Date(ts).getTime();
+};
+
+const formatTicketDate = (t) => {
+  const ts = t.submittedAt || t.createdAt || t.lastUpdate;
+  if (!ts) return '-';
+  const date = ts.toDate ? ts.toDate() : new Date(ts);
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 
 export default function DeveloperDashboardPage() {
   const [tickets, setTickets] = useState([]);
@@ -19,9 +45,20 @@ export default function DeveloperDashboardPage() {
   const [error, setError] = useState(null);
   const [view, setView] = useState('current'); // 'current', 'board', or 'archived'
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortColumn, setSortColumn] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc');
   const navigate = useNavigate();
   const { showAlert } = useModal();
   const { currentUser } = useAuth();
+
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === 'date' || column === 'priority' ? 'desc' : 'asc');
+    }
+  };
 
   const matchesSearch = (ticket, term) => {
     if (!term) return true;
@@ -139,7 +176,63 @@ export default function DeveloperDashboardPage() {
   const filteredCurrentTickets = currentTickets.filter(ticket => matchesSearch(ticket, searchTerm));
   const filteredArchivedTickets = archivedTickets.filter(ticket => matchesSearch(ticket, searchTerm));
 
-  const showActionsColumn = filteredCurrentTickets.some(ticket => ticket.status === STATUS.CLOSED);
+  const sortTicketsList = (list) => {
+    return [...list].sort((a, b) => {
+      let result = 0;
+      if (sortColumn === 'id') {
+        const numA = parseInt(a.id, 10) || 0;
+        const numB = parseInt(b.id, 10) || 0;
+        result = numA - numB;
+      } else if (sortColumn === 'priority') {
+        const prioA = priorityOrder[a.priority] || 0;
+        const prioB = priorityOrder[b.priority] || 0;
+        result = prioA - prioB;
+      } else if (sortColumn === 'devPhase') {
+        const phaseA = DEV_PHASES_ORDER.indexOf(a.devPhase) !== -1 ? DEV_PHASES_ORDER.indexOf(a.devPhase) : 0;
+        const phaseB = DEV_PHASES_ORDER.indexOf(b.devPhase) !== -1 ? DEV_PHASES_ORDER.indexOf(b.devPhase) : 0;
+        result = phaseA - phaseB;
+      } else if (sortColumn === 'subject') {
+        result = (a.subject || '').localeCompare(b.subject || '');
+      } else if (sortColumn === 'client') {
+        const clientA = a.clientName || a.client || a.clientId || '';
+        const clientB = b.clientName || b.client || b.clientId || '';
+        result = clientA.localeCompare(clientB);
+      } else if (sortColumn === 'tags') {
+        const tagsA = (a.tags || []).join(' ');
+        const tagsB = (b.tags || []).join(' ');
+        result = tagsA.localeCompare(tagsB);
+      } else if (sortColumn === 'date') {
+        result = getTicketDateMs(a) - getTicketDateMs(b);
+      }
+
+      return sortDirection === 'asc' ? result : -result;
+    });
+  };
+
+  const renderSortHeader = (colKey, label) => {
+    const isSorted = sortColumn === colKey;
+    return (
+      <th 
+        className="py-3 px-3 fw-semibold border-bottom-0 user-select-none" 
+        onClick={() => handleSort(colKey)}
+        style={{ cursor: 'pointer' }}
+      >
+        <div className="d-flex align-items-center gap-1">
+          <span>{label}</span>
+          {isSorted ? (
+            <i className={`bi bi-arrow-${sortDirection === 'asc' ? 'up' : 'down'} text-primary fw-bold`}></i>
+          ) : (
+            <i className="bi bi-arrow-down-up text-muted opacity-50" style={{ fontSize: '0.75rem' }}></i>
+          )}
+        </div>
+      </th>
+    );
+  };
+
+  const sortedCurrentTickets = sortTicketsList(filteredCurrentTickets);
+  const sortedArchivedTickets = sortTicketsList(filteredArchivedTickets);
+
+  const showActionsColumn = sortedCurrentTickets.some(ticket => ticket.status === STATUS.CLOSED);
 
   return (
     <div className="d-flex flex-column h-100 w-100 bg-light">
@@ -208,13 +301,13 @@ export default function DeveloperDashboardPage() {
       </div>
       
       <div className="flex-grow-1 overflow-auto p-3 p-md-4 bg-light">
-        <div className="w-100 mx-auto" style={{ maxWidth: '1400px' }}>
+        <div className="w-100 mx-auto px-1">
           {view === 'current' ? (
             <>
               {/* Vue Mobile (< md) */}
               <div className="d-md-none p-2 bg-light">
-                {filteredCurrentTickets.length > 0 ? (
-                  filteredCurrentTickets.map(ticket => (
+                {sortedCurrentTickets.length > 0 ? (
+                  sortedCurrentTickets.map(ticket => (
                     <TicketCardMobile 
                       key={ticket.id} 
                       ticket={ticket} 
@@ -234,22 +327,37 @@ export default function DeveloperDashboardPage() {
                 <Table hover responsive className="m-0 align-middle">
                   <thead className="bg-light text-secondary text-nowrap">
                     <tr>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Priorité</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Client</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Tags</th>
+                      {renderSortHeader('id', 'Ticket N°')}
+                      {renderSortHeader('priority', 'Priorité')}
+                      {renderSortHeader('devPhase', 'Phase de dev')}
+                      {renderSortHeader('subject', 'Sujet')}
+                      {renderSortHeader('client', 'Client')}
+                      {renderSortHeader('tags', 'Tags')}
+                      {renderSortHeader('date', 'Date')}
                       {showActionsColumn && <th className="py-3 px-3 fw-semibold border-bottom-0 text-center">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
-                  {filteredCurrentTickets.length > 0 ? (
-                    filteredCurrentTickets.map(ticket => {
+                  {sortedCurrentTickets.length > 0 ? (
+                    sortedCurrentTickets.map(ticket => {
                       const bg = getTicketPastelBg(ticket.type);
+                      const phaseKey = ticket.devPhase || 'PLANNING';
+                      const phaseColor = DEV_PHASE_COLORS[phaseKey] || 'secondary';
+                      const phaseLabel = DEV_PHASE_LABELS[phaseKey] || 'Planification';
+                      const phaseIcon = devPhaseIcons[phaseKey] || 'bi-gear';
+
                       return (
                       <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer', '--bs-table-bg': bg, backgroundColor: bg }} className="border-bottom">
                         <td className="px-3 py-3 align-middle text-secondary fw-semibold" style={{ backgroundColor: bg }}>#{ticket.id}</td>
-                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge></td>
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
+                          <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge>
+                        </td>
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
+                          <Badge bg={phaseColor} text={phaseColor === 'warning' ? 'dark' : 'white'} className="px-2 py-1 fw-normal">
+                            <i className={`bi ${phaseIcon} me-1`}></i>
+                            {phaseLabel}
+                          </Badge>
+                        </td>
                         <td className="px-3 py-3 fw-bold align-middle text-dark" style={{ backgroundColor: bg }}>
                           <div className="d-flex align-items-center">
                             {ticket.hasNewManagerMessage && (
@@ -271,6 +379,10 @@ export default function DeveloperDashboardPage() {
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
+                        <td className="px-3 py-3 align-middle text-nowrap text-secondary" style={{ backgroundColor: bg, fontSize: '0.85rem' }}>
+                          <i className="bi bi-calendar3 me-1"></i>
+                          {formatTicketDate(ticket)}
+                        </td>
                         {showActionsColumn && (
                           <td className="px-3 py-3 align-middle text-center" style={{ backgroundColor: bg }}>
                             {ticket.status === STATUS.CLOSED && (
@@ -287,7 +399,7 @@ export default function DeveloperDashboardPage() {
                   })
                   ) : (
                     <tr>
-                      <td colSpan={showActionsColumn ? 6 : 5} className="text-center py-5 text-muted">
+                      <td colSpan={showActionsColumn ? 8 : 7} className="text-center py-5 text-muted">
                          <div className="mb-2"><i className="bi bi-inbox fs-3"></i></div>
                         {searchTerm ? 'Aucun ticket ne correspond à la recherche.' : 'Aucun ticket en cours.'}
                       </td>
@@ -301,8 +413,8 @@ export default function DeveloperDashboardPage() {
             <>
               {/* Vue Mobile (< md) */}
               <div className="d-md-none p-2 bg-light">
-                {filteredArchivedTickets.length > 0 ? (
-                  filteredArchivedTickets.map(ticket => (
+                {sortedArchivedTickets.length > 0 ? (
+                  sortedArchivedTickets.map(ticket => (
                     <TicketCardMobile 
                       key={ticket.id} 
                       ticket={ticket} 
@@ -321,21 +433,36 @@ export default function DeveloperDashboardPage() {
                 <Table hover responsive className="m-0 align-middle">
                   <thead className="bg-light text-secondary text-nowrap">
                     <tr>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Ticket N°</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Priorité</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Sujet</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Client</th>
-                      <th className="py-3 px-3 fw-semibold border-bottom-0">Tags</th>
+                      {renderSortHeader('id', 'Ticket N°')}
+                      {renderSortHeader('priority', 'Priorité')}
+                      {renderSortHeader('devPhase', 'Phase de dev')}
+                      {renderSortHeader('subject', 'Sujet')}
+                      {renderSortHeader('client', 'Client')}
+                      {renderSortHeader('tags', 'Tags')}
+                      {renderSortHeader('date', 'Date')}
                     </tr>
                   </thead>
                   <tbody className="border-top-0">
-                  {filteredArchivedTickets.length > 0 ? (
-                    filteredArchivedTickets.map(ticket => {
+                  {sortedArchivedTickets.length > 0 ? (
+                    sortedArchivedTickets.map(ticket => {
                       const bg = getTicketPastelBg(ticket.type);
+                      const phaseKey = ticket.devPhase || 'PLANNING';
+                      const phaseColor = DEV_PHASE_COLORS[phaseKey] || 'secondary';
+                      const phaseLabel = DEV_PHASE_LABELS[phaseKey] || 'Planification';
+                      const phaseIcon = devPhaseIcons[phaseKey] || 'bi-gear';
+
                       return (
                       <tr key={ticket.id} onClick={() => navigate(`/dev/ticket/${ticket.id}`)} style={{ cursor: 'pointer', '--bs-table-bg': bg, backgroundColor: bg }} className="border-bottom">
                         <td className="px-3 py-3 align-middle text-secondary fw-semibold" style={{ backgroundColor: bg }}>#{ticket.id}</td>
-                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}><Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge></td>
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
+                          <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'} className="px-2 py-1">{ticket.priority}</Badge>
+                        </td>
+                        <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
+                          <Badge bg={phaseColor} text={phaseColor === 'warning' ? 'dark' : 'white'} className="px-2 py-1 fw-normal">
+                            <i className={`bi ${phaseIcon} me-1`}></i>
+                            {phaseLabel}
+                          </Badge>
+                        </td>
                         <td className="px-3 py-3 fw-bold align-middle text-dark" style={{ backgroundColor: bg }}>{ticket.subject}</td>
                         <td className="px-3 py-3 align-middle" style={{ backgroundColor: bg }}>
                           {ticket.clientName || ticket.client || ticket.clientId}
@@ -348,12 +475,16 @@ export default function DeveloperDashboardPage() {
                             <Badge key={tag} pill bg="primary" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
+                        <td className="px-3 py-3 align-middle text-nowrap text-secondary" style={{ backgroundColor: bg, fontSize: '0.85rem' }}>
+                          <i className="bi bi-calendar3 me-1"></i>
+                          {formatTicketDate(ticket)}
+                        </td>
                       </tr>
                     );
                   })
                   ) : (
                     <tr>
-                      <td colSpan="5" className="text-center py-5 text-muted">
+                      <td colSpan="7" className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-archive fs-3"></i></div>
                         {searchTerm ? 'Aucun ticket ne correspond à la recherche.' : 'Aucun ticket archivé.'}
                       </td>

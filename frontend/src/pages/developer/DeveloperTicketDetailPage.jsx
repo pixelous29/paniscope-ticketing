@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, arrayUnion, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
 import { Badge, Form, Button, Alert, Dropdown, Spinner, Tabs, Tab, ListGroup } from 'react-bootstrap';
@@ -28,12 +28,40 @@ export default function DeveloperTicketDetailPage() {
     const [ticket, setTicket] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [developers, setDevelopers] = useState([]);
     
     const [replyText, setReplyText] = useState('');
     const [internalNoteText, setInternalNoteText] = useState('');
     const [replyingTo, setReplyingTo] = useState(null);
     const [noteReplyingTo, setNoteReplyingTo] = useState(null);
     const { showAlert, showConfirmation } = useModal();
+
+    useEffect(() => {
+        const fetchDevelopers = async () => {
+            try {
+                const q = query(collection(db, "users"), where("role", "==", "developer"));
+                const querySnapshot = await getDocs(q);
+                const devs = querySnapshot.docs.map(d => ({
+                    id: d.id,
+                    name: d.data().displayName || d.data().email
+                }));
+                setDevelopers(devs);
+            } catch (err) {
+                console.error("Erreur lors de la récupération des développeurs:", err);
+            }
+        };
+        fetchDevelopers();
+    }, []);
+
+    const handleInlineUpdate = async (field, value) => {
+        const docRef = doc(db, "tickets", ticketId);
+        try {
+            await updateDoc(docRef, { [field]: value });
+        } catch (err) {
+            console.error(`Erreur lors de la mise à jour de ${field}: `, err);
+            showAlert('Erreur', `Impossible de mettre à jour ${field}.`);
+        }
+    };
 
     // États pour le formulaire de réponse au client
     const [replyImages, setReplyImages] = useState([]);
@@ -652,49 +680,99 @@ export default function DeveloperTicketDetailPage() {
                 {/* Colonne de droite : Informations du ticket */}
                 <div className="flex-shrink-0 overflow-auto bg-light border-start p-4" style={{ flexBasis: '30%', minWidth: '320px' }}>
                     <h5 className="mb-4 pb-2 border-bottom fw-bold text-dark">Informations Clés</h5>
-                            <div className="mb-2">
-                                <strong>Client :</strong> {ticket.clientName || ticket.client || ticket.clientId}
-                            </div>
-                            {ticket.companyDomain && (
-                              <div className="mb-2">
-                                  <strong>Entreprise :</strong> {ticket.companyDomain}
-                              </div>
-                            )}
-                            {ticket.ccEmails && ticket.ccEmails.length > 0 && (
-                                <div className="mb-2">
-                                    <strong>En copie :</strong>{' '}
-                                    {ticket.ccEmails.join(', ')}
-                                </div>
-                            )}
+                             <div className="mb-2">
+                                 <strong>Client :</strong> {ticket.clientName || ticket.client || ticket.clientId}
+                             </div>
+                             {ticket.companyDomain && (
+                               <div className="mb-2">
+                                   <strong>Entreprise :</strong> {ticket.companyDomain}
+                               </div>
+                             )}
+                             {ticket.ccEmails && ticket.ccEmails.length > 0 && (
+                                 <div className="mb-2">
+                                     <strong>En copie :</strong>{' '}
+                                     {ticket.ccEmails.join(', ')}
+                                 </div>
+                             )}
+                             
+                             {/* Assignation */}
                              <div className="mb-3 d-flex flex-column align-items-start gap-1">
-                                 <strong>Phase de développement :</strong>
+                                 <strong>Assigné à :</strong>
                                  <Dropdown>
-                                     <Dropdown.Toggle as={Badge} bg={DEV_PHASE_COLORS[ticket.devPhase] || DEV_PHASE_COLORS.PLANNING} text={(DEV_PHASE_COLORS[ticket.devPhase] || DEV_PHASE_COLORS.PLANNING) === 'warning' ? 'dark' : 'white'} style={{ cursor: isTicketClosed ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }} className="border-0 shadow-sm" disabled={isTicketClosed}>
-                                         {DEV_PHASE_LABELS[ticket.devPhase] || DEV_PHASE_LABELS.PLANNING}
+                                     <Dropdown.Toggle variant="light" size="sm" className="border shadow-sm text-start" style={{ minWidth: '150px' }} disabled={isTicketClosed}>
+                                         {Array.isArray(ticket.assignedTo) && ticket.assignedTo.length > 0
+                                             ? ticket.assignedTo.join(', ')
+                                             : 'Personne'}
                                      </Dropdown.Toggle>
-                                     <Dropdown.Menu>
-                                         {Object.entries(DEV_PHASE_LABELS).map(([key, label]) => (
-                                             <Dropdown.Item key={key} onClick={() => handleDevPhaseChange({ target: { value: key } })} className="py-2 px-3 dropdown-item-premium">
-                                                 <Badge bg={DEV_PHASE_COLORS[key]} text={DEV_PHASE_COLORS[key] === 'warning' ? 'dark' : 'white'} className="me-2">{label}</Badge>
-                                                 {ticket.devPhase === key && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
-                                             </Dropdown.Item>
-                                         ))}
+                                     <Dropdown.Menu style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                         {developers.map(dev => {
+                                             const isAssigned = Array.isArray(ticket.assignedTo) && ticket.assignedTo.includes(dev.name);
+                                             return (
+                                                 <Dropdown.Item 
+                                                     key={dev.id} 
+                                                     className="py-2 px-3 dropdown-item-premium"
+                                                     onClick={(e) => {
+                                                         e.preventDefault();
+                                                         const currentAssigned = Array.isArray(ticket.assignedTo) ? [...ticket.assignedTo] : [];
+                                                         const idx = currentAssigned.indexOf(dev.name);
+                                                         if (idx > -1) {
+                                                             currentAssigned.splice(idx, 1);
+                                                         } else {
+                                                             currentAssigned.push(dev.name);
+                                                         }
+                                                         handleInlineUpdate('assignedTo', currentAssigned);
+                                                     }}
+                                                 >
+                                                     <Form.Check 
+                                                         type="checkbox" 
+                                                         label={dev.name} 
+                                                         checked={isAssigned} 
+                                                         readOnly
+                                                         className="m-0"
+                                                     />
+                                                 </Dropdown.Item>
+                                             );
+                                         })}
                                      </Dropdown.Menu>
                                  </Dropdown>
                              </div>
-                              <div>
-                                <strong>Priorité :</strong>{' '}
-                                <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'}>{ticket.priority}</Badge>
+
+                             <div className="mb-3 d-flex flex-column align-items-start gap-1">
+                                  <strong>Phase de développement :</strong>
+                                  <Dropdown>
+                                      <Dropdown.Toggle as={Badge} bg={DEV_PHASE_COLORS[ticket.devPhase] || DEV_PHASE_COLORS.PLANNING} text={(DEV_PHASE_COLORS[ticket.devPhase] || DEV_PHASE_COLORS.PLANNING) === 'warning' ? 'dark' : 'white'} style={{ cursor: isTicketClosed ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }} className="border-0 shadow-sm" disabled={isTicketClosed}>
+                                          {DEV_PHASE_LABELS[ticket.devPhase] || DEV_PHASE_LABELS.PLANNING}
+                                      </Dropdown.Toggle>
+                                      <Dropdown.Menu>
+                                          {Object.entries(DEV_PHASE_LABELS).map(([key, label]) => (
+                                              <Dropdown.Item key={key} onClick={() => handleDevPhaseChange({ target: { value: key } })} className="py-2 px-3 dropdown-item-premium">
+                                                  <Badge bg={DEV_PHASE_COLORS[key]} text={DEV_PHASE_COLORS[key] === 'warning' ? 'dark' : 'white'} className="me-2">{label}</Badge>
+                                                  {ticket.devPhase === key && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
+                                              </Dropdown.Item>
+                                          ))}
+                                      </Dropdown.Menu>
+                                  </Dropdown>
                              </div>
-                              <div className="mb-3 d-flex flex-column align-items-start gap-1 mt-3">
+                              <div className="mb-3">
+                                 <strong>Priorité :</strong>{' '}
+                                 <Badge bg={priorityVariant[ticket.priority] || 'light'} text={ticket.priority === 'Critique' || ticket.priority === 'Haute' ? 'light' : 'dark'}>{ticket.priority}</Badge>
+                              </div>
+                              <div className="mb-3 d-flex flex-column align-items-start gap-1">
                                   <strong>Nature du ticket :</strong>
                                   <Dropdown>
-                                      <Dropdown.Toggle as={Badge} bg={TICKET_TYPE_VARIANT[ticket.type] || 'light'} text={(TICKET_TYPE_VARIANT[ticket.type] || 'light') === 'warning' ? 'dark' : 'white'} style={{ cursor: isTicketClosed ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }} className="border-0 shadow-sm" disabled={isTicketClosed}>
+                                      <Dropdown.Toggle 
+                                          as={Badge} 
+                                          bg={TICKET_TYPE_VARIANT[ticket.type] || 'light'} 
+                                          text={(TICKET_TYPE_VARIANT[ticket.type] || 'light') === 'warning' || !ticket.type || TICKET_TYPE_VARIANT[ticket.type] === 'light' ? 'dark' : 'white'} 
+                                          style={{ cursor: isTicketClosed ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }} 
+                                          className={`shadow-sm ${!ticket.type ? 'border text-dark' : 'border-0'}`} 
+                                          disabled={isTicketClosed}
+                                      >
                                           {TICKET_TYPE_LABEL[ticket.type] || 'Non classifié'}
                                       </Dropdown.Toggle>
                                       <Dropdown.Menu>
                                           <Dropdown.Item onClick={() => handleTypeChange(null)} className="py-2 px-3 dropdown-item-premium">
-                                              <Badge bg="light" text="dark" className="me-2">Non classifié</Badge>
+                                              <Badge bg="light" text="dark" className="me-2 border">Non classifié</Badge>
                                               {!ticket.type && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
                                           </Dropdown.Item>
                                           {Object.entries(TICKET_TYPE_LABEL).map(([key, label]) => (
@@ -706,20 +784,62 @@ export default function DeveloperTicketDetailPage() {
                                       </Dropdown.Menu>
                                   </Dropdown>
                               </div>
-                            <div className="mt-2">
-                                <strong>Tags :</strong>{' '}
-                                {ticket.tags?.map(tag => <Badge key={tag} pill bg="primary" className="me-1">{tag}</Badge>)}
-                            </div>
-                            <hr />
-                            <div className="d-grid gap-2">
-                                <Button 
-                                    variant={isPendingValidation ? "secondary" : "success"} 
-                                    onClick={handleMarkAsDone} 
-                                    disabled={isTicketClosed}
-                                >
-                                    {isPendingValidation ? 'Annuler l\'attente de validation' : 'Terminé, prêt pour validation'}
-                                </Button>
-                            </div>
+
+                             {/* Gestion des tags */}
+                             <div className="mb-3 d-flex flex-column align-items-start gap-1">
+                                 <strong>Tags :</strong>
+                                 <div className="d-flex flex-wrap gap-1 align-items-center">
+                                     {ticket.tags?.map(tag => (
+                                         <Badge key={tag} pill bg="primary" className="d-flex align-items-center gap-1 shadow-sm px-2 py-1">
+                                             {tag}
+                                             {!isTicketClosed && (
+                                                 <X size={14} style={{cursor: 'pointer'}} onClick={() => {
+                                                     const newTags = ticket.tags.filter(t => t !== tag);
+                                                     handleInlineUpdate('tags', newTags);
+                                                 }}/>
+                                             )}
+                                         </Badge>
+                                     ))}
+                                     {!isTicketClosed && (
+                                         <Dropdown onClick={(e) => e.stopPropagation()}>
+                                             <Dropdown.Toggle size="sm" variant="outline-secondary" className="rounded-pill px-2 py-0 d-flex align-items-center shadow-sm" style={{fontSize: '0.75rem'}}>
+                                                 + Ajouter
+                                             </Dropdown.Toggle>
+                                             <Dropdown.Menu className="p-2" style={{minWidth: '200px'}}>
+                                                 <Form.Control 
+                                                     type="text" 
+                                                     size="sm" 
+                                                     placeholder="Nouveau tag + Entrée" 
+                                                     onKeyDown={(e) => {
+                                                         if (e.key === 'Enter') {
+                                                             e.preventDefault();
+                                                             const val = e.target.value.trim();
+                                                             if (val) {
+                                                                 const currentTags = Array.isArray(ticket.tags) ? ticket.tags : [];
+                                                                 if (!currentTags.includes(val)) {
+                                                                     handleInlineUpdate('tags', [...currentTags, val]);
+                                                                 }
+                                                                 e.target.value = '';
+                                                             }
+                                                         }
+                                                     }}
+                                                 />
+                                             </Dropdown.Menu>
+                                         </Dropdown>
+                                     )}
+                                 </div>
+                             </div>
+
+                             <hr />
+                             <div className="d-grid gap-2">
+                                 <Button 
+                                     variant={isPendingValidation ? "secondary" : "success"} 
+                                     onClick={handleMarkAsDone} 
+                                     disabled={isTicketClosed}
+                                 >
+                                     {isPendingValidation ? 'Annuler l\'attente de validation' : 'Terminé, prêt pour validation'}
+                                 </Button>
+                             </div>
                 </div>
             </div>
 
