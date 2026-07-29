@@ -27,7 +27,7 @@ import { useNavigate } from 'react-router-dom';
 
 const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
 
-export default function InternalKanbanBoard({ role, isDeveloperMode = false }) {
+export default function InternalKanbanBoard({ role, isDeveloperMode = false, developerName }) {
   const [columns, setColumns] = useState({});
   const [activeTicket, setActiveTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +62,16 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false }) {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const allTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let allTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      if (isDeveloperMode && developerName) {
+        allTickets = allTickets.filter(ticket => {
+          if (Array.isArray(ticket.assignedTo)) {
+            return ticket.assignedTo.includes(developerName);
+          }
+          return ticket.assignedTo === developerName;
+        });
+      }
       
       // Grouper par devPhase
       const grouped = {};
@@ -108,7 +117,7 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false }) {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [developerName, isDeveloperMode]);
 
   const handleDragStart = (event) => {
     const { active } = event;
