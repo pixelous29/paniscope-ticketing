@@ -319,7 +319,7 @@ export default function ClientTicketDetailPage() {
 
             {/* Zone principale : défilement */}
             <div className="flex-grow-1 overflow-auto d-flex flex-column">
-                <div className="w-100 mx-auto d-flex flex-column flex-grow-1" style={{ maxWidth: '900px' }}>
+                <div className="w-100 mx-auto d-flex flex-column flex-grow-1">
                     
                     {/* Conteneur des messages (ListGroup retiré car on veut un flux naturel) */}
                     <div className="flex-grow-1 p-3 p-md-4 d-flex flex-column gap-1">

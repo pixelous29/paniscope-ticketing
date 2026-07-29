@@ -467,7 +467,7 @@ export default function DeveloperTicketDetailPage() {
             <div className="flex-grow-1 overflow-hidden d-flex flex-column flex-md-row">
                 {/* Zone principale (conversation / notes) */}
                 <div className="flex-grow-1 overflow-auto bg-white d-flex flex-column" style={{ flexBasis: '70%' }}>
-                    <div className="w-100 mx-auto d-flex flex-column flex-grow-1" style={{ maxWidth: '900px' }}>
+                    <div className="w-100 mx-auto d-flex flex-column flex-grow-1">
                         <Tabs
                             id="ticket-conversation-tabs"
                             activeKey={activeTab}
