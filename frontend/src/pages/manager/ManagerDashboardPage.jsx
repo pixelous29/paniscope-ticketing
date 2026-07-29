@@ -80,6 +80,7 @@ export default function ManagerDashboardPage() {
       : (ticket.tags || '').toLowerCase();
 
     const type = (ticket.type || '').toLowerCase();
+    const dateStr = formatTicketDate(ticket).toLowerCase();
 
     return (
       ticketId.includes(lowerTerm) ||
@@ -91,7 +92,8 @@ export default function ManagerDashboardPage() {
       status.includes(lowerTerm) ||
       assigned.includes(lowerTerm) ||
       tags.includes(lowerTerm) ||
-      type.includes(lowerTerm)
+      type.includes(lowerTerm) ||
+      dateStr.includes(lowerTerm)
     );
   };
 
