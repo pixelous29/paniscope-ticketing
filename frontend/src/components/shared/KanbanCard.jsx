@@ -92,7 +92,7 @@ const NEW_TICKET_BG = '#d0e8ff';
               )}
               {isPendingValidation && (
                 <span className="fw-bold text-info text-uppercase bg-info bg-opacity-25 px-1.5 py-0.5 rounded border border-info">
-                  ✓ En validation
+                  ✓&nbsp; En validation
                 </span>
               )}
               {ticket.priority && ticket.priority !== 'Normale' && (
@@ -142,7 +142,7 @@ const NEW_TICKET_BG = '#d0e8ff';
                   className="bg-white bg-opacity-75 text-secondary border rounded px-1"
                   style={{ fontSize: '0.62rem', lineHeight: '1.2' }}
                 >
-                  #{tag}
+                  {tag}
                 </span>
               ))}
               {tags.length > 3 && (
@@ -168,8 +168,8 @@ const NEW_TICKET_BG = '#d0e8ff';
                       style={{ 
                         width: '20px', height: '20px', 
                         fontSize: '0.52rem', fontWeight: 'bold',
-                        backgroundColor: '#e7f1ff', color: '#0d6efd',
-                        border: '1.5px solid #0d6efd',
+                        backgroundColor: '#fdf8ee', color: '#0a1b2c',
+                        border: '1.5px solid #dbac57',
                       }} 
                       title={dev}
                     >
