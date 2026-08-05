@@ -68,6 +68,7 @@ export default function DeveloperTicketDetailPage() {
     const [replyPreviews, setReplyPreviews] = useState([]);
     const [replyImageError, setReplyImageError] = useState('');
     const [isReplySubmitting, setIsReplySubmitting] = useState(false);
+    const [setPendingOnReply, setSetPendingOnReply] = useState(true);
 
     // États pour le formulaire de note interne
     const [noteImages, setNoteImages] = useState([]);
@@ -289,6 +290,9 @@ export default function DeveloperTicketDetailPage() {
                 }
             } else {
                 updateData.hasNewClientMessage = false;
+                if (setPendingOnReply) {
+                    updateData.status = STATUS.PENDING;
+                }
             }
 
             await updateDoc(docRef, updateData);
@@ -569,7 +573,16 @@ export default function DeveloperTicketDetailPage() {
                                                         maxImages={4}
                                                     />
 
-                                                    <div className="d-flex justify-content-end border-top pt-3">
+                                                    <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 border-top pt-3">
+                                                        <Form.Check 
+                                                            type="checkbox"
+                                                            id="pending-on-reply-check"
+                                                            label="Passer en attente de retour client"
+                                                            checked={setPendingOnReply}
+                                                            onChange={(e) => setSetPendingOnReply(e.target.checked)}
+                                                            className="text-muted"
+                                                            style={{ fontSize: '0.85rem' }}
+                                                        />
                                                         <Button variant="primary" type="submit" disabled={isReplySubmitting} className="px-4">
                                                             {isReplySubmitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />Envoi en cours...</> : 'Envoyer la réponse'}
                                                         </Button>
@@ -832,10 +845,32 @@ export default function DeveloperTicketDetailPage() {
 
                              <hr />
                              <div className="d-grid gap-2">
+                                 {!isTicketClosed && (
+                                     ticket.status !== STATUS.PENDING ? (
+                                         <Button 
+                                             variant="warning" 
+                                             size="sm"
+                                             className="fw-bold text-dark shadow-sm"
+                                             onClick={() => handleInlineUpdate('status', STATUS.PENDING)}
+                                         >
+                                             🟠 Mettre en attente retour client
+                                         </Button>
+                                     ) : (
+                                         <Button 
+                                             variant="outline-primary" 
+                                             size="sm"
+                                             className="fw-bold shadow-sm"
+                                             onClick={() => handleInlineUpdate('status', STATUS.IN_PROGRESS)}
+                                         >
+                                             🔵 Repasser en cours
+                                         </Button>
+                                     )
+                                 )}
                                  <Button 
                                      variant={isPendingValidation ? "secondary" : "success"} 
                                      onClick={handleMarkAsDone} 
                                      disabled={isTicketClosed}
+                                     className="shadow-sm"
                                  >
                                      {isPendingValidation ? 'Annuler l\'attente de validation' : 'Terminé, prêt pour validation'}
                                  </Button>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Container, Spinner, Alert } from 'react-bootstrap';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Container, Spinner, Alert, Button, Badge, Form } from 'react-bootstrap';
 import { 
   DndContext, 
   DragOverlay, 
@@ -12,7 +12,6 @@ import {
   defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
 import { 
-  SortableContext, 
   arrayMove, 
   sortableKeyboardCoordinates
 } from '@dnd-kit/sortable';
@@ -29,9 +28,15 @@ const priorityOrder = { 'Critique': 4, 'Haute': 3, 'Normale': 2, 'Faible': 1 };
 
 export default function InternalKanbanBoard({ role, isDeveloperMode = false, developerName }) {
   const [columns, setColumns] = useState({});
+  const [allTickets, setAllTickets] = useState([]);
   const [activeTicket, setActiveTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Filtres
+  const [filterMode, setFilterMode] = useState('todo'); // 'todo' | 'pending' | 'all'
+  const [searchTerm, setSearchTerm] = useState('');
+
   const { showAlert } = useModal();
   const navigate = useNavigate();
 
@@ -62,10 +67,10 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      let allTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let tickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       if (isDeveloperMode && developerName) {
-        allTickets = allTickets.filter(ticket => {
+        tickets = tickets.filter(ticket => {
           if (Array.isArray(ticket.assignedTo)) {
             return ticket.assignedTo.includes(developerName);
           }
@@ -73,42 +78,7 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
         });
       }
       
-      // Grouper par devPhase
-      const grouped = {};
-      DEV_PHASES_ORDER.forEach(phase => grouped[phase] = []);
-      
-      allTickets.forEach(ticket => {
-        let targetPhase = ticket.devPhase;
-        if (!targetPhase || !DEV_PHASES_ORDER.includes(targetPhase)) {
-            targetPhase = DEV_PHASE.PLANNING; 
-        }
-
-        if(grouped[targetPhase]) {
-            grouped[targetPhase].push(ticket);
-        }
-      });
-
-      // Tri des tickets dans chaque colonne :
-      // 1. Nouveaux tickets (status "Nouveau") toujours en tête
-      // 2. Par priorité décroissante (Critique > Haute > Normale > Faible)
-      // 3. Par date de création ascendante (plus ancien en premier)
-      Object.keys(grouped).forEach(k => {
-          grouped[k].sort((a, b) => {
-              const aIsNew = a.status === STATUS.NEW ? 1 : 0;
-              const bIsNew = b.status === STATUS.NEW ? 1 : 0;
-              if (aIsNew !== bIsNew) return bIsNew - aIsNew;
-
-              const aPriority = priorityOrder[a.priority] || 0;
-              const bPriority = priorityOrder[b.priority] || 0;
-              if (aPriority !== bPriority) return bPriority - aPriority;
-
-              const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-              const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-              return aTime - bTime;
-          });
-      });
-
-      setColumns(grouped);
+      setAllTickets(tickets);
       setLoading(false);
     }, (err) => {
       console.error("Erreur chargement du kanban :", err);
@@ -119,11 +89,75 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
     return () => unsubscribe();
   }, [developerName, isDeveloperMode]);
 
+  // Calcul des compteurs globaux
+  const counts = useMemo(() => {
+    const todo = allTickets.filter(t => t.status === STATUS.NEW || t.status === STATUS.IN_PROGRESS).length;
+    const pending = allTickets.filter(t => t.status === STATUS.PENDING || t.status === STATUS.PENDING_VALIDATION).length;
+    const all = allTickets.length;
+    return { todo, pending, all };
+  }, [allTickets]);
+
+  // Recalcul des colonnes en fonction des filtres actifs
+  useEffect(() => {
+    let filtered = [...allTickets];
+
+    // 1. Filtrage par statut
+    if (filterMode === 'todo') {
+      filtered = filtered.filter(t => t.status === STATUS.NEW || t.status === STATUS.IN_PROGRESS);
+    } else if (filterMode === 'pending') {
+      filtered = filtered.filter(t => t.status === STATUS.PENDING || t.status === STATUS.PENDING_VALIDATION);
+    }
+
+    // 2. Filtrage par terme de recherche
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(t => {
+        const subjectMatch = (t.subject || '').toLowerCase().includes(term);
+        const clientMatch = (t.clientName || t.client || '').toLowerCase().includes(term);
+        const tagMatch = Array.isArray(t.tags) && t.tags.some(tag => tag.toLowerCase().includes(term));
+        return subjectMatch || clientMatch || tagMatch;
+      });
+    }
+
+    // 3. Regroupement par devPhase
+    const grouped = {};
+    DEV_PHASES_ORDER.forEach(phase => grouped[phase] = []);
+    
+    filtered.forEach(ticket => {
+      let targetPhase = ticket.devPhase;
+      if (!targetPhase || !DEV_PHASES_ORDER.includes(targetPhase)) {
+        targetPhase = DEV_PHASE.PLANNING; 
+      }
+
+      if(grouped[targetPhase]) {
+        grouped[targetPhase].push(ticket);
+      }
+    });
+
+    // 4. Tri des tickets dans chaque colonne
+    Object.keys(grouped).forEach(k => {
+      grouped[k].sort((a, b) => {
+        const aIsNew = a.status === STATUS.NEW ? 1 : 0;
+        const bIsNew = b.status === STATUS.NEW ? 1 : 0;
+        if (aIsNew !== bIsNew) return bIsNew - aIsNew;
+
+        const aPriority = priorityOrder[a.priority] || 0;
+        const bPriority = priorityOrder[b.priority] || 0;
+        if (aPriority !== bPriority) return bPriority - aPriority;
+
+        const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return aTime - bTime;
+      });
+    });
+
+    setColumns(grouped);
+  }, [allTickets, filterMode, searchTerm]);
+
   const handleDragStart = (event) => {
     const { active } = event;
     const ticketId = active.id;
     
-    // Mémoriser la colonne d'origine AVANT tout déplacement
     const originColumn = findContainerOfItem(ticketId);
     dragOriginRef.current = originColumn;
 
@@ -152,10 +186,9 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
       return;
     }
 
-    // Déplacement temporaire entre colonnes (mise à jour UI optimiste)
     setColumns((prev) => {
-      const activeItems = prev[activeContainer];
-      const overItems = prev[overContainer];
+      const activeItems = prev[activeContainer] || [];
+      const overItems = prev[overContainer] || [];
 
       const activeIndex = activeItems.findIndex((t) => t.id === id);
       const overIndex = DEV_PHASES_ORDER.includes(overId) 
@@ -185,9 +218,7 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
         return;
     }
 
-    // Colonne d'origine mémorisée au dragStart (AVANT le déplacement optimiste)
     const originalContainer = dragOriginRef.current;
-    // Colonne finale (là où la carte est maintenant)
     const currentContainer = findContainerOfItem(activeId) || (DEV_PHASES_ORDER.includes(overId) ? overId : null);
 
     if (!originalContainer || !currentContainer) {
@@ -199,7 +230,6 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
     const ticketToUpdate = activeTicket;
 
     if (originalContainer === currentContainer) {
-      // Même colonne : juste réordonner localement
       const activeIndex = columns[currentContainer]?.findIndex((t) => t.id === activeId);
       const overIndex = columns[currentContainer]?.findIndex((t) => t.id === overId);
 
@@ -210,7 +240,6 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
         }));
       }
     } else {
-        // Changement de phase ! On met à jour Firestore
         try {
             const docRef = doc(db, "tickets", ticketToUpdate.id);
             await updateDoc(docRef, {
@@ -249,35 +278,100 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
   if (error) return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
 
   return (
-    <div className="w-100 overflow-auto pb-3 user-select-none" style={{ minHeight: 'calc(100vh - 250px)' }}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="d-flex gap-3 h-100 align-items-stretch justify-content-center" style={{ height: '100%', minWidth: 'min-content', paddingBottom: '1rem' }}>
-          {DEV_PHASES_ORDER.map((phaseId) => (
-              <KanbanColumn
-                key={phaseId}
-                id={phaseId}
-                title={DEV_PHASE_LABELS[phaseId]}
-                color={DEV_PHASE_COLORS[phaseId]}
-                tickets={columns[phaseId] || []}
-                onCardClick={handleCardClick}
-              />
-          ))}
+    <div className="w-100 d-flex flex-column h-100">
+      {/* Barre de filtres et recherche */}
+      <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3 bg-white p-2.5 px-3 rounded shadow-sm border flex-shrink-0">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          <Button 
+            variant={filterMode === 'todo' ? 'primary' : 'outline-secondary'} 
+            size="sm"
+            className="fw-bold d-flex align-items-center gap-1.5 shadow-sm"
+            onClick={() => setFilterMode('todo')}
+          >
+            <span>À traiter</span>
+            <Badge bg={filterMode === 'todo' ? 'light' : 'secondary'} text={filterMode === 'todo' ? 'dark' : 'white'} pill>
+              {counts.todo}
+            </Badge>
+          </Button>
+
+          <Button 
+            variant={filterMode === 'pending' ? 'warning' : 'outline-secondary'} 
+            size="sm"
+            className={`fw-bold d-flex align-items-center gap-1.5 shadow-sm ${filterMode === 'pending' ? 'text-dark' : ''}`}
+            onClick={() => setFilterMode('pending')}
+          >
+            <span>⏳ En attente client</span>
+            <Badge bg={filterMode === 'pending' ? 'dark' : 'secondary'} text="white" pill>
+              {counts.pending}
+            </Badge>
+          </Button>
+
+          <Button 
+            variant={filterMode === 'all' ? 'dark' : 'outline-secondary'} 
+            size="sm"
+            className="fw-bold d-flex align-items-center gap-1.5 shadow-sm"
+            onClick={() => setFilterMode('all')}
+          >
+            <span>Tous</span>
+            <Badge bg={filterMode === 'all' ? 'light' : 'secondary'} text={filterMode === 'all' ? 'dark' : 'white'} pill>
+              {counts.all}
+            </Badge>
+          </Button>
         </div>
 
-        <DragOverlay dropAnimation={dropAnimation}>
-          {activeTicket ? (
-            <div style={{ transform: 'rotate(2deg)' }}>
-               <KanbanCard ticket={activeTicket} />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+        <div className="position-relative" style={{ maxWidth: '280px', width: '100%' }}>
+          <Form.Control
+            type="text"
+            placeholder="Rechercher (sujet, client, tag)..."
+            size="sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pe-4 shadow-sm"
+          />
+          {searchTerm && (
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="position-absolute top-50 end-0 translate-middle-y text-muted text-decoration-none p-1 me-1"
+              onClick={() => setSearchTerm('')}
+            >
+              ✕
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Kanban Board */}
+      <div className="w-100 overflow-auto pb-3 user-select-none flex-grow-1" style={{ minHeight: 'calc(100vh - 250px)' }}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="d-flex gap-3 h-100 align-items-stretch justify-content-center" style={{ height: '100%', minWidth: 'min-content', paddingBottom: '1rem' }}>
+            {DEV_PHASES_ORDER.map((phaseId) => (
+                <KanbanColumn
+                  key={phaseId}
+                  id={phaseId}
+                  title={DEV_PHASE_LABELS[phaseId]}
+                  color={DEV_PHASE_COLORS[phaseId]}
+                  tickets={columns[phaseId] || []}
+                  onCardClick={handleCardClick}
+                />
+            ))}
+          </div>
+
+          <DragOverlay dropAnimation={dropAnimation}>
+            {activeTicket ? (
+              <div style={{ transform: 'rotate(2deg)' }}>
+                <KanbanCard ticket={activeTicket} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
     </div>
   );
 }
