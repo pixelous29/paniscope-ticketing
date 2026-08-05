@@ -229,3 +229,9 @@ code {
   font-size: 0.9rem;
 }
 .dropdown-item-premium:hover { background-color: #f8f9fa; }
+
+/* Styles cartes Kanban et conteneurs */
+.card {
+  padding: 0.7em;
+}
+
