@@ -285,11 +285,11 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
           <Button 
             variant={filterMode === 'todo' ? 'primary' : 'outline-secondary'} 
             size="sm"
-            className="fw-bold d-flex align-items-center gap-1.5 shadow-sm"
+            className="fw-bold d-flex align-items-center gap-2 shadow-sm"
             onClick={() => setFilterMode('todo')}
           >
             <span>À traiter</span>
-            <Badge bg={filterMode === 'todo' ? 'light' : 'secondary'} text={filterMode === 'todo' ? 'dark' : 'white'} pill>
+            <Badge bg={filterMode === 'todo' ? 'light' : 'secondary'} text={filterMode === 'todo' ? 'dark' : 'white'} pill className="ms-2">
               {counts.todo}
             </Badge>
           </Button>
@@ -297,11 +297,11 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
           <Button 
             variant={filterMode === 'pending' ? 'warning' : 'outline-secondary'} 
             size="sm"
-            className={`fw-bold d-flex align-items-center gap-1.5 shadow-sm ${filterMode === 'pending' ? 'text-dark' : ''}`}
+            className={`fw-bold d-flex align-items-center gap-2 shadow-sm ${filterMode === 'pending' ? 'text-dark' : ''}`}
             onClick={() => setFilterMode('pending')}
           >
             <span>⏳ En attente client</span>
-            <Badge bg={filterMode === 'pending' ? 'dark' : 'secondary'} text="white" pill>
+            <Badge bg={filterMode === 'pending' ? 'dark' : 'secondary'} text="white" pill className="ms-2">
               {counts.pending}
             </Badge>
           </Button>
@@ -309,11 +309,11 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
           <Button 
             variant={filterMode === 'all' ? 'dark' : 'outline-secondary'} 
             size="sm"
-            className="fw-bold d-flex align-items-center gap-1.5 shadow-sm"
+            className="fw-bold d-flex align-items-center gap-2 shadow-sm"
             onClick={() => setFilterMode('all')}
           >
             <span>Tous</span>
-            <Badge bg={filterMode === 'all' ? 'light' : 'secondary'} text={filterMode === 'all' ? 'dark' : 'white'} pill>
+            <Badge bg={filterMode === 'all' ? 'light' : 'secondary'} text={filterMode === 'all' ? 'dark' : 'white'} pill className="ms-2">
               {counts.all}
             </Badge>
           </Button>

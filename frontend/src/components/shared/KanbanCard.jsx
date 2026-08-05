@@ -66,7 +66,7 @@ const NEW_TICKET_BG = '#d0e8ff';
       <Card 
         className={`shadow-sm border-0 position-relative user-select-none ${isPendingClient ? 'border-start border-3 border-warning' : (isNewTicket ? 'border-start border-3 border-primary' : '')}`}
         style={{ 
-          minHeight: '65px', 
+          minHeight: '50px', 
           cursor: 'pointer', 
           backgroundColor: cardBg, 
           borderRadius: '6px' 
@@ -76,7 +76,7 @@ const NEW_TICKET_BG = '#d0e8ff';
             if (onClick) onClick();
         }}
       >
-        <Card.Body className="p-2 d-flex flex-column gap-1">
+        <Card.Body className="py-1.5 px-2 d-flex flex-column gap-1">
           {/* En-tête de carte : Badges de Statut & Priorité */}
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-1" style={{ fontSize: '0.65rem' }}>
             <div className="d-flex align-items-center gap-1">
@@ -118,11 +118,11 @@ const NEW_TICKET_BG = '#d0e8ff';
           </div>
 
           {/* Titre complet du ticket + indicateur de priorité */}
-          <div className="d-flex align-items-start gap-1.5">
+          <div className="d-flex align-items-start gap-2">
             <span 
-              className="rounded-circle mt-1 flex-shrink-0" 
+              className="rounded-circle mt-1 flex-shrink-0 me-1.5" 
               style={{ 
-                width: '7px', height: '7px', 
+                width: '8px', height: '8px', 
                 backgroundColor: PRIORITY_DOT[ticket.priority] || '#6c757d', 
                 display: 'inline-block' 
               }}
