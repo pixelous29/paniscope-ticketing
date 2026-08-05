@@ -95,7 +95,7 @@ const NEW_TICKET_BG = '#d0e8ff';
                   ✓&nbsp; En validation
                 </span>
               )}
-              {ticket.priority && ticket.priority !== 'Normale' && (
+              {ticket.priority && ['Haute', 'Critique'].includes(ticket.priority) && (
                 <span 
                   className="fw-bold px-1 py-0.5 rounded" 
                   style={{ 
@@ -106,7 +106,7 @@ const NEW_TICKET_BG = '#d0e8ff';
                   }}
                   title={`Priorité : ${ticket.priority}`}
                 >
-                  P: {ticket.priority}
+                  {ticket.priority}
                 </span>
               )}
             </div>
@@ -117,17 +117,8 @@ const NEW_TICKET_BG = '#d0e8ff';
             )}
           </div>
 
-          {/* Titre complet du ticket + indicateur de priorité */}
+          {/* Titre complet du ticket */}
           <div className="d-flex align-items-start gap-2">
-            <span 
-              className="rounded-circle mt-1 flex-shrink-0 me-1.5" 
-              style={{ 
-                width: '8px', height: '8px', 
-                backgroundColor: PRIORITY_DOT[ticket.priority] || '#6c757d', 
-                display: 'inline-block' 
-              }}
-              title={`Priorité : ${ticket.priority}`}
-            ></span>
             <div className="fw-bold text-dark" style={{ fontSize: '0.82rem', lineHeight: '1.25', wordBreak: 'break-word' }}>
               {ticket.subject}
             </div>
