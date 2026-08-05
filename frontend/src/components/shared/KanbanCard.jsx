@@ -77,23 +77,39 @@ const NEW_TICKET_BG = '#d0e8ff';
         }}
       >
         <Card.Body className="p-2 d-flex flex-column gap-1">
-          {/* En-tête de carte : Badges de Statut */}
+          {/* En-tête de carte : Badges de Statut & Priorité */}
           <div className="d-flex align-items-center justify-content-between flex-wrap gap-1" style={{ fontSize: '0.65rem' }}>
-            {isNewTicket && (
-              <span className="fw-bold text-primary text-uppercase bg-primary bg-opacity-10 px-1.5 py-0.5 rounded border border-primary">
-                ● Nouveau
-              </span>
-            )}
-            {isPendingClient && (
-              <span className="fw-bold text-warning text-dark text-uppercase bg-warning bg-opacity-25 px-1.5 py-0.5 rounded border border-warning">
-                ⏳ Attente Client
-              </span>
-            )}
-            {isPendingValidation && (
-              <span className="fw-bold text-info text-uppercase bg-info bg-opacity-25 px-1.5 py-0.5 rounded border border-info">
-                ✓ En validation
-              </span>
-            )}
+            <div className="d-flex align-items-center gap-1">
+              {isNewTicket && (
+                <span className="fw-bold text-primary text-uppercase bg-primary bg-opacity-10 px-1.5 py-0.5 rounded border border-primary">
+                  ● Nouveau
+                </span>
+              )}
+              {isPendingClient && (
+                <span className="fw-bold text-dark text-uppercase bg-warning bg-opacity-75 px-1.5 py-0.5 rounded border border-warning">
+                  ⏳ Attente Client
+                </span>
+              )}
+              {isPendingValidation && (
+                <span className="fw-bold text-info text-uppercase bg-info bg-opacity-25 px-1.5 py-0.5 rounded border border-info">
+                  ✓ En validation
+                </span>
+              )}
+              {ticket.priority && ticket.priority !== 'Normale' && (
+                <span 
+                  className="fw-bold px-1 py-0.5 rounded" 
+                  style={{ 
+                    fontSize: '0.6rem', 
+                    backgroundColor: (PRIORITY_DOT[ticket.priority] || '#6c757d') + '22', 
+                    color: PRIORITY_DOT[ticket.priority] || '#6c757d',
+                    border: `1px solid ${PRIORITY_DOT[ticket.priority] || '#6c757d'}` 
+                  }}
+                  title={`Priorité : ${ticket.priority}`}
+                >
+                  P: {ticket.priority}
+                </span>
+              )}
+            </div>
             {displayDate && (
               <span className="ms-auto text-muted" style={{ fontSize: '0.62rem' }}>
                 {displayDate}
@@ -110,7 +126,7 @@ const NEW_TICKET_BG = '#d0e8ff';
                 backgroundColor: PRIORITY_DOT[ticket.priority] || '#6c757d', 
                 display: 'inline-block' 
               }}
-              title={ticket.priority}
+              title={`Priorité : ${ticket.priority}`}
             ></span>
             <div className="fw-bold text-dark" style={{ fontSize: '0.82rem', lineHeight: '1.25', wordBreak: 'break-word' }}>
               {ticket.subject}

@@ -8,8 +8,8 @@ export const STATUS = {
 
 export const STATUS_VARIANT = {
   [STATUS.NEW]: "primary",
-  [STATUS.IN_PROGRESS]: "warning",
-  [STATUS.PENDING]: "info",
+  [STATUS.IN_PROGRESS]: "primary",
+  [STATUS.PENDING]: "warning",
   [STATUS.PENDING_VALIDATION]: "secondary",
   [STATUS.CLOSED]: "success",
 };
