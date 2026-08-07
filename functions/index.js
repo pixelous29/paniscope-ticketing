@@ -97,39 +97,53 @@ exports.notifyManagersOnNewTicket = functions.firestore
     const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "support@paniscope.fr";
     const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
 
-
-
+    let shouldSendNewTicketEmail = true;
     try {
-      await smtpTransporter.sendMail({
-        from: `"Support Paniscope" <${fromEmail}>`, 
-        to: adminEmail,
-        subject: `[Ticket #${ticketId}] ${ticket.subject}`,
-        messageId: `<ticket-${ticketId}@paniscope.fr>`,
-        html: `
-          <div style="font-family: Arial, sans-serif; color: #333;">
-            <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
-              <h2 style="margin: 0;">Nouveau ticket de support</h2>
+      const adminUserQuery = await db.collection("users").where("email", "==", adminEmail.toLowerCase().trim()).get();
+      if (!adminUserQuery.empty) {
+        const adminUserData = adminUserQuery.docs[0].data();
+        if (adminUserData.emailNotifications && adminUserData.emailNotifications.notifyOnNewTicket === false) {
+          shouldSendNewTicketEmail = false;
+          console.log(`[PREFERENCES] Notification de nouveau ticket désactivée par le manager/admin (${adminEmail})`);
+        }
+      }
+    } catch (prefErr) {
+      console.warn("Erreur lors de la vérification des préférences email manager:", prefErr.message);
+    }
+
+    if (shouldSendNewTicketEmail) {
+      try {
+        await smtpTransporter.sendMail({
+          from: `"Support Paniscope" <${fromEmail}>`, 
+          to: adminEmail,
+          subject: `[Ticket #${ticketId}] ${ticket.subject}`,
+          messageId: `<ticket-${ticketId}@paniscope.fr>`,
+          html: `
+            <div style="font-family: Arial, sans-serif; color: #333;">
+              <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
+                <h2 style="margin: 0;">Nouveau ticket de support</h2>
+              </div>
+              <div style="background: #ffffff; padding: 20px; border: 1px solid #ddd; border-top: none;">
+                <p>Bonjour,</p>
+                <p><strong>${clientName}</strong> a ouvert un nouveau ticket d'assistance.</p>
+                <br>
+                <p><strong>Sujet :</strong> ${ticket.subject}</p>
+                <p><strong>Priorité :</strong> ${ticket.priority || "Normale"}</p>
+                <br>
+                <p><strong>Message original :</strong></p>
+                <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #D9AC5F; white-space: pre-wrap;">${initialMessage}</div>
+                ${attachmentNote}
+                <br>
+                <p><a href="${ticketUrl}" style="background-color: #0B1B2B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Répondre depuis l'application</a></p>
+                <p style="font-size: 13px; color: #555; margin-top: 15px;">Vous pouvez également répondre directement à cet email pour converser avec le client. La réponse sera automatiquement ajoutée dans l'application et transmise au client !</p>
+              </div>
             </div>
-            <div style="background: #ffffff; padding: 20px; border: 1px solid #ddd; border-top: none;">
-              <p>Bonjour,</p>
-              <p><strong>${clientName}</strong> a ouvert un nouveau ticket d'assistance.</p>
-              <br>
-              <p><strong>Sujet :</strong> ${ticket.subject}</p>
-              <p><strong>Priorité :</strong> ${ticket.priority || "Normale"}</p>
-              <br>
-              <p><strong>Message original :</strong></p>
-              <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #D9AC5F; white-space: pre-wrap;">${initialMessage}</div>
-              ${attachmentNote}
-              <br>
-              <p><a href="${ticketUrl}" style="background-color: #0B1B2B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Répondre depuis l'application</a></p>
-              <p style="font-size: 13px; color: #555; margin-top: 15px;">Vous pouvez également répondre directement à cet email pour converser avec le client. La réponse sera automatiquement ajoutée dans l'application et transmise au client !</p>
-            </div>
-          </div>
-        `
-      });
-      console.log(`✅ Email de notification envoyé aux managers (${adminEmail}) pour le ticket ${ticketId}`);
-    } catch (error) {
-      console.error(`❌ Erreur lors de l'envoi de l'email aux managers :`, error.message);
+          `
+        });
+        console.log(`✅ Email de notification envoyé aux managers (${adminEmail}) pour le ticket ${ticketId}`);
+      } catch (error) {
+        console.error(`❌ Erreur lors de l'envoi de l'email aux managers :`, error.message);
+      }
     }
 
     // Envoi d'une notification sur le salon Matrix "Support Paniscope"
@@ -216,6 +230,10 @@ exports.notifyDeveloperOnAssignment = functions.firestore
           const devData = doc.data();
           const devName = devData.displayName || devData.firstName || devData.email;
           if (newlyAssignedNames.includes(devName) && devData.email) {
+            if (devData.emailNotifications && devData.emailNotifications.notifyOnAssignment === false) {
+              console.log(`[PREFERENCES] Notification d'assignation désactivée par le développeur ${devName}`);
+              return;
+            }
             devsToNotify.push({ email: devData.email, name: devName });
           }
         });
@@ -695,6 +713,22 @@ exports.notifyAdminOnNewUser = functions.firestore
       process.env.ADMIN_NOTIFICATION_EMAIL || "yves@paniscope.fr";
     const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
 
+    let shouldSendNewUserEmail = true;
+    try {
+      const adminUserQuery = await db.collection("users").where("email", "==", adminEmail.toLowerCase().trim()).get();
+      if (!adminUserQuery.empty) {
+        const adminUserData = adminUserQuery.docs[0].data();
+        if (adminUserData.emailNotifications && adminUserData.emailNotifications.notifyOnNewUser === false) {
+          shouldSendNewUserEmail = false;
+          console.log(`[PREFERENCES] Notification de nouvel utilisateur désactivée par l'admin (${adminEmail})`);
+        }
+      }
+    } catch (prefErr) {
+      console.warn("Erreur lors de la vérification des préférences email admin:", prefErr.message);
+    }
+
+    if (!shouldSendNewUserEmail) return;
+
     const displayName =
       userData.displayName ||
       `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
@@ -1078,6 +1112,10 @@ exports.notifyClientOnNewMessage = functions.firestore
             if (assignedTo.includes(devName) && devData.email) {
               const authorMatchesDev = (newMessage.uid && newMessage.uid === doc.id) || (authorName === devName);
               if (!authorMatchesDev) {
+                if (devData.emailNotifications && devData.emailNotifications.notifyOnAssignedMessage === false) {
+                  console.log(`[PREFERENCES] Notification de message sur ticket assigné désactivée par le dev ${devName}`);
+                  return;
+                }
                 devsToNotify.push({ email: devData.email, name: devName });
               }
             }
@@ -1153,6 +1191,20 @@ exports.notifyClientOnNewMessage = functions.firestore
             return;
           }
 
+          if (afterData.clientUid) {
+            const userDoc = await db
+              .collection("users")
+              .doc(afterData.clientUid)
+              .get();
+            if (userDoc.exists) {
+              const clientData = userDoc.data();
+              if (clientData.emailNotifications && clientData.emailNotifications.notifyOnResponse === false) {
+                console.log(`[PREFERENCES] Notification de réponse désactivée par le client (${clientEmail})`);
+                return;
+              }
+            }
+          }
+
           const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
           const ticketSubject = afterData.subject || "Sans objet";
 
@@ -1222,47 +1274,69 @@ ${messageText}
         try {
           const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || "support@paniscope.fr";
           const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
-          
-          let clientName = afterData.clientName || afterData.client || afterData.clientEmail || "Client";
-          const ticketSubject = afterData.subject || "Sans objet";
-          const messageText = newMessage.text || "";
-          const ticketUrl = `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`;
-          
-          const hasAttachments = newMessage.attachmentUrls && newMessage.attachmentUrls.length > 0;
-          const attachmentNote = hasAttachments ? `<br><p>📎 <em>Ce message contient des pièces jointes (visibles depuis l'application).</em></p>` : "";
 
-          const emailHtml = `
-            <div style="font-family: Arial, sans-serif; color: #333;">
-              <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
-                <h2 style="margin: 0;">Nouveau message du client</h2>
-              </div>
-              <div style="background: #ffffff; padding: 20px; border: 1px solid #ddd; border-top: none;">
-                <p>Bonjour,</p>
-                <p><strong>${clientName}</strong> a répondu au ticket <strong>#${ticketId}</strong>.</p>
-                <br>
-                <p><strong>Sujet :</strong> ${ticketSubject}</p>
-                <p><strong>Priorité :</strong> ${afterData.priority || "Normale"}</p>
-                <br>
-                <p><strong>Nouveau message :</strong></p>
-                <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #D9AC5F; white-space: pre-wrap;">${messageText}</div>
-                ${attachmentNote}
-                <br>
-                <p><a href="${ticketUrl}" style="background-color: #0B1B2B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Répondre depuis l'application</a></p>
-                <p style="font-size: 13px; color: #555; margin-top: 15px;">Vous pouvez également répondre directement à cet email pour converser avec le client. La réponse sera automatiquement ajoutée dans l'application et transmise au client !</p>
-              </div>
-            </div>
-          `;
+          // Dédoublonnage : si le manager a déjà été notifié en tant que dev assigné pour ce message
+          const notifiedDevEmails = (typeof devsToNotify !== "undefined" && Array.isArray(devsToNotify)) ? devsToNotify.map(d => d.email.toLowerCase()) : [];
+          if (notifiedDevEmails.includes(adminEmail.toLowerCase())) {
+            console.log(`[ANTI-DOUBLON] Manager ${adminEmail} déjà notifié en tant que dev assigné. Email manager ignoré.`);
+          } else {
+            let shouldSendManagerEmail = true;
+            try {
+              const adminUserQuery = await db.collection("users").where("email", "==", adminEmail.toLowerCase().trim()).get();
+              if (!adminUserQuery.empty) {
+                const adminUserData = adminUserQuery.docs[0].data();
+                if (adminUserData.emailNotifications && adminUserData.emailNotifications.notifyOnClientMessage === false) {
+                  shouldSendManagerEmail = false;
+                  console.log(`[PREFERENCES] Notification de message client désactivée par le manager (${adminEmail})`);
+                }
+              }
+            } catch (prefErr) {
+              console.warn("Erreur lors de la vérification des préférences email manager:", prefErr.message);
+            }
 
-          await smtpTransporter.sendMail({
-            from: `"Support Paniscope" <${fromEmail}>`,
-            to: adminEmail,
-            subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
-            inReplyTo: `<ticket-${ticketId}@paniscope.fr>`,
-            references: [`<ticket-${ticketId}@paniscope.fr>`],
-            html: emailHtml,
-          });
+            if (shouldSendManagerEmail) {
+              let clientName = afterData.clientName || afterData.client || afterData.clientEmail || "Client";
+              const ticketSubject = afterData.subject || "Sans objet";
+              const messageText = newMessage.text || "";
+              const ticketUrl = `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`;
+              
+              const hasAttachments = newMessage.attachmentUrls && newMessage.attachmentUrls.length > 0;
+              const attachmentNote = hasAttachments ? `<br><p>📎 <em>Ce message contient des pièces jointes (visibles depuis l'application).</em></p>` : "";
 
-          console.log(`✅ Email de notification envoyé aux managers (${adminEmail}) pour le ticket ${ticketId}`);
+              const emailHtml = `
+                <div style="font-family: Arial, sans-serif; color: #333;">
+                  <div style="background-color: #0B1B2B; color: #D9AC5F; padding: 10px; border-radius: 5px 5px 0 0;">
+                    <h2 style="margin: 0;">Nouveau message du client</h2>
+                  </div>
+                  <div style="background: #ffffff; padding: 20px; border: 1px solid #ddd; border-top: none;">
+                    <p>Bonjour,</p>
+                    <p><strong>${clientName}</strong> a répondu au ticket <strong>#${ticketId}</strong>.</p>
+                    <br>
+                    <p><strong>Sujet :</strong> ${ticketSubject}</p>
+                    <p><strong>Priorité :</strong> ${afterData.priority || "Normale"}</p>
+                    <br>
+                    <p><strong>Nouveau message :</strong></p>
+                    <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #D9AC5F; white-space: pre-wrap;">${messageText}</div>
+                    ${attachmentNote}
+                    <br>
+                    <p><a href="${ticketUrl}" style="background-color: #0B1B2B; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">Répondre depuis l'application</a></p>
+                    <p style="font-size: 13px; color: #555; margin-top: 15px;">Vous pouvez également répondre directement à cet email pour converser avec le client. La réponse sera automatiquement ajoutée dans l'application et transmise au client !</p>
+                  </div>
+                </div>
+              `;
+
+              await smtpTransporter.sendMail({
+                from: `"Support Paniscope" <${fromEmail}>`,
+                to: adminEmail,
+                subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
+                inReplyTo: `<ticket-${ticketId}@paniscope.fr>`,
+                references: [`<ticket-${ticketId}@paniscope.fr>`],
+                html: emailHtml,
+              });
+
+              console.log(`✅ Email de notification envoyé aux managers (${adminEmail}) pour le ticket ${ticketId}`);
+            }
+          }
         } catch (error) {
           console.error(`❌ Erreur lors de l'envoi de l'email aux managers (Ticket ${ticketId}):`, error);
         }
@@ -1299,6 +1373,20 @@ ${messageText}
             `Impossible de trouver l'email du client pour la clôture du ticket ${ticketId}`,
           );
           return;
+        }
+
+        if (afterData.clientUid) {
+          const userDoc = await db
+            .collection("users")
+            .doc(afterData.clientUid)
+            .get();
+          if (userDoc.exists) {
+            const clientData = userDoc.data();
+            if (clientData.emailNotifications && clientData.emailNotifications.notifyOnClose === false) {
+              console.log(`[PREFERENCES] Notification de clôture de ticket désactivée par le client (${clientEmail})`);
+              return;
+            }
+          }
         }
 
         const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
@@ -1413,6 +1501,10 @@ exports.notifyTeamOnInternalMention = functions.firestore
               
               matchedUsers.forEach(user => {
                  if (user.email && !emailsToSend.some(e => e.email === user.email)) {
+                    if (user.emailNotifications && user.emailNotifications.notifyOnMention === false) {
+                      console.log(`[PREFERENCES] Notification de mention désactivée par ${user.displayName || user.email}`);
+                      return;
+                    }
                     emailsToSend.push({
                        email: user.email,
                        role: user.role,

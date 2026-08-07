@@ -7,7 +7,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { updateProfile, reauthenticateWithCredential, EmailAuthProvider, updateEmail, updatePassword } from 'firebase/auth';
 import toast from 'react-hot-toast';
-import { User, Image as ImageIcon, Briefcase, Building, Mail, Lock, Smartphone } from 'lucide-react';
+import { User, Image as ImageIcon, Briefcase, Building, Mail, Lock, Smartphone, Bell } from 'lucide-react';
 import { resizeImage } from '../../utils/imageResize';
 import { Capacitor } from '@capacitor/core';
 
@@ -28,6 +28,16 @@ export default function MyAccountPage() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [wimiNotificationsEnabled, setWimiNotificationsEnabled] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState({
+    notifyOnResponse: true,
+    notifyOnClose: true,
+    notifyOnAssignment: true,
+    notifyOnAssignedMessage: true,
+    notifyOnMention: true,
+    notifyOnNewTicket: true,
+    notifyOnClientMessage: true,
+    notifyOnNewUser: true,
+  });
 
   const isGoogleUser = currentUser?.providerData?.some(
     (provider) => provider.providerId === 'google.com'
@@ -63,6 +73,12 @@ export default function MyAccountPage() {
           setEmail(currentUser.email || '');
           setPhotoPreview(data.photoURL || currentUser.photoURL || null);
           setWimiNotificationsEnabled(data.wimiNotificationsEnabled !== false);
+          if (data.emailNotifications) {
+            setEmailNotifications(prev => ({
+              ...prev,
+              ...data.emailNotifications
+            }));
+          }
         }
       } catch (err) {
         console.error('Erreur lors de la récupération des données utilisateur:', err);
@@ -159,6 +175,7 @@ export default function MyAccountPage() {
         firstName,
         lastName,
         company,
+        emailNotifications,
         ...(email !== currentUser.email && { email }),
         ...(newDisplayName && { displayName: newDisplayName }),
         ...(!isGoogleUser && photoFile && { photoURL: finalPhotoURL }),
@@ -395,6 +412,179 @@ export default function MyAccountPage() {
                     )}
                   </div>
                 )}
+
+                {/* Section Préférences de Notifications par Email */}
+                <div className="border-top pt-4 mt-4 mb-4">
+                  <h5 className="mb-2 d-flex align-items-center">
+                    <Bell size={20} className="me-2 text-primary" />
+                    Préférences de notifications par email
+                  </h5>
+                  <p className="text-muted small mb-3">
+                    Personnalisez le type de notifications envoyées à votre adresse email.
+                  </p>
+
+                  {/* Pour les Clients */}
+                  {(userRole === 'client' || (!userRole || userRole === 'user')) && (
+                    <>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-response" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              💬 Réponses à mes tickets
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un membre de l'équipe répond à votre ticket.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-response"
+                            checked={emailNotifications.notifyOnResponse !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnResponse: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-close" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              🔒 Clôture de mes tickets
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email de confirmation lorsqu'un ticket est clôturé.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-close"
+                            checked={emailNotifications.notifyOnClose !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnClose: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                    </>
+                  )}
+
+                  {/* Pour les Développeurs */}
+                  {userRole === 'developer' && (
+                    <>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-assignment" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              📌 Assignation d'un ticket
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un ticket vous est assigné (y compris l'assignation automatique à la création).</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-assignment"
+                            checked={emailNotifications.notifyOnAssignment !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnAssignment: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-assigned-msg" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              💬 Activité sur mes tickets assignés
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un nouveau message est posté sur un ticket qui vous est assigné.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-assigned-msg"
+                            checked={emailNotifications.notifyOnAssignedMessage !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnAssignedMessage: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-mention-dev" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              🏷️ Mentions dans les notes internes
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un membre de l'équipe vous mentionne (@Nom) dans une note interne.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-mention-dev"
+                            checked={emailNotifications.notifyOnMention !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnMention: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                    </>
+                  )}
+
+                  {/* Pour les Managers / Admins */}
+                  {(userRole === 'manager' || userRole === 'admin') && (
+                    <>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-new-ticket" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              🆕 Création d'un nouveau ticket
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email d'alerte lors de la création de tout nouveau ticket.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-new-ticket"
+                            checked={emailNotifications.notifyOnNewTicket !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnNewTicket: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-client-msg" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              💬 Nouveau message d'un client
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un client répond à un ticket.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-client-msg"
+                            checked={emailNotifications.notifyOnClientMessage !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnClientMessage: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-mention-mgr" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              🏷️ Mentions dans les notes internes
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'on vous mentionne (@Nom) dans une note interne.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-mention-mgr"
+                            checked={emailNotifications.notifyOnMention !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnMention: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-new-user" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              👤 Demandes de création de compte
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un nouvel utilisateur s'inscrit et demande une validation.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-new-user"
+                            checked={emailNotifications.notifyOnNewUser !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnNewUser: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                    </>
+                  )}
+                </div>
 
                 {userRole === 'manager' && (
                   <Form.Group className="mb-4">
