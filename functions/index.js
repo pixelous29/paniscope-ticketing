@@ -334,8 +334,12 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
       let plain = fields.text || "";
 
       // --- NOUVEAU: Extraction de l'ID du ticket et Nettoyage du corps ---
-      const ticketIdMatch = subject.match(/\[Ticket #([a-zA-Z0-9]+)\]/i);
-      const existingTicketId = ticketIdMatch ? ticketIdMatch[1] : null;
+      const ticketIdMatch = subject.match(/(?:\[|\b)(?:Ticket|Billet)(?:[\s:]*#\s*([a-zA-Z0-9]+)|[\s:]+(\d{1,7}))(?:\]|\b)/i);
+      let existingTicketId = null;
+      if (ticketIdMatch) {
+        const rawId = ticketIdMatch[1] || ticketIdMatch[2];
+        existingTicketId = /^\d+$/.test(rawId) ? rawId.padStart(7, "0") : rawId;
+      }
 
       if (plain.includes("--- Répondez au-dessus de cette ligne ---")) {
         plain = plain.split("--- Répondez au-dessus de cette ligne ---")[0];
@@ -510,129 +514,152 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
         if (ticketDoc.exists) {
           const ticketData = ticketDoc.data();
 
-          // Vérification si le ticket est clos
-          if (
-            ticketData.status === "Ticket Clôturé" ||
-            ticketData.status === "Fermé" ||
-            ticketData.status === "CLOSED" ||
-            ticketData.status === "Clôturé"
-          ) {
-            console.log(
-              `Tentative de réponse sur ticket clos ${existingTicketId} rejetée. Envoi d'un email d'information.`,
+          // --- PROTECTION ANTI-TÉLESCOPAGE / SÉCURITÉ ---
+          // Vérifier que l'expéditeur a la légitimité d'écrire sur ce ticket :
+          // 1. Il est l'auteur principal (clientEmail)
+          // 2. Il appartient à la même entreprise (même companyDomain)
+          // 3. Il est déjà listé en copie (ccEmails)
+          // 4. Il s'agit d'un membre de l'équipe Paniscope (manager, admin, dev)
+          const isAuthor = ticketData.clientEmail && from === ticketData.clientEmail.toLowerCase().trim();
+          const isDomainMatch = !!(ticketData.companyDomain && userData && userData.companyDomain && userData.companyDomain.toLowerCase().trim() === ticketData.companyDomain.toLowerCase().trim());
+          const isCc = Array.isArray(ticketData.ccEmails) && ticketData.ccEmails.some((cc) => cc.toLowerCase().trim() === from);
+          const isStaff = userRole === "manager" || userRole === "admin" || userRole === "developer" || userRole === "dev";
+
+          const isAuthorized = isAuthor || isDomainMatch || isCc || isStaff;
+
+          if (!isAuthorized) {
+            console.warn(
+              `[ANTI-TÉLESCOPAGE] Expéditeur ${from} non rattaché au ticket #${existingTicketId}. Traitement en nouveau ticket indépendant.`,
             );
+            subject = subject
+              .replace(/Re:\s*/gi, "")
+              .replace(/\[?(?:Ticket|Billet)[\s:#]*[a-zA-Z0-9]+\]?\s*/gi, "")
+              .trim() || subject;
+          } else {
+            // Vérification si le ticket est clos
+            if (
+              ticketData.status === "Ticket Clôturé" ||
+              ticketData.status === "Fermé" ||
+              ticketData.status === "CLOSED" ||
+              ticketData.status === "Clôturé"
+            ) {
+              console.log(
+                `Tentative de réponse sur ticket clos ${existingTicketId} rejetée. Envoi d'un email d'information.`,
+              );
 
-            const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
-            await smtpTransporter.sendMail({
-              from: `"Support Paniscope" <${fromEmail}>`,
-              to: from, // L'email de l'expéditeur
-              subject: `Re: [Ticket #${existingTicketId}] Ticket Clôturé`,
-              text: `Bonjour,\n\nVous avez tenté de répondre au ticket #${existingTicketId}, mais celui-ci est actuellement clôturé.\n\nSi votre problème persiste ou si vous avez une nouvelle demande, nous vous invitons à ouvrir un nouveau ticket en envoyant un nouvel e-mail à cette adresse (sans répondre à cet e-mail ci).\n\nL'équipe Support Paniscope.`,
-              html: `
-                  <div style="font-family: Arial, sans-serif; color: #333;">
-                    <p>Bonjour,</p>
-                    <p>Vous avez tenté de répondre au ticket <strong>#${existingTicketId}</strong>, mais celui-ci est actuellement <strong>clôturé</strong>.</p>
-                    <p>Si votre problème persiste ou si vous avez une nouvelle demande, nous vous invitons à ouvrir un nouveau ticket en envoyant un nouvel e-mail à cette adresse (sans utiliser la fonction "Répondre").</p>
-                    <br>
-                    <p>L'équipe Support Paniscope.</p>
-                  </div>
-                `,
-            });
+              const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
+              await smtpTransporter.sendMail({
+                from: `"Support Paniscope" <${fromEmail}>`,
+                to: from, // L'email de l'expéditeur
+                subject: `Re: [Ticket #${existingTicketId}] Ticket Clôturé`,
+                text: `Bonjour,\n\nVous avez tenté de répondre au ticket #${existingTicketId}, mais celui-ci est actuellement clôturé.\n\nSi votre problème persiste ou si vous avez une nouvelle demande, nous vous invitons à ouvrir un nouveau ticket en envoyant un nouvel e-mail à cette adresse (sans répondre à cet e-mail ci).\n\nL'équipe Support Paniscope.`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; color: #333;">
+                      <p>Bonjour,</p>
+                      <p>Vous avez tenté de répondre au ticket <strong>#${existingTicketId}</strong>, mais celui-ci est actuellement <strong>clôturé</strong>.</p>
+                      <p>Si votre problème persiste ou si vous avez une nouvelle demande, nous vous invitons à ouvrir un nouveau ticket en envoyant un nouvel e-mail à cette adresse (sans utiliser la fonction "Répondre").</p>
+                      <br>
+                      <p>L'équipe Support Paniscope.</p>
+                    </div>
+                  `,
+              });
 
+              return res
+                .status(200)
+                .send(
+                  `Réponse ignorée (Ticket #${existingTicketId} clôturé) et notification envoyée.`,
+                );
+            }
+
+            // Gestion des ccEmails si la personne qui répond n'est pas l'auteur principal
+            const updatedCcEmails = Array.isArray(ticketData.ccEmails)
+              ? [...ticketData.ccEmails]
+              : [];
+            if (
+              from !== ticketData.clientEmail &&
+              !updatedCcEmails.includes(from) &&
+              from !== systemEmailLower
+            ) {
+              updatedCcEmails.push(from);
+            }
+
+            const updates = {
+              ccEmails: updatedCcEmails,
+              lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+            };
+
+            let detectedReaction = null;
+            if (attachmentUrls.length === 0) {
+                const emojiMatch = plain.match(/(?:a r[ée]agi(?: à votre message)? avec|reacted(?: to your message)?[:\s]+|\[(like|love|laugh)\])[\s:"«»“”]*(👍|❤️|😂|😮|😢|🙏|👀|✅)/iu);
+                if (emojiMatch && emojiMatch[2]) {
+                    detectedReaction = emojiMatch[2];
+                } else if (emojiMatch && emojiMatch[1]) {
+                    const kw = emojiMatch[1].toLowerCase();
+                    if (kw === 'like') detectedReaction = '👍';
+                    if (kw === 'love') detectedReaction = '❤️';
+                    if (kw === 'laugh') detectedReaction = '😂';
+                } else {
+                    const reactionMatch = plain.match(/^(?:.*?)(liked|a aim[ée]s?|loved|a ador[ée]s?|laughed at|a ri [àde]|emphasized|a mis l['’]accent sur|questioned|a remis en question|disliked|a moins aim[ée]s?)(?:\s+your message|\s+votre message|\s*[:"«»“”])/i) || 
+                                          subject.match(/^(liked|a aim[ée]s?|loved|a ador[ée]s?|laughed at|a ri [àde]|emphasized|a mis l['’]accent sur|questioned|a remis en question|disliked|a moins aim[ée]s?)/i);
+                    if (reactionMatch) {
+                        const keyword = (reactionMatch[1]).toLowerCase();
+                        if (keyword.includes('lik') || keyword.includes('aim')) detectedReaction = '👍';
+                        else if (keyword.includes('lov') || keyword.includes('ador')) detectedReaction = '❤️';
+                        else if (keyword.includes('laugh') || keyword.includes('ri ')) detectedReaction = '😂';
+                        else if (keyword.includes('emphasiz') || keyword.includes('accent')) detectedReaction = '👀';
+                        else if (keyword.includes('question') || keyword.includes('remis')) detectedReaction = '😮';
+                        else if (keyword.includes('dislik') || keyword.includes('moins aim')) detectedReaction = '😢';
+                    } else if (/^(👍|❤️|😂|😮|😢|🙏|👀|✅)\s*$/u.test(plain.trim())) {
+                        detectedReaction = plain.trim();
+                    }
+                }
+            }
+
+            if (detectedReaction && ticketData.conversation && ticketData.conversation.length > 0) {
+                const conversation = [...ticketData.conversation];
+                const lastMsg = conversation[conversation.length - 1];
+                if (!lastMsg.reactions) lastMsg.reactions = {};
+                if (!lastMsg.reactions[detectedReaction]) lastMsg.reactions[detectedReaction] = [];
+                
+                const alreadyReacted = lastMsg.reactions[detectedReaction].some(u => u.uid === userId || u.email === from);
+                if (!alreadyReacted) {
+                    lastMsg.reactions[detectedReaction].push({
+                        uid: userId,
+                        displayName: initialMessage.displayName,
+                        email: from
+                    });
+                }
+                updates.conversation = conversation;
+                console.log(`Réaction ${detectedReaction} extraite de l'email et ajoutée au dernier message.`);
+            } else {
+                updates.conversation = admin.firestore.FieldValue.arrayUnion(initialMessage);
+                updates.hasNewClientMessage = true;
+                
+                if (
+                  ticketData.status === "En attente" ||
+                  ticketData.status === "En attente de validation"
+                ) {
+                  updates.status = "En cours";
+                }
+            }
+
+            await ticketRef.update(updates);
+
+            console.log(
+              `Réponse ajoutée au ticket existant : ${existingTicketId}`,
+            );
             return res
               .status(200)
-              .send(
-                `Réponse ignorée (Ticket #${existingTicketId} clôturé) et notification envoyée.`,
-              );
+              .send(`Réponse ajoutée au ticket #${existingTicketId}`);
           }
-
-          // Gestion des ccEmails si la personne qui répond n'est pas l'auteur principal
-          const updatedCcEmails = Array.isArray(ticketData.ccEmails)
-            ? [...ticketData.ccEmails]
-            : [];
-          if (
-            from !== ticketData.clientEmail &&
-            !updatedCcEmails.includes(from) &&
-            from !== systemEmailLower
-          ) {
-            updatedCcEmails.push(from);
-          }
-
-          const updates = {
-            ccEmails: updatedCcEmails,
-            lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
-          };
-
-          let detectedReaction = null;
-          if (attachmentUrls.length === 0) {
-              const emojiMatch = plain.match(/(?:a r[ée]agi(?: à votre message)? avec|reacted(?: to your message)?[:\s]+|\[(like|love|laugh)\])[\s:"«»“”]*(👍|❤️|😂|😮|😢|🙏|👀|✅)/iu);
-              if (emojiMatch && emojiMatch[2]) {
-                  detectedReaction = emojiMatch[2];
-              } else if (emojiMatch && emojiMatch[1]) {
-                  const kw = emojiMatch[1].toLowerCase();
-                  if (kw === 'like') detectedReaction = '👍';
-                  if (kw === 'love') detectedReaction = '❤️';
-                  if (kw === 'laugh') detectedReaction = '😂';
-              } else {
-                  const reactionMatch = plain.match(/^(?:.*?)(liked|a aim[ée]s?|loved|a ador[ée]s?|laughed at|a ri [àde]|emphasized|a mis l['’]accent sur|questioned|a remis en question|disliked|a moins aim[ée]s?)(?:\s+your message|\s+votre message|\s*[:"«»“”])/i) || 
-                                        subject.match(/^(liked|a aim[ée]s?|loved|a ador[ée]s?|laughed at|a ri [àde]|emphasized|a mis l['’]accent sur|questioned|a remis en question|disliked|a moins aim[ée]s?)/i);
-                  if (reactionMatch) {
-                      const keyword = (reactionMatch[1]).toLowerCase();
-                      if (keyword.includes('lik') || keyword.includes('aim')) detectedReaction = '👍';
-                      else if (keyword.includes('lov') || keyword.includes('ador')) detectedReaction = '❤️';
-                      else if (keyword.includes('laugh') || keyword.includes('ri ')) detectedReaction = '😂';
-                      else if (keyword.includes('emphasiz') || keyword.includes('accent')) detectedReaction = '👀';
-                      else if (keyword.includes('question') || keyword.includes('remis')) detectedReaction = '😮';
-                      else if (keyword.includes('dislik') || keyword.includes('moins aim')) detectedReaction = '😢';
-                  } else if (/^(👍|❤️|😂|😮|😢|🙏|👀|✅)\s*$/u.test(plain.trim())) {
-                      detectedReaction = plain.trim();
-                  }
-              }
-          }
-
-          if (detectedReaction && ticketData.conversation && ticketData.conversation.length > 0) {
-              const conversation = [...ticketData.conversation];
-              const lastMsg = conversation[conversation.length - 1];
-              if (!lastMsg.reactions) lastMsg.reactions = {};
-              if (!lastMsg.reactions[detectedReaction]) lastMsg.reactions[detectedReaction] = [];
-              
-              const alreadyReacted = lastMsg.reactions[detectedReaction].some(u => u.uid === userId || u.email === from);
-              if (!alreadyReacted) {
-                  lastMsg.reactions[detectedReaction].push({
-                      uid: userId,
-                      displayName: initialMessage.displayName,
-                      email: from
-                  });
-              }
-              updates.conversation = conversation;
-              console.log(`Réaction ${detectedReaction} extraite de l'email et ajoutée au dernier message.`);
-          } else {
-              updates.conversation = admin.firestore.FieldValue.arrayUnion(initialMessage);
-              updates.hasNewClientMessage = true;
-              
-              if (
-                ticketData.status === "En attente" ||
-                ticketData.status === "En attente de validation"
-              ) {
-                updates.status = "En cours";
-              }
-          }
-
-          await ticketRef.update(updates);
-
-          console.log(
-            `Réponse ajoutée au ticket existant : ${existingTicketId}`,
-          );
-          return res
-            .status(200)
-            .send(`Réponse ajoutée au ticket #${existingTicketId}`);
         } else {
           console.log(
             `Ticket ${existingTicketId} introuvable. Création d'un nouveau ticket.`,
           );
           subject = subject
-            .replace(/Re:\s*/i, "")
-            .replace(/\[Ticket #[a-zA-Z0-9]+\]\s*/i, "")
-            .trim();
+            .replace(/Re:\s*/gi, "")
+            .replace(/\[?(?:Ticket|Billet)[\s:#]*[a-zA-Z0-9]+\]?\s*/gi, "")
+            .trim() || subject;
         }
       }
 
