@@ -1238,6 +1238,30 @@ exports.notifyClientOnNewMessage = functions.firestore
           // Nettoyer le HTML ou formatage texte
           const messageText = newMessage.text || "";
 
+          // Extraction de la demande initiale pour rappel de contexte
+          let initialMessageHtml = "";
+          let initialMessageRawText = "";
+          if (afterConv.length > 1 && afterConv[0]) {
+            const firstMsg = afterConv[0];
+            const firstMsgText = (firstMsg.text && firstMsg.text.trim() !== "")
+              ? firstMsg.text.trim()
+              : (firstMsg.attachmentUrls && firstMsg.attachmentUrls.length > 0
+                ? "Demande initiale envoyée avec pièces jointes uniquement."
+                : "");
+
+            if (firstMsgText) {
+              initialMessageHtml = `
+              <div style="margin-top: 25px; padding: 15px; background-color: #f8f9fa; border: 1px solid #e2e8f0; border-left: 4px solid #64748b; border-radius: 4px;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #1e293b;">
+                  📝 Rappel de votre demande initiale :
+                </p>
+                <div style="color: #334155; font-size: 13px; white-space: pre-wrap; line-height: 1.5;">${firstMsgText}</div>
+              </div>`;
+
+              initialMessageRawText = `\n\n---\nRappel de votre demande initiale :\n${firstMsgText}\n---`;
+            }
+          }
+
           const emailHtml = `
             <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
               <div style="color: #999; font-size: 12px; margin-bottom: 20px;">
@@ -1247,7 +1271,7 @@ exports.notifyClientOnNewMessage = functions.firestore
               <p>Bonjour,</p>
               <p><strong>${newMessage.displayName || newMessage.author}</strong> a répondu à votre ticket :</p>
               
-              <div style="background-color: #f9f9f9; border-left: 4px solid #0d6efd; padding: 15px; margin: 20px 0; white-space: pre-wrap;">
+              <div style="background-color: #f9f9f9; border-left: 4px solid #0d6efd; padding: 15px; margin: 20px 0; white-space: pre-wrap; color: #212529;">
 ${messageText}
               </div>
               
@@ -1257,9 +1281,10 @@ ${messageText}
                   ? `<p><em>📎 Ce message contient des pièces jointes. <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}">Connectez-vous à l'application</a> pour les consulter.</em></p>`
                   : ""
               }
+              ${initialMessageHtml}
               
-              <p>Vous pouvez répondre directement à cet e-mail pour ajouter un commentaire à votre ticket, ou vous connecter sur votre espace client : <br>
-              <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#fff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
+              <p style="margin-top: 25px;">Vous pouvez répondre directement à cet e-mail pour ajouter un commentaire à votre ticket, ou vous connecter sur votre espace client : <br>
+              <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#ffffff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
               
               <hr style="border: none; border-top: 1px solid #eee; margin-top: 30px;" />
               <p style="font-size: 11px; color: #aaa;">Cet e-mail est lié au ticket #${ticketId}. Ne modifiez pas le sujet de cet e-mail lors de votre réponse.</p>
@@ -1271,7 +1296,7 @@ ${messageText}
             to: clientEmail,
             subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
             html: emailHtml,
-            text: `--- Répondez au-dessus de cette ligne ---\n\nBonjour,\n\n${newMessage.displayName || newMessage.author} a répondu à votre ticket :\n\n${messageText}\n\nVous pouvez répondre directement à cet e-mail pour mettre à jour votre ticket.`,
+            text: `--- Répondez au-dessus de cette ligne ---\n\nBonjour,\n\n${newMessage.displayName || newMessage.author} a répondu à votre ticket :\n\n${messageText}${initialMessageRawText}\n\nVous pouvez répondre directement à cet e-mail pour mettre à jour votre ticket.`,
           };
 
           if (afterData.ccEmails && afterData.ccEmails.length > 0) {
