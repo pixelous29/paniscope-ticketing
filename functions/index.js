@@ -1444,19 +1444,49 @@ ${messageText}
         const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
         const ticketSubject = afterData.subject || "Sans objet";
 
+        // Extraction de la demande initiale pour rappel de contexte
+        const conv = afterData.conversation || [];
+        let initialMessageHtml = "";
+        let initialMessageRawText = "";
+        if (conv.length > 0 && conv[0]) {
+          const firstMsg = conv[0];
+          const firstMsgText = (firstMsg.text && firstMsg.text.trim() !== "")
+            ? firstMsg.text.trim()
+            : (firstMsg.attachmentUrls && firstMsg.attachmentUrls.length > 0
+              ? "Demande initiale envoyée avec pièces jointes uniquement."
+              : "");
+
+          if (firstMsgText) {
+            initialMessageHtml = `
+            <div style="margin-top: 25px; padding: 15px; background-color: #f8f9fa; border: 1px solid #e2e8f0; border-left: 4px solid #64748b; border-radius: 4px;">
+              <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #1e293b;">
+                📝 Rappel de votre demande initiale :
+              </p>
+              <div style="color: #334155; font-size: 13px; white-space: pre-wrap; line-height: 1.5;">${firstMsgText}</div>
+            </div>`;
+
+            initialMessageRawText = `\n\n---\nRappel de votre demande initiale :\n${firstMsgText}\n---`;
+          }
+        }
+
         const emailHtml = `
             <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
               <p>Bonjour,</p>
               <p>Le statut de votre ticket <strong>#${ticketId}</strong> (<em>${ticketSubject}</em>) vient de passer à <strong>Clôturé</strong>.</p>
               
               <div style="background-color: #f0fff4; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; color: #155724;">✅ Votre demande a été traitée et le ticket est maintenant clos.</p>
+                <p style="margin: 0; color: #155724; font-weight: 500;">✅ Votre demande a été traitée et le ticket est maintenant clos.</p>
               </div>
               
-              <p>Si vous avez une nouvelle demande ou si le problème persiste, nous vous invitons à <a href="mailto:${fromEmail}">nous envoyer un nouvel e-mail</a> ou à ouvrir un autre ticket depuis l'application.</p>
+              ${initialMessageHtml}
               
-              <p>Merci pour votre confiance.<br>
-              L'équipe Support Paniscope.</p>
+              <p style="margin-top: 25px;">Vous pouvez consulter le récapitulatif complet de ce ticket en vous connectant sur votre espace client : <br>
+              <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#ffffff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
+
+              <p style="margin-top: 20px; font-size: 13px; color: #555;">Si vous avez une nouvelle demande ou si le problème persiste, nous vous invitons à ouvrir un nouveau ticket depuis votre espace client ou à <a href="mailto:${fromEmail}">nous envoyer un nouvel e-mail</a>.</p>
+              
+              <hr style="border: none; border-top: 1px solid #eee; margin-top: 30px;" />
+              <p style="font-size: 11px; color: #aaa;">Cet e-mail est lié au ticket #${ticketId}.</p>
             </div>
           `;
 
@@ -1465,7 +1495,7 @@ ${messageText}
           to: clientEmail,
           subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
           html: emailHtml,
-          text: `Bonjour,\n\nVotre ticket #${ticketId} (${ticketSubject}) a été clôturé.\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
+          text: `Bonjour,\n\nLe statut de votre ticket #${ticketId} (${ticketSubject}) vient de passer à Clôturé.\n\n✅ Votre demande a été traitée et le ticket est maintenant clos.${initialMessageRawText}\n\nVous pouvez consulter votre ticket en ligne : https://paniscope-ticketing.web.app/ticket/${ticketId}\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
         };
 
         if (afterData.ccEmails && afterData.ccEmails.length > 0) {
