@@ -1263,6 +1263,18 @@ exports.notifyClientOnNewMessage = functions.firestore
             }
           }
 
+          // Encart préventif si le ticket est passé en attente de retour client
+          const isPendingClient = afterData.status === "En attente" || afterData.status === "pending" || afterData.status === "PENDING";
+          let pendingReminderHtml = "";
+          let pendingReminderRawText = "";
+          if (isPendingClient) {
+            pendingReminderHtml = `
+              <div style="margin: 20px 0; padding: 12px 15px; background-color: #fff9db; border: 1px solid #ffe066; border-left: 4px solid #f59f00; border-radius: 4px; color: #664d03; font-size: 13px; line-height: 1.5;">
+                <strong>💡 À noter :</strong> Afin d'assurer un suivi optimal, sans retour ou question de votre part sous <strong>48 heures</strong>, nous considérerons que notre réponse a résolu votre demande et ce ticket sera automatiquement clôturé.
+              </div>`;
+            pendingReminderRawText = `\n\n💡 À noter : Sans retour ou question de votre part sous 48 heures, nous considérerons que notre réponse a résolu votre demande et ce ticket sera automatiquement clôturé.`;
+          }
+
           const emailHtml = `
             <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
               <div style="color: #999; font-size: 12px; margin-bottom: 20px;">
@@ -1275,6 +1287,7 @@ exports.notifyClientOnNewMessage = functions.firestore
               <div style="background-color: #f9f9f9; border-left: 4px solid #0d6efd; padding: 15px; margin: 20px 0; white-space: pre-wrap; color: #212529;">
 ${messageText}
               </div>
+              ${pendingReminderHtml}
               
               ${
                 newMessage.attachmentUrls &&
@@ -1297,7 +1310,7 @@ ${messageText}
             to: clientEmail,
             subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
             html: emailHtml,
-            text: `--- Répondez au-dessus de cette ligne ---\n\nBonjour,\n\n${newMessage.displayName || newMessage.author} a répondu à votre ticket :\n\n${messageText}${initialMessageRawText}\n\nVous pouvez répondre directement à cet e-mail pour mettre à jour votre ticket.`,
+            text: `--- Répondez au-dessus de cette ligne ---\n\nBonjour,\n\n${newMessage.displayName || newMessage.author} a répondu à votre ticket :\n\n${messageText}${pendingReminderRawText}${initialMessageRawText}\n\nVous pouvez répondre directement à cet e-mail pour mettre à jour votre ticket.`,
           };
 
           if (afterData.ccEmails && afterData.ccEmails.length > 0) {
