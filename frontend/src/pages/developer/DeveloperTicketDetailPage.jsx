@@ -53,10 +53,10 @@ export default function DeveloperTicketDetailPage() {
         fetchDevelopers();
     }, []);
 
-    const handleInlineUpdate = async (field, value) => {
+    const handleInlineUpdate = async (field, value, extraFields = {}) => {
         const docRef = doc(db, "tickets", ticketId);
         try {
-            await updateDoc(docRef, { [field]: value });
+            await updateDoc(docRef, { [field]: value, ...extraFields });
         } catch (err) {
             console.error(`Erreur lors de la mise à jour de ${field}: `, err);
             showAlert('Erreur', `Impossible de mettre à jour ${field}.`);
@@ -287,11 +287,13 @@ export default function DeveloperTicketDetailPage() {
                 updateData.hasNewClientMessage = true;
                 if (ticket.status === STATUS.PENDING) {
                     updateData.status = STATUS.IN_PROGRESS;
+                    updateData.pendingSince = null;
                 }
             } else {
                 updateData.hasNewClientMessage = false;
                 if (setPendingOnReply) {
                     updateData.status = STATUS.PENDING;
+                    updateData.pendingSince = serverTimestamp();
                 }
             }
 
@@ -851,7 +853,7 @@ export default function DeveloperTicketDetailPage() {
                                              variant="warning" 
                                              size="sm"
                                              className="fw-bold text-dark shadow-sm"
-                                             onClick={() => handleInlineUpdate('status', STATUS.PENDING)}
+                                             onClick={() => handleInlineUpdate('status', STATUS.PENDING, { pendingSince: serverTimestamp() })}
                                          >
                                              🟠 Mettre en attente retour client
                                          </Button>
@@ -860,7 +862,7 @@ export default function DeveloperTicketDetailPage() {
                                              variant="outline-primary" 
                                              size="sm"
                                              className="fw-bold shadow-sm"
-                                             onClick={() => handleInlineUpdate('status', STATUS.IN_PROGRESS)}
+                                             onClick={() => handleInlineUpdate('status', STATUS.IN_PROGRESS, { pendingSince: null })}
                                          >
                                              🔵 Repasser en cours
                                          </Button>

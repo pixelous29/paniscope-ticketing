@@ -640,6 +640,7 @@ exports.inboundEmailToTicket = functions.https.onRequest((req, res) => {
                   ticketData.status === "En attente de validation"
                 ) {
                   updates.status = "En cours";
+                  updates.pendingSince = null;
                 }
             }
 
@@ -1469,14 +1470,25 @@ ${messageText}
           }
         }
 
+        const isAutoClosed = afterData.autoClosed === true;
+        const closureBannerHtml = isAutoClosed
+          ? `<div style="background-color: #f0fff4; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #155724; font-weight: 500;">✅ En l'absence de retour de votre part sous 48h suite à notre dernière réponse, votre demande a été considérée comme résolue et votre ticket est maintenant clôturé.</p>
+              </div>`
+          : `<div style="background-color: #f0fff4; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #155724; font-weight: 500;">✅ Votre demande a été traitée et le ticket est maintenant clos.</p>
+              </div>`;
+
+        const closureTextBanner = isAutoClosed
+          ? `✅ En l'absence de retour de votre part sous 48h suite à notre dernière réponse, votre demande a été considérée comme résolue et votre ticket est maintenant clôturé.`
+          : `✅ Votre demande a été traitée et le ticket est maintenant clos.`;
+
         const emailHtml = `
             <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
               <p>Bonjour,</p>
               <p>Le statut de votre ticket <strong>#${ticketId}</strong> (<em>${ticketSubject}</em>) vient de passer à <strong>Clôturé</strong>.</p>
               
-              <div style="background-color: #f0fff4; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; color: #155724; font-weight: 500;">✅ Votre demande a été traitée et le ticket est maintenant clos.</p>
-              </div>
+              ${closureBannerHtml}
               
               ${initialMessageHtml}
               
@@ -1495,7 +1507,7 @@ ${messageText}
           to: clientEmail,
           subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
           html: emailHtml,
-          text: `Bonjour,\n\nLe statut de votre ticket #${ticketId} (${ticketSubject}) vient de passer à Clôturé.\n\n✅ Votre demande a été traitée et le ticket est maintenant clos.${initialMessageRawText}\n\nVous pouvez consulter votre ticket en ligne : https://paniscope-ticketing.web.app/ticket/${ticketId}\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
+          text: `Bonjour,\n\nLe statut de votre ticket #${ticketId} (${ticketSubject}) vient de passer à Clôturé.\n\n${closureTextBanner}${initialMessageRawText}\n\nVous pouvez consulter votre ticket en ligne : https://paniscope-ticketing.web.app/ticket/${ticketId}\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
         };
 
         if (afterData.ccEmails && afterData.ccEmails.length > 0) {
@@ -1642,5 +1654,80 @@ exports.notifyTeamOnInternalMention = functions.firestore
             console.error(`❌ Erreur lors de la notification des mentions internes (Ticket ${ticketId}):`, error);
         }
       }
+    }
+  });
+
+/**
+ * 7. AUTO-CLÔTURE DES TICKETS EN ATTENTE DE RETOUR CLIENT DEPUIS PLUS DE 48H
+ * Tourne toutes les heures
+ */
+exports.autoClosePendingTickets = functions.pubsub
+  .schedule("every 1 hours")
+  .timeZone("Europe/Paris")
+  .onRun(async (context) => {
+    console.log("Exécution du cron de clôture automatique des tickets en attente...");
+    const now = Date.now();
+    const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+
+    try {
+      // Recherche de tous les tickets actuellement en attente
+      const snapshot = await db
+        .collection("tickets")
+        .where("status", "in", ["En attente", "pending", "PENDING"])
+        .get();
+
+      if (snapshot.empty) {
+        console.log("Aucun ticket en attente trouvé.");
+        return null;
+      }
+
+      for (const docSnap of snapshot.docs) {
+        const ticketData = docSnap.data();
+        const ticketId = docSnap.id;
+
+        // Déterminer la date de passage en attente
+        let pendingTime = null;
+        if (ticketData.pendingSince) {
+          pendingTime = ticketData.pendingSince.toMillis
+            ? ticketData.pendingSince.toMillis()
+            : new Date(ticketData.pendingSince).getTime();
+        } else if (ticketData.lastUpdate) {
+          // Fallback pour anciens tickets sans pendingSince
+          pendingTime = ticketData.lastUpdate.toMillis
+            ? ticketData.lastUpdate.toMillis()
+            : new Date(ticketData.lastUpdate).getTime();
+        }
+
+        if (!pendingTime) continue;
+
+        // Si plus de 48 heures se sont écoulées sans réponse client
+        if (now - pendingTime >= FORTY_EIGHT_HOURS_MS) {
+          console.log(`Auto-clôture du ticket #${ticketId} (en attente depuis > 48h)`);
+
+          const autoCloseMessage = {
+            text: "🔒 Clôture automatique : sans retour de votre part sous 48h suite à notre dernière réponse, nous considérons votre demande comme résolue. N'hésitez pas à ouvrir un nouveau ticket si besoin.",
+            author: "Système",
+            displayName: "Système",
+            timestamp: new Date(),
+          };
+
+          const ticketRef = db.collection("tickets").doc(ticketId);
+          await ticketRef.update({
+            status: "Ticket Clôturé",
+            archived: true,
+            autoClosed: true,
+            pendingSince: null,
+            closedAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+            conversation: admin.firestore.FieldValue.arrayUnion(autoCloseMessage),
+          });
+          console.log(`✅ Ticket #${ticketId} clôturé automatiquement.`);
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Erreur lors de l'exécution de autoClosePendingTickets:", error);
+      return null;
     }
   });

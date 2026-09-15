@@ -216,6 +216,7 @@ export default function ClientTicketDetailPage() {
             // Si le ticket était en attente (ou autre), la réponse du client le repasse "En cours"
             if (ticket.status === STATUS.PENDING || (isRefusing && ticket.status === STATUS.PENDING_VALIDATION)) {
                 updateData.status = STATUS.IN_PROGRESS;
+                updateData.pendingSince = null;
                 setIsRefusing(false);
             }
 

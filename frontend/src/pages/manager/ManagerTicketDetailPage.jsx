@@ -48,6 +48,7 @@ export default function ManagerTicketDetailPage() {
     const [replyPreviews, setReplyPreviews] = useState([]);
     const [replyImageError, setReplyImageError] = useState('');
     const [isReplySubmitting, setIsReplySubmitting] = useState(false);
+    const [setPendingOnReply, setSetPendingOnReply] = useState(true);
 
     // États pour le formulaire de note interne
     const [noteImages, setNoteImages] = useState([]);
@@ -251,10 +252,10 @@ export default function ManagerTicketDetailPage() {
         return () => unsubscribe();
     }, [ticketId]);
 
-    const handleInlineUpdate = async (field, value) => {
+    const handleInlineUpdate = async (field, value, extraFields = {}) => {
         const docRef = doc(db, "tickets", ticketId);
         try {
-            await updateDoc(docRef, { [field]: value });
+            await updateDoc(docRef, { [field]: value, ...extraFields });
             toast.success('Modifications enregistrées');
         } catch (err) {
             console.error("Erreur lors de la mise à jour: ", err);
@@ -341,9 +342,14 @@ export default function ManagerTicketDetailPage() {
                 updateData.hasNewClientMessage = true;
                 if (ticket.status === STATUS.PENDING) {
                     updateData.status = STATUS.IN_PROGRESS;
+                    updateData.pendingSince = null;
                 }
             } else {
                 updateData.hasNewClientMessage = false;
+                if (setPendingOnReply) {
+                    updateData.status = STATUS.PENDING;
+                    updateData.pendingSince = serverTimestamp();
+                }
             }
 
             await updateDoc(docRef, updateData);
@@ -488,6 +494,7 @@ export default function ManagerTicketDetailPage() {
                 };
                 await updateDoc(docRef, { 
                     status: STATUS.CLOSED, 
+                    pendingSince: null,
                     lastUpdate: serverTimestamp(),
                     conversation: arrayUnion(closureMessage)
                 });
@@ -511,6 +518,7 @@ export default function ManagerTicketDetailPage() {
                 await updateDoc(docRef, { 
                     status: STATUS.IN_PROGRESS, 
                     archived: false,
+                    pendingSince: null,
                     lastUpdate: serverTimestamp(),
                     conversation: arrayUnion(reopenMessage)
                 });
@@ -663,7 +671,16 @@ export default function ManagerTicketDetailPage() {
                                                     />
                                                 </Form.Group>
 
-                                                <div className="d-flex justify-content-end border-top pt-3">
+                                                <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 border-top pt-3">
+                                                    <Form.Check 
+                                                        type="checkbox"
+                                                        id="manager-pending-on-reply-check"
+                                                        label="Passer en attente de retour client"
+                                                        checked={setPendingOnReply}
+                                                        onChange={(e) => setSetPendingOnReply(e.target.checked)}
+                                                        className="text-muted"
+                                                        style={{ fontSize: '0.85rem' }}
+                                                    />
                                                     <Button variant="primary" type="submit" disabled={isReplySubmitting} className="px-4">
                                                         {isReplySubmitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />Envoi en cours...</> : 'Envoyer la réponse'}
                                                     </Button>
@@ -947,6 +964,27 @@ export default function ManagerTicketDetailPage() {
                     ) : (
                         <div className="d-grid gap-2 w-100">
                             <h6 className="fw-bold mb-3 mt-3 text-secondary">Statut du ticket</h6>
+                            {!isTicketClosed && (
+                                ticket.status !== STATUS.PENDING ? (
+                                    <Button 
+                                        variant="warning" 
+                                        size="sm"
+                                        className="fw-bold text-dark shadow-sm"
+                                        onClick={() => handleInlineUpdate('status', STATUS.PENDING, { pendingSince: serverTimestamp() })}
+                                    >
+                                        🟠 Mettre en attente retour client
+                                    </Button>
+                                ) : (
+                                    <Button 
+                                        variant="outline-primary" 
+                                        size="sm"
+                                        className="fw-bold shadow-sm"
+                                        onClick={() => handleInlineUpdate('status', STATUS.IN_PROGRESS, { pendingSince: null })}
+                                    >
+                                        🔵 Repasser en cours
+                                    </Button>
+                                )
+                            )}
                             {isTicketClosed ? (
                                 <Button variant="warning" onClick={handleReopenTicket} className="shadow-sm">Réouvrir le ticket</Button>
                             ) : (
