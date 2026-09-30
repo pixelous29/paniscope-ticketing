@@ -11,13 +11,14 @@ export default function StatusBadge({ status, className = "" }) {
     // Si la description n'existe pas, on met un message par défaut court
     const desc = roleDescriptions[status] || "Information de statut.";
     const variant = STATUS_VARIANT[status] || 'secondary';
+    const textColor = (variant === 'warning' || variant === 'light' || variant === 'info') ? 'dark' : 'white';
 
     return (
         <OverlayTrigger
             placement="bottom"
             overlay={<Tooltip id={`tooltip-status-${status.replace(/\s+/g, '-')}`}>{desc}</Tooltip>}
         >
-            <Badge bg={variant} pill className={`text-nowrap ${className}`} style={{ cursor: 'help' }}>
+            <Badge bg={variant} text={textColor} pill className={`text-nowrap ${className}`} style={{ cursor: 'help' }}>
                 {status}
             </Badge>
         </OverlayTrigger>
