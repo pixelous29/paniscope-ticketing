@@ -858,12 +858,12 @@ export default function ManagerTicketDetailPage() {
                     <div className="mb-3 d-flex flex-column align-items-start gap-1">
                         <strong>Nature du ticket:</strong>
                         <Dropdown>
-                            <Dropdown.Toggle as={Badge} bg={TICKET_TYPE_VARIANT[ticket.type] || 'light'} text={(TICKET_TYPE_VARIANT[ticket.type] || 'light') === 'warning' ? 'dark' : 'white'} style={{ cursor: 'pointer', fontSize: '0.9rem' }} className="border-0 shadow-sm">
+                            <Dropdown.Toggle as={Badge} bg={TICKET_TYPE_VARIANT[ticket.type] || 'light'} text={(TICKET_TYPE_VARIANT[ticket.type] || 'light') === 'warning' || !ticket.type || TICKET_TYPE_VARIANT[ticket.type] === 'light' ? 'dark' : 'white'} style={{ cursor: 'pointer', fontSize: '0.9rem' }} className={`shadow-sm ${!ticket.type ? 'border text-dark' : 'border-0'}`}>
                                 {TICKET_TYPE_LABEL[ticket.type] || 'Non classifié'}
                             </Dropdown.Toggle>
                             <Dropdown.Menu>
                                 <Dropdown.Item onClick={() => handleInlineUpdate('type', null)} className="py-2 px-3 dropdown-item-premium">
-                                    <Badge bg="light" text="dark" className="me-2">Non classifié</Badge>
+                                    <Badge bg="light" text="dark" className="me-2 border">Non classifié</Badge>
                                     {!ticket.type && <Badge pill bg="light" text="dark" className="float-end border">✓</Badge>}
                                 </Dropdown.Item>
                                 {Object.entries(TICKET_TYPE_LABEL).map(([key, label]) => (
