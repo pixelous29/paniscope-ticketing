@@ -106,11 +106,11 @@ export default function NewManagerTicketPage() {
         attachmentUrls.push(url);
       }
 
-      let finalAssignedTo = assignedTo;
-      if (userRole === 'developer' && currentUser && (!finalAssignedTo || finalAssignedTo.length === 0)) {
+      let finalAssignedTo = Array.isArray(assignedTo) ? [...assignedTo] : [];
+      if (userRole === 'developer' && currentUser) {
         const currentDevName = currentUser.displayName || currentUser.email;
-        if (currentDevName) {
-          finalAssignedTo = [currentDevName];
+        if (currentDevName && !finalAssignedTo.includes(currentDevName)) {
+          finalAssignedTo = [currentDevName, ...finalAssignedTo];
         }
       }
 
@@ -291,13 +291,16 @@ export default function NewManagerTicketPage() {
                     </Dropdown.Toggle>
                     <Dropdown.Menu className="w-100" style={{ maxHeight: '200px', overflowY: 'auto' }}>
                         {developers.map(dev => {
-                            const isAssigned = assignedTo.includes(dev.name);
+                            const currentDevName = userRole === 'developer' && currentUser ? (currentUser.displayName || currentUser.email) : null;
+                            const isSelfDev = userRole === 'developer' && (dev.id === currentUser?.uid || dev.name === currentDevName);
+                            const isAssigned = isSelfDev || assignedTo.includes(dev.name);
                             return (
                                 <Dropdown.Item 
                                     key={dev.id} 
                                     className="py-2 px-3 dropdown-item-premium"
                                     onClick={(e) => {
                                         e.preventDefault();
+                                        if (isSelfDev) return;
                                         setAssignedTo(prev => {
                                             const newAssigned = [...prev];
                                             const idx = newAssigned.indexOf(dev.name);
@@ -314,6 +317,7 @@ export default function NewManagerTicketPage() {
                                         type="checkbox" 
                                         label={dev.name} 
                                         checked={isAssigned} 
+                                        disabled={isSelfDev}
                                         readOnly
                                         className="m-0"
                                     />

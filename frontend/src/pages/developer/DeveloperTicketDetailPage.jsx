@@ -17,6 +17,7 @@ import MultiImageUpload from '../../components/shared/MultiImageUpload';
 import ImageModal from '../../components/shared/ImageModal';
 import MessageBubble from '../../components/shared/MessageBubble';
 import MentionTextarea from '../../components/shared/MentionTextarea';
+import toast from 'react-hot-toast';
 
 const priorityVariant = { 'Critique': 'danger', 'Haute': 'warning', 'Normale': 'success', 'Faible': 'secondary' };
 
@@ -29,6 +30,7 @@ export default function DeveloperTicketDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [developers, setDevelopers] = useState([]);
+    const [clients, setClients] = useState([]);
     
     const [replyText, setReplyText] = useState('');
     const [internalNoteText, setInternalNoteText] = useState('');
@@ -51,6 +53,24 @@ export default function DeveloperTicketDetailPage() {
             }
         };
         fetchDevelopers();
+
+        const fetchClients = async () => {
+            try {
+                const q = query(collection(db, "users"), where("role", "==", "client"));
+                const querySnapshot = await getDocs(q);
+                const clis = querySnapshot.docs.map(d => ({
+                    id: d.id,
+                    name: d.data().displayName || (d.data().firstName || d.data().lastName ? `${d.data().firstName || ''} ${d.data().lastName || ''}`.trim() : '') || d.data().email,
+                    email: d.data().email,
+                    companyDomain: d.data().companyDomain || null,
+                    company: d.data().company || null
+                }));
+                setClients(clis);
+            } catch (err) {
+                console.error("Erreur lors de la récupération des clients:", err);
+            }
+        };
+        fetchClients();
     }, []);
 
     const handleInlineUpdate = async (field, value, extraFields = {}) => {
@@ -61,6 +81,34 @@ export default function DeveloperTicketDetailPage() {
             console.error(`Erreur lors de la mise à jour de ${field}: `, err);
             showAlert('Erreur', `Impossible de mettre à jour ${field}.`);
         }
+    };
+
+    const handleLinkClient = async (client) => {
+        showConfirmation('Associer ce client', `Voulez-vous vraiment associer le client ${client.name} à ce ticket ?`, async () => {
+            const docRef = doc(db, "tickets", ticketId);
+            try {
+                const linkMessage = {
+                    text: `🔗 Client associé au ticket : ${client.name}`,
+                    author: 'Système',
+                    displayName: 'Système',
+                    timestamp: new Date()
+                };
+                
+                await updateDoc(docRef, { 
+                    clientUid: client.id,
+                    clientEmail: client.email,
+                    clientName: client.name,
+                    companyDomain: client.companyDomain,
+                    lastUpdate: serverTimestamp(),
+                    internalNotes: arrayUnion(linkMessage)
+                });
+                
+                toast.success('Client associé avec succès');
+            } catch (err) {
+                console.error("Erreur lors de l'association du client: ", err);
+                showAlert('Erreur', 'Une erreur est survenue lors de l\'association du client.');
+            }
+        });
     };
 
     // États pour le formulaire de réponse au client
@@ -695,10 +743,27 @@ export default function DeveloperTicketDetailPage() {
                 {/* Colonne de droite : Informations du ticket */}
                 <div className="flex-shrink-0 overflow-auto bg-light border-start p-4" style={{ flexBasis: '30%', minWidth: '320px' }}>
                     <h5 className="mb-4 pb-2 border-bottom fw-bold text-dark">Informations Clés</h5>
-                             <div className="mb-2">
-                                 <strong>Client :</strong> {ticket.clientName || ticket.client || ticket.clientId}
+                             <div className="mb-3 d-flex flex-column align-items-start gap-1">
+                                 <strong>Client :</strong>
+                                 {!ticket.clientUid ? (
+                                     <Dropdown>
+                                         <Dropdown.Toggle as={Badge} bg="warning" text="dark" style={{ cursor: isTicketClosed ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }} className="border-0 shadow-sm" disabled={isTicketClosed}>
+                                             <i className="bi bi-person-plus me-1"></i> Non assigné
+                                         </Dropdown.Toggle>
+                                         <Dropdown.Menu style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                                             {clients.map(cli => (
+                                                 <Dropdown.Item key={cli.id} onClick={() => handleLinkClient(cli)} className="py-2 px-3 dropdown-item-premium">
+                                                     {cli.name} <small className="text-muted d-block">{cli.companyDomain || cli.email}</small>
+                                                 </Dropdown.Item>
+                                             ))}
+                                             {clients.length === 0 && <Dropdown.Item disabled>Aucun client trouvé</Dropdown.Item>}
+                                         </Dropdown.Menu>
+                                     </Dropdown>
+                                 ) : (
+                                     <span>{ticket.clientName || ticket.client || ticket.clientId}</span>
+                                 )}
                              </div>
-                             {ticket.companyDomain && (
+                             {ticket.companyDomain && ticket.clientUid && (
                                <div className="mb-2">
                                    <strong>Entreprise :</strong> {ticket.companyDomain}
                                </div>
