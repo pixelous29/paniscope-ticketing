@@ -56,6 +56,7 @@ const NEW_TICKET_BG = '#d0e8ff';
   const isNewTicket = ticket.status === STATUS.NEW;
   const isPendingClient = ticket.status === STATUS.PENDING;
   const isPendingValidation = ticket.status === STATUS.PENDING_VALIDATION;
+  const isValidated = ticket.status === STATUS.VALIDATED;
   const cardBg = isNewTicket ? NEW_TICKET_BG : getTicketPastelBg(ticket.type);
 
   const displayDate = formatDate(ticket.lastUpdate || ticket.createdAt);
@@ -64,7 +65,7 @@ const NEW_TICKET_BG = '#d0e8ff';
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card 
-        className={`shadow-sm border-0 position-relative user-select-none ${isPendingClient ? 'border-start border-3 border-warning' : (isNewTicket ? 'border-start border-3 border-primary' : '')}`}
+        className={`shadow-sm border-0 position-relative user-select-none ${isPendingClient ? 'border-start border-3 border-warning' : (isValidated ? 'border-start border-3 border-success' : (isNewTicket ? 'border-start border-3 border-primary' : ''))}`}
         style={{ 
           minHeight: '50px', 
           cursor: 'pointer', 
@@ -92,7 +93,12 @@ const NEW_TICKET_BG = '#d0e8ff';
               )}
               {isPendingValidation && (
                 <span className="fw-bold text-info text-uppercase bg-info bg-opacity-25 px-1.5 py-0.5 rounded border border-info">
-                  ✓&nbsp; En validation
+                  ⏳ En validation
+                </span>
+              )}
+              {isValidated && (
+                <span className="fw-bold text-success text-uppercase bg-success bg-opacity-10 px-1.5 py-0.5 rounded border border-success">
+                  ✅ OK pour clôture
                 </span>
               )}
               {ticket.priority && ['Haute', 'Critique'].includes(ticket.priority) && (

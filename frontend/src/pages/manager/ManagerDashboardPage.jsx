@@ -4,7 +4,7 @@ import { db } from '../../firebaseConfig';
 import { Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Nav, Form, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
-import { STATUS } from '../../constants/status';
+import { STATUS, STATUS_LABEL, shouldAutoHealToValidated } from '../../constants/status';
 import { TICKET_TYPE_PASTEL_BG, getTicketPastelBg } from '../../constants/type';
 import { DEV_PHASE_LABELS, DEV_PHASE_COLORS, DEV_PHASES_ORDER } from '../../constants/phases';
 import StatusBadge from '../../components/shared/StatusBadge';
@@ -70,6 +70,7 @@ export default function ManagerDashboardPage() {
     const clientName = (ticket.clientName || ticket.client || ticket.clientId || '').toLowerCase();
     const companyDomain = (ticket.companyDomain || '').toLowerCase();
     const status = (ticket.status || '').toLowerCase();
+    const statusLabel = (STATUS_LABEL.manager?.[ticket.status] || '').toLowerCase();
 
     const assigned = Array.isArray(ticket.assignedTo) 
       ? ticket.assignedTo.join(' ').toLowerCase() 
@@ -90,6 +91,7 @@ export default function ManagerDashboardPage() {
       clientName.includes(lowerTerm) ||
       companyDomain.includes(lowerTerm) ||
       status.includes(lowerTerm) ||
+      statusLabel.includes(lowerTerm) ||
       assigned.includes(lowerTerm) ||
       tags.includes(lowerTerm) ||
       type.includes(lowerTerm) ||
@@ -115,6 +117,10 @@ export default function ManagerDashboardPage() {
           console.warn(`Auto-healing ticket ${ticket.id} status from ${ticket.status} to IN_PROGRESS`);
           updateDoc(doc(db, "tickets", ticket.id), { status: STATUS.IN_PROGRESS, archived: false }).catch(err => 
             console.error("Erreur lors de l'auto-correction du statut:", err)
+          );
+        } else if (shouldAutoHealToValidated(ticket)) {
+          updateDoc(doc(db, "tickets", ticket.id), { status: STATUS.VALIDATED }).catch(err =>
+            console.error("Erreur lors de la migration du statut validé:", err)
           );
         }
       });
@@ -157,9 +163,10 @@ export default function ManagerDashboardPage() {
 
   // Un ticket est archivé seulement si archived=true ET status=CLOSED
   // Si un ticket est réouvert, il revient automatiquement dans les tickets en cours
-  // Les tickets en attente de retour client ont leur propre onglet dédié
-  const currentTickets = tickets.filter(ticket => (!ticket.archived || ticket.status !== STATUS.CLOSED) && ticket.status !== STATUS.PENDING);
-  const pendingTickets = tickets.filter(ticket => (!ticket.archived || ticket.status !== STATUS.CLOSED) && ticket.status === STATUS.PENDING);
+  // Les tickets en attente d'action client (retour ou validation) ont leur propre onglet dédié
+  const isWaitingForClient = (t) => t.status === STATUS.PENDING || t.status === STATUS.PENDING_VALIDATION;
+  const currentTickets = tickets.filter(ticket => (!ticket.archived || ticket.status !== STATUS.CLOSED) && !isWaitingForClient(ticket));
+  const pendingTickets = tickets.filter(ticket => (!ticket.archived || ticket.status !== STATUS.CLOSED) && isWaitingForClient(ticket));
   const archivedTickets = tickets.filter(ticket => ticket.archived && ticket.status === STATUS.CLOSED)
     .sort((a, b) => {
       const getTimestamp = (t) => (t.lastUpdate?.toMillis ? t.lastUpdate.toMillis() : (t.createdAt?.toMillis ? t.createdAt.toMillis() : 0));

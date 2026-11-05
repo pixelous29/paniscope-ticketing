@@ -5,10 +5,11 @@ import { Table, Badge, Button, Spinner, Alert, Tooltip, OverlayTrigger, Nav, For
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
-import { STATUS } from '../../constants/status';
+import { STATUS, STATUS_LABEL, shouldAutoHealToValidated } from '../../constants/status';
 import { TICKET_TYPE_PASTEL_BG, getTicketPastelBg } from '../../constants/type';
 import { DEV_PHASE_LABELS, DEV_PHASE_COLORS, DEV_PHASES_ORDER } from '../../constants/phases';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
+import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
 
 const priorityVariant = { 'Faible': 'secondary', 'Normale': 'success', 'Haute': 'warning', 'Critique': 'danger' };
@@ -71,6 +72,7 @@ export default function DeveloperDashboardPage() {
     const clientName = (ticket.clientName || ticket.client || ticket.clientId || '').toLowerCase();
     const companyDomain = (ticket.companyDomain || '').toLowerCase();
     const status = (ticket.status || '').toLowerCase();
+    const statusLabel = (STATUS_LABEL.developer?.[ticket.status] || '').toLowerCase();
 
     const assigned = Array.isArray(ticket.assignedTo) 
       ? ticket.assignedTo.join(' ').toLowerCase() 
@@ -91,6 +93,7 @@ export default function DeveloperDashboardPage() {
       clientName.includes(lowerTerm) ||
       companyDomain.includes(lowerTerm) ||
       status.includes(lowerTerm) ||
+      statusLabel.includes(lowerTerm) ||
       assigned.includes(lowerTerm) ||
       tags.includes(lowerTerm) ||
       type.includes(lowerTerm) ||
@@ -127,6 +130,10 @@ export default function DeveloperDashboardPage() {
           console.warn(`Auto-healing ticket ${ticket.id} status from ${ticket.status} to IN_PROGRESS`);
           updateDoc(doc(db, "tickets", ticket.id), { status: STATUS.IN_PROGRESS, archived: false }).catch(err => 
             console.error("Erreur lors de l'auto-correction du statut:", err)
+          );
+        } else if (shouldAutoHealToValidated(ticket)) {
+          updateDoc(doc(db, "tickets", ticket.id), { status: STATUS.VALIDATED }).catch(err =>
+            console.error("Erreur lors de la migration du statut validé:", err)
           );
         }
       });
@@ -170,9 +177,10 @@ export default function DeveloperDashboardPage() {
 
   // Un ticket est archivé seulement si archived=true ET status=CLOSED
   // Si un ticket est réouvert, il revient automatiquement dans les tickets en cours
-  // Les tickets en attente de retour client ont leur propre onglet dédié
-  const currentTickets = tickets.filter(ticket => (!ticket.archived || ticket.status !== STATUS.CLOSED) && ticket.status !== STATUS.PENDING);
-  const pendingTickets = tickets.filter(ticket => (!ticket.archived || ticket.status !== STATUS.CLOSED) && ticket.status === STATUS.PENDING);
+  // Les tickets en attente d'action client (retour ou validation) ont leur propre onglet dédié
+  const isWaitingForClient = (t) => t.status === STATUS.PENDING || t.status === STATUS.PENDING_VALIDATION;
+  const currentTickets = tickets.filter(ticket => (!ticket.archived || ticket.status !== STATUS.CLOSED) && !isWaitingForClient(ticket));
+  const pendingTickets = tickets.filter(ticket => (!ticket.archived || ticket.status !== STATUS.CLOSED) && isWaitingForClient(ticket));
   const archivedTickets = tickets.filter(ticket => ticket.archived && ticket.status === STATUS.CLOSED)
     .sort((a, b) => {
       const getTimestamp = (t) => (t.lastUpdate?.toMillis ? t.lastUpdate.toMillis() : (t.createdAt?.toMillis ? t.createdAt.toMillis() : 0));
@@ -208,6 +216,8 @@ export default function DeveloperDashboardPage() {
         const tagsA = (a.tags || []).join(' ');
         const tagsB = (b.tags || []).join(' ');
         result = tagsA.localeCompare(tagsB);
+      } else if (sortColumn === 'status') {
+        result = (a.status || '').localeCompare(b.status || '');
       } else if (sortColumn === 'date') {
         result = getTicketDateMs(a) - getTicketDateMs(b);
       }
@@ -273,6 +283,7 @@ export default function DeveloperDashboardPage() {
               {renderSortHeader('subject', 'Sujet')}
               {renderSortHeader('client', 'Client')}
               {renderSortHeader('tags', 'Tags')}
+              {renderSortHeader('status', 'Statut')}
               {renderSortHeader('date', 'Date')}
               {showActionsColumn && <th className="py-3 px-3 fw-semibold border-bottom-0 text-center">Actions</th>}
             </tr>
@@ -300,6 +311,11 @@ export default function DeveloperDashboardPage() {
                 </td>
                 <td className="px-3 py-3 fw-bold align-middle text-dark" style={{ backgroundColor: bg }}>
                   <div className="d-flex align-items-center">
+                    {ticket.hasNewClientMessage && (
+                       <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle réponse du client')}>
+                         <span className="me-2" style={{color: 'orange', fontSize: '1.2rem'}}>●</span>
+                       </OverlayTrigger>
+                    )}
                     {ticket.hasNewManagerMessage && (
                        <OverlayTrigger placement="top" overlay={(props) => renderTooltip(props, 'Nouvelle note du manager')}>
                         <span className="me-2" style={{color: '#0D6EFD', fontSize: '1.2rem'}}>●</span>
@@ -318,6 +334,9 @@ export default function DeveloperDashboardPage() {
                   {ticket.tags?.map(tag => (
                     <Badge key={tag} pill bg="primary" text="white" className="me-1 fw-normal">{tag}</Badge>
                   ))}
+                </td>
+                <td className="px-3 py-3 align-middle text-nowrap" style={{ backgroundColor: bg }}>
+                  <StatusBadge status={ticket.status} />
                 </td>
                 <td className="px-3 py-3 align-middle text-nowrap text-secondary" style={{ backgroundColor: bg, fontSize: '0.85rem' }}>
                   <i className="bi bi-calendar3 me-1"></i>
@@ -339,7 +358,7 @@ export default function DeveloperDashboardPage() {
           })
           ) : (
             <tr>
-              <td colSpan={showActionsColumn ? 8 : 7} className="text-center py-5 text-muted">
+              <td colSpan={showActionsColumn ? 9 : 8} className="text-center py-5 text-muted">
                  <div className="mb-2"><i className={`bi ${emptyIcon} fs-3`}></i></div>
                 {searchTerm ? 'Aucun ticket ne correspond à la recherche.' : emptyText}
               </td>
@@ -458,6 +477,7 @@ export default function DeveloperDashboardPage() {
                       {renderSortHeader('subject', 'Sujet')}
                       {renderSortHeader('client', 'Client')}
                       {renderSortHeader('tags', 'Tags')}
+                      {renderSortHeader('status', 'Statut')}
                       {renderSortHeader('date', 'Date')}
                     </tr>
                   </thead>
@@ -494,6 +514,9 @@ export default function DeveloperDashboardPage() {
                             <Badge key={tag} pill bg="primary" text="white" className="me-1 fw-normal">{tag}</Badge>
                           ))}
                         </td>
+                        <td className="px-3 py-3 align-middle text-nowrap" style={{ backgroundColor: bg }}>
+                          <StatusBadge status={ticket.status} />
+                        </td>
                         <td className="px-3 py-3 align-middle text-nowrap text-secondary" style={{ backgroundColor: bg, fontSize: '0.85rem' }}>
                           <i className="bi bi-calendar3 me-1"></i>
                           {formatTicketDate(ticket)}
@@ -503,7 +526,7 @@ export default function DeveloperDashboardPage() {
                   })
                   ) : (
                     <tr>
-                      <td colSpan="7" className="text-center py-5 text-muted">
+                      <td colSpan="8" className="text-center py-5 text-muted">
                         <div className="mb-2"><i className="bi bi-archive fs-3"></i></div>
                         {searchTerm ? 'Aucun ticket ne correspond à la recherche.' : 'Aucun ticket archivé.'}
                       </td>

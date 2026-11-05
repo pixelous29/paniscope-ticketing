@@ -7,7 +7,7 @@ import { Badge, Form, Button, Alert, Spinner, Modal, FloatingLabel, Tabs, Tab, L
 import { useModal } from '../../hooks/useModal';
 import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
-import { STATUS } from '../../constants/status';
+import { STATUS, shouldAutoHealToValidated } from '../../constants/status';
 import { DEV_PHASE_LABELS, DEV_PHASE_COLORS } from '../../constants/phases';
 import { TICKET_TYPE, TICKET_TYPE_LABEL, TICKET_TYPE_VARIANT } from '../../constants/type';
 import { useAuth } from '../../hooks/useAuth';
@@ -41,7 +41,7 @@ export default function ManagerTicketDetailPage() {
     const [developers, setDevelopers] = useState([]);
     const [clients, setClients] = useState([]);
 
-    const { showAlert, showConfirmation, showPrompt } = useModal();
+    const { showAlert, showConfirmation } = useModal();
 
     // États pour le formulaire de réponse au client
     const [replyImages, setReplyImages] = useState([]);
@@ -233,6 +233,15 @@ export default function ManagerTicketDetailPage() {
                 } catch (err) {
                     console.error("Erreur lors du changement de statut: ", err);
                 }
+            } else if (shouldAutoHealToValidated(ticketData)) {
+                try {
+                    await updateDoc(docRef, { status: STATUS.VALIDATED });
+                } catch (err) {
+                    console.error("Erreur lors de la migration du statut validé: ", err);
+                }
+            }
+            if (ticketData.status === STATUS.VALIDATED) {
+                setSetPendingOnReply(false);
             }
         };
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -428,60 +437,6 @@ export default function ManagerTicketDetailPage() {
         }
     };
 
-    const handleApproveResolution = async () => {
-        showConfirmation('Approuver la résolution', 'Confirmez-vous la résolution de ce ticket ? Vous pourrez ensuite le clôturer.', async () => {
-            const docRef = doc(db, "tickets", ticketId);
-            const approvalNote = {
-                author: 'Manager',
-                uid: currentUser.uid,
-                displayName: currentUser.displayName || 'Manager',
-                photoURL: currentUser.photoURL || null,
-                text: 'Résolution du ticket approuvée.',
-                timestamp: new Date()
-            };
-            try {
-                await updateDoc(docRef, {
-                    status: STATUS.IN_PROGRESS,
-                    hasNewDeveloperMessage: false,
-                    internalNotes: arrayUnion(approvalNote),
-                    hasNewManagerMessage: true,
-                    lastUpdate: serverTimestamp()
-                });
-            } catch (err) {
-                console.error("Erreur lors de l'approbation: ", err);
-                showAlert('Erreur', 'Une erreur est survenue.');
-            }
-        });
-    };
-
-    const handleRejectResolution = async () => {
-        showPrompt('Demander une modification', 'Veuillez indiquer les modifications à apporter au développeur :', async (note) => {
-            if (note && note.trim() !== '') {
-                const docRef = doc(db, "tickets", ticketId);
-                const newInternalNote = {
-                    author: 'Manager',
-                    uid: currentUser.uid,
-                    displayName: currentUser.displayName || 'Manager',
-                    photoURL: currentUser.photoURL || null,
-                    text: `REJET DE LA SOLUTION : ${note}`,
-                    timestamp: new Date()
-                };
-                try {
-                    await updateDoc(docRef, {
-                        status: STATUS.IN_PROGRESS,
-                        internalNotes: arrayUnion(newInternalNote),
-                        hasNewDeveloperMessage: false,
-                        hasNewManagerMessage: true,
-                        lastUpdate: serverTimestamp()
-                    });
-                } catch (err) {
-                    console.error("Erreur lors du rejet: ", err);
-                    showAlert('Erreur', 'Une erreur est survenue.');
-                }
-            }
-        });
-    };
-    
     const handleCloseTicket = async () => {
         showConfirmation('Clôturer le ticket', 'Êtes-vous sûr de vouloir clôturer ce ticket ?', async () => {
             const docRef = doc(db, "tickets", ticketId);
@@ -537,6 +492,7 @@ export default function ManagerTicketDetailPage() {
     }
     const isTicketClosed = ticket.status === STATUS.CLOSED;
     const isPendingValidation = ticket.status === STATUS.PENDING_VALIDATION;
+    const isValidated = ticket.status === STATUS.VALIDATED;
     return (
         <div className="d-flex flex-column h-100 w-100 bg-white">
             {/* En-tête du ticket */}
@@ -955,17 +911,41 @@ export default function ManagerTicketDetailPage() {
                         </div>
                     </div>
                     <hr className="w-100" />
-                    {isPendingValidation ? (
-                        <div className="d-grid gap-2 w-100">
-                            <h6 className="fw-bold mb-3 text-secondary">Validation requise</h6>
-                            <Button variant="outline-success" onClick={handleApproveResolution} className="shadow-sm">Approuver la résolution</Button>
-                            <Button variant="outline-danger" onClick={handleRejectResolution} className="shadow-sm">Demander une modification</Button>
-                        </div>
-                    ) : (
-                        <div className="d-grid gap-2 w-100">
-                            <h6 className="fw-bold mb-3 mt-3 text-secondary">Statut du ticket</h6>
-                            {!isTicketClosed && (
-                                ticket.status !== STATUS.PENDING ? (
+                    <div className="d-grid gap-2 w-100">
+                        <h6 className="fw-bold mb-2 mt-2 text-secondary">Statut & Clôture</h6>
+                        {isTicketClosed ? (
+                            <Button variant="warning" onClick={handleReopenTicket} className="shadow-sm">🔓 Réouvrir le ticket</Button>
+                        ) : isValidated ? (
+                            <>
+                                <div className="p-2.5 rounded bg-success bg-opacity-10 border border-success text-success text-center mb-1" style={{ fontSize: '0.85rem' }}>
+                                    <strong>✅ Validé par le client</strong>
+                                    <div className="small mt-0.5 text-dark">Le client a confirmé que tout est conforme.</div>
+                                </div>
+                                <Button variant="success" onClick={handleCloseTicket} className="fw-bold shadow-sm">
+                                    🔒 Clôturer le ticket
+                                </Button>
+                            </>
+                        ) : isPendingValidation ? (
+                            <>
+                                <div className="p-2.5 rounded bg-info bg-opacity-10 border border-info text-dark text-center mb-1" style={{ fontSize: '0.85rem' }}>
+                                    <strong>⏳ En attente de validation client</strong>
+                                    <div className="small mt-0.5 text-muted">Une demande de validation a été envoyée au client.</div>
+                                </div>
+                                <Button 
+                                    variant="outline-secondary" 
+                                    size="sm"
+                                    onClick={() => handleInlineUpdate('status', STATUS.IN_PROGRESS, { lastUpdate: serverTimestamp() })} 
+                                    className="shadow-sm"
+                                >
+                                    Annuler l'attente de validation
+                                </Button>
+                                <Button variant="success" onClick={handleCloseTicket} className="shadow-sm">
+                                    🔒 Clôturer le ticket
+                                </Button>
+                            </>
+                        ) : (
+                            <>
+                                {ticket.status !== STATUS.PENDING ? (
                                     <Button 
                                         variant="warning" 
                                         size="sm"
@@ -983,15 +963,21 @@ export default function ManagerTicketDetailPage() {
                                     >
                                         🔵 Repasser en cours
                                     </Button>
-                                )
-                            )}
-                            {isTicketClosed ? (
-                                <Button variant="warning" onClick={handleReopenTicket} className="shadow-sm">Réouvrir le ticket</Button>
-                            ) : (
-                                <Button variant="success" onClick={handleCloseTicket} className="shadow-sm">Clôturer le ticket</Button>
-                            )}
-                        </div>
-                    )}
+                                )}
+                                <Button 
+                                    variant="outline-success" 
+                                    size="sm"
+                                    onClick={() => handleInlineUpdate('status', STATUS.PENDING_VALIDATION, { lastUpdate: serverTimestamp() })}
+                                    className="fw-semibold shadow-sm"
+                                >
+                                    Terminé, prêt pour validation client
+                                </Button>
+                                <Button variant="success" onClick={handleCloseTicket} className="shadow-sm">
+                                    🔒 Clôturer le ticket
+                                </Button>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
 

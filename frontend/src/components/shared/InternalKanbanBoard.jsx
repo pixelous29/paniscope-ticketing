@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { collection, onSnapshot, query, where, doc, updateDoc } from "firebase/firestore";
 import { db } from '../../firebaseConfig';
-import { STATUS } from '../../constants/status';
+import { STATUS, shouldAutoHealToValidated } from '../../constants/status';
 import { DEV_PHASE, DEV_PHASE_LABELS, DEV_PHASE_COLORS, DEV_PHASES_ORDER } from '../../constants/phases';
 import { useModal } from '../../hooks/useModal';
 import KanbanColumn from './KanbanColumn';
@@ -79,6 +79,13 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
       }
       
       setAllTickets(tickets);
+      tickets.forEach(ticket => {
+        if (shouldAutoHealToValidated(ticket)) {
+          updateDoc(doc(db, "tickets", ticket.id), { status: STATUS.VALIDATED }).catch(err =>
+            console.error("Erreur lors de la migration du statut validé:", err)
+          );
+        }
+      });
       setLoading(false);
     }, (err) => {
       console.error("Erreur chargement du kanban :", err);
@@ -91,7 +98,7 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
 
   // Calcul des compteurs globaux
   const counts = useMemo(() => {
-    const todo = allTickets.filter(t => t.status === STATUS.NEW || t.status === STATUS.IN_PROGRESS).length;
+    const todo = allTickets.filter(t => t.status === STATUS.NEW || t.status === STATUS.IN_PROGRESS || t.status === STATUS.VALIDATED).length;
     const pending = allTickets.filter(t => t.status === STATUS.PENDING || t.status === STATUS.PENDING_VALIDATION).length;
     const all = allTickets.length;
     return { todo, pending, all };
@@ -103,7 +110,7 @@ export default function InternalKanbanBoard({ role, isDeveloperMode = false, dev
 
     // 1. Filtrage par statut
     if (filterMode === 'todo') {
-      filtered = filtered.filter(t => t.status === STATUS.NEW || t.status === STATUS.IN_PROGRESS);
+      filtered = filtered.filter(t => t.status === STATUS.NEW || t.status === STATUS.IN_PROGRESS || t.status === STATUS.VALIDATED);
     } else if (filterMode === 'pending') {
       filtered = filtered.filter(t => t.status === STATUS.PENDING || t.status === STATUS.PENDING_VALIDATION);
     }

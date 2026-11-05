@@ -6,7 +6,7 @@ import { LinkContainer } from 'react-router-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useModal } from '../../hooks/useModal';
 import { useAuth } from '../../hooks/useAuth';
-import { STATUS } from '../../constants/status';
+import { STATUS, STATUS_LABEL, shouldAutoHealToValidated } from '../../constants/status';
 import { TICKET_TYPE_PASTEL_BG, getTicketPastelBg } from '../../constants/type';
 import TicketCardMobile from '../../components/shared/TicketCardMobile';
 import StatusBadge from '../../components/shared/StatusBadge';
@@ -83,6 +83,10 @@ export default function ClientDashboardPage() {
           updateDoc(doc(db, "tickets", ticket.id), { status: STATUS.IN_PROGRESS, archived: false }).catch(err => 
             console.error("Erreur lors de l'auto-correction du statut:", err)
           );
+        } else if (shouldAutoHealToValidated(ticket)) {
+          updateDoc(doc(db, "tickets", ticket.id), { status: STATUS.VALIDATED }).catch(err =>
+            console.error("Erreur lors de la migration du statut validé:", err)
+          );
         }
       });
       
@@ -133,6 +137,7 @@ export default function ClientDashboardPage() {
     const formattedId = `#${ticketId}`;
     const subject = (ticket.subject || '').toLowerCase();
     const status = (ticket.status || '').toLowerCase();
+    const statusLabel = (STATUS_LABEL.client?.[ticket.status] || '').toLowerCase();
     const clientName = (ticket.clientName || '').toLowerCase();
     const dateStr = formatTicketDate(ticket).toLowerCase();
 
@@ -141,6 +146,7 @@ export default function ClientDashboardPage() {
       formattedId.includes(lowerTerm) ||
       subject.includes(lowerTerm) ||
       status.includes(lowerTerm) ||
+      statusLabel.includes(lowerTerm) ||
       clientName.includes(lowerTerm) ||
       dateStr.includes(lowerTerm)
     );

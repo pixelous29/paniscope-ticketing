@@ -7,7 +7,7 @@ import { Badge, Form, Button, Alert, Dropdown, Spinner, Tabs, Tab, ListGroup } f
 import { useModal } from '../../hooks/useModal';
 import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
-import { STATUS } from '../../constants/status';
+import { STATUS, shouldAutoHealToValidated } from '../../constants/status';
 import { DEV_PHASE_LABELS, DEV_PHASE_COLORS } from '../../constants/phases';
 import { TICKET_TYPE, TICKET_TYPE_LABEL, TICKET_TYPE_VARIANT } from '../../constants/type';
 import { LinkContainer } from 'react-router-bootstrap';
@@ -225,6 +225,14 @@ export default function DeveloperTicketDetailPage() {
                     updateDoc(docRef, { status: STATUS.IN_PROGRESS, archived: false }).catch(err => 
                         console.error("Erreur lors de l'auto-correction du statut: ", err)
                     );
+                } else if (shouldAutoHealToValidated(data)) {
+                    updateDoc(docRef, { status: STATUS.VALIDATED }).catch(err =>
+                        console.error("Erreur lors de la migration du statut validé: ", err)
+                    );
+                }
+
+                if (data.status === STATUS.VALIDATED) {
+                    setSetPendingOnReply(false);
                 }
 
                 setTicket(data);
@@ -455,13 +463,12 @@ export default function DeveloperTicketDetailPage() {
                 showAlert('Erreur', 'Une erreur est survenue lors de l\'annulation.');
             }
         } else {
-            showConfirmation('Terminer le ticket', 'Confirmez-vous que le travail sur ce ticket est terminé et prêt pour validation ?', async () => {
+            showConfirmation('Terminer le ticket', 'Confirmez-vous que le travail sur ce ticket est terminé et prêt pour validation par le client ?', async () => {
                 const docRef = doc(db, "tickets", ticketId);
                 try {
                     await updateDoc(docRef, {
                         status: STATUS.PENDING_VALIDATION,
                         lastUpdate: serverTimestamp(),
-                        // On ne touche pas aux read status ici, le manager sera notifié
                     });
                 } catch (err) {
                     console.error("Erreur lors de la finalisation du ticket: ", err);
@@ -469,6 +476,30 @@ export default function DeveloperTicketDetailPage() {
                 }
             });
         }
+    };
+
+    const handleCloseTicket = async () => {
+        showConfirmation('Clôturer le ticket', 'Êtes-vous sûr de vouloir clôturer définitivement ce ticket ?', async () => {
+            const docRef = doc(db, "tickets", ticketId);
+            try {
+                const closureMessage = {
+                    text: '🔒 Ticket clôturé par l\'équipe.',
+                    author: 'Système',
+                    displayName: 'Système',
+                    timestamp: new Date()
+                };
+                await updateDoc(docRef, { 
+                    status: STATUS.CLOSED, 
+                    pendingSince: null,
+                    lastUpdate: serverTimestamp(),
+                    conversation: arrayUnion(closureMessage)
+                });
+                toast.success('Ticket clôturé avec succès');
+            } catch (err) {
+                console.error("Erreur lors de la clôture du ticket: ", err);
+                showAlert('Erreur', 'Une erreur est survenue lors de la clôture du ticket.');
+            }
+        });
     };
 
     if (loading) {
@@ -480,6 +511,7 @@ export default function DeveloperTicketDetailPage() {
     
     const isTicketClosed = ticket.status === STATUS.CLOSED;
     const isPendingValidation = ticket.status === STATUS.PENDING_VALIDATION;
+    const isValidated = ticket.status === STATUS.VALIDATED;
 
     // Tri des messages 
     const sortedConversation = ticket.conversation?.slice().sort((a, b) => {
@@ -912,35 +944,69 @@ export default function DeveloperTicketDetailPage() {
 
                              <hr />
                              <div className="d-grid gap-2">
-                                 {!isTicketClosed && (
-                                     ticket.status !== STATUS.PENDING ? (
+                                 {isTicketClosed ? (
+                                     <div className="p-2 rounded bg-secondary bg-opacity-10 border border-secondary text-secondary text-center fw-semibold" style={{ fontSize: '0.85rem' }}>
+                                         🔒 Ce ticket est clôturé
+                                     </div>
+                                 ) : isValidated ? (
+                                     <>
+                                         <div className="p-2.5 rounded bg-success bg-opacity-10 border border-success text-success text-center mb-1" style={{ fontSize: '0.85rem' }}>
+                                             <strong>✅ Validé par le client</strong>
+                                             <div className="small mt-0.5 text-dark">Le client a confirmé que tout est conforme.</div>
+                                         </div>
                                          <Button 
-                                             variant="warning" 
-                                             size="sm"
-                                             className="fw-bold text-dark shadow-sm"
-                                             onClick={() => handleInlineUpdate('status', STATUS.PENDING, { pendingSince: serverTimestamp() })}
-                                         >
-                                             🟠 Mettre en attente retour client
-                                         </Button>
-                                     ) : (
-                                         <Button 
-                                             variant="outline-primary" 
-                                             size="sm"
+                                             variant="success" 
+                                             onClick={handleCloseTicket} 
                                              className="fw-bold shadow-sm"
-                                             onClick={() => handleInlineUpdate('status', STATUS.IN_PROGRESS, { pendingSince: null })}
                                          >
-                                             🔵 Repasser en cours
+                                             🔒 Clôturer le ticket
                                          </Button>
-                                     )
+                                     </>
+                                 ) : isPendingValidation ? (
+                                     <>
+                                         <div className="p-2.5 rounded bg-info bg-opacity-10 border border-info text-dark text-center mb-1" style={{ fontSize: '0.85rem' }}>
+                                             <strong>⏳ En attente de validation client</strong>
+                                             <div className="small mt-0.5 text-muted">Une demande de validation a déjà été envoyée au client.</div>
+                                         </div>
+                                         <Button 
+                                             variant="outline-secondary" 
+                                             size="sm"
+                                             onClick={handleMarkAsDone} 
+                                             className="shadow-sm"
+                                         >
+                                             Annuler l'attente de validation
+                                         </Button>
+                                     </>
+                                 ) : (
+                                     <>
+                                         {ticket.status !== STATUS.PENDING ? (
+                                             <Button 
+                                                 variant="warning" 
+                                                 size="sm"
+                                                 className="fw-bold text-dark shadow-sm"
+                                                 onClick={() => handleInlineUpdate('status', STATUS.PENDING, { pendingSince: serverTimestamp() })}
+                                             >
+                                                 🟠 Mettre en attente retour client
+                                             </Button>
+                                         ) : (
+                                             <Button 
+                                                 variant="outline-primary" 
+                                                 size="sm"
+                                                 className="fw-bold shadow-sm"
+                                                 onClick={() => handleInlineUpdate('status', STATUS.IN_PROGRESS, { pendingSince: null })}
+                                             >
+                                                 🔵 Repasser en cours
+                                             </Button>
+                                         )}
+                                         <Button 
+                                             variant="success" 
+                                             onClick={handleMarkAsDone} 
+                                             className="shadow-sm"
+                                         >
+                                             Terminé, prêt pour validation
+                                         </Button>
+                                     </>
                                  )}
-                                 <Button 
-                                     variant={isPendingValidation ? "secondary" : "success"} 
-                                     onClick={handleMarkAsDone} 
-                                     disabled={isTicketClosed}
-                                     className="shadow-sm"
-                                 >
-                                     {isPendingValidation ? 'Annuler l\'attente de validation' : 'Terminé, prêt pour validation'}
-                                 </Button>
                              </div>
                 </div>
             </div>

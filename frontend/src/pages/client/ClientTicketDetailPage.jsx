@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebaseConfig';
 import { Form, Button, Badge, Spinner, Alert, ListGroup, Container } from 'react-bootstrap';
 import { useModal } from '../../hooks/useModal';
-import { STATUS } from '../../constants/status';
+import { STATUS, shouldAutoHealToValidated } from '../../constants/status';
 import StatusBadge from '../../components/shared/StatusBadge';
 import TypeBadge from '../../components/shared/TypeBadge';
 import { useAuth } from '../../hooks/useAuth';
@@ -125,6 +125,10 @@ export default function ClientTicketDetailPage() {
                 if (data.status === STATUS.NEW || !validStatuses.includes(data.status)) {
                     updateDoc(docRef, { status: STATUS.IN_PROGRESS, archived: false }).catch(err => 
                         console.error("Erreur lors de l'auto-correction du statut: ", err)
+                    );
+                } else if (shouldAutoHealToValidated(data)) {
+                    updateDoc(docRef, { status: STATUS.VALIDATED }).catch(err =>
+                        console.error("Erreur lors de la migration du statut validé: ", err)
                     );
                 }
 
@@ -251,12 +255,13 @@ export default function ClientTicketDetailPage() {
             const docRef = doc(db, "tickets", ticketId);
             await updateDoc(docRef, {
                 conversation: arrayUnion(newMessage),
-                status: STATUS.IN_PROGRESS, // Pour que le manager puisse le voir dans ses tickets "en cours" et le fermer.
+                status: STATUS.VALIDATED, // Marque explicitement le ticket comme validé et prêt pour clôture
+                pendingSince: null,
                 hasNewClientMessage: true,
                 hasNewDeveloperMessage: false,
                 ccEmails: arrayUnion(currentUser.email)
             });
-            showAlert('Succès', 'Votre validation a été transmise au manager qui s\'occupera de clore le ticket définitivement.');
+            showAlert('Succès', 'Votre validation a été enregistrée. Notre équipe procèdera prochainement à la clôture définitive du ticket.');
             autoScrolled.current = true;
         } catch (err) {
             console.error("Erreur de validation: ", err);
@@ -386,6 +391,14 @@ export default function ClientTicketDetailPage() {
                         </div>
                     ) : !isTicketClosed && (
                         <div className="p-3 p-md-4 bg-white border-top mt-auto">
+                        {ticket.status === STATUS.VALIDATED && (
+                            <Alert variant="success" className="mb-3 d-flex align-items-center gap-2">
+                                <i className="bi bi-check-circle-fill fs-5"></i>
+                                <div>
+                                    <strong>Travaux validés :</strong> Vous avez validé la résolution de ce ticket. Il est en attente de clôture finale par notre équipe.
+                                </div>
+                            </Alert>
+                        )}
                         <Form onSubmit={handleReplySubmit} className="rounded" style={{ backgroundColor: '#f8f9fc', padding: '20px', border: '1px solid #e2e8f0' }}>
                             {isRefusing && (
                                 <Alert variant="warning" className="mb-4" onClose={() => setIsRefusing(false)} dismissible>
