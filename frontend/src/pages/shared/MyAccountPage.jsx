@@ -29,6 +29,7 @@ export default function MyAccountPage() {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [wimiNotificationsEnabled, setWimiNotificationsEnabled] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState({
+    notifyOnTicketCreation: true,
     notifyOnResponse: true,
     notifyOnClose: true,
     notifyOnAssignment: true,
@@ -426,6 +427,22 @@ export default function MyAccountPage() {
                   {/* Pour les Clients */}
                   {(userRole === 'client' || (!userRole || userRole === 'user')) && (
                     <>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light text-dark rounded border">
+                          <div className="me-3">
+                            <Form.Label htmlFor="notif-ticket-creation" className="mb-0 fw-bold text-dark" style={{ cursor: 'pointer' }}>
+                              📩 Ouverture de mes tickets
+                            </Form.Label>
+                            <small className="d-block text-secondary">Recevoir un accusé de réception automatique lors de l'ouverture d'un nouveau ticket (par email ou depuis l'application).</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-ticket-creation"
+                            checked={emailNotifications.notifyOnTicketCreation !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnTicketCreation: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
                       <Form.Group className="mb-3">
                         <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
                           <div>

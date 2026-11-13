@@ -18,6 +18,17 @@ const smtpTransporter = nodemailer.createTransport({
   },
 });
 
+const APP_BASE_URL = (process.env.APP_BASE_URL || "https://support.paniscope.fr").replace(/\/+$/, "");
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 /**
  * 1. NOTIFICATION MANAGERS
  * Se déclenche dès qu'un nouveau ticket est créé dans Firestore
@@ -54,12 +65,14 @@ exports.notifyManagersOnNewTicket = functions.firestore
     }
 
     let companyName = ticket.companyDomain || "";
+    let clientUserData = null;
 
     if (ticket.clientUid) {
       try {
         const userDoc = await db.collection("users").doc(ticket.clientUid).get();
         if (userDoc.exists) {
           const userData = userDoc.data();
+          clientUserData = userData;
           
           let userRealName = (userData.firstName || userData.lastName) 
             ? `${userData.firstName || ""} ${userData.lastName || ""}`.trim() 
@@ -79,7 +92,7 @@ exports.notifyManagersOnNewTicket = functions.firestore
       }
     }
 
-    const ticketUrl = `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`;
+    const ticketUrl = `${APP_BASE_URL}/manager/ticket/${ticketId}`;
     
     let initialMessage = "Aucun contenu.";
     console.log(`[DEBUG_TICKET] conversation: ${JSON.stringify(ticket.conversation)}`);
@@ -197,6 +210,115 @@ exports.notifyManagersOnNewTicket = functions.firestore
     } else {
       console.warn("⚠️ Notification Matrix ignorée : MATRIX_ACCESS_TOKEN ou MATRIX_ROOM_ID manquant.");
     }
+
+    // Envoi de l'accusé de réception automatique au client (création par email ou via l'application web)
+    try {
+      const isTicketMarkedInternal =
+        isInternalTicket ||
+        (ticket.clientName === "Ticket Interne" && !ticket.clientUid && !ticket.clientEmail);
+
+      if (!isTicketMarkedInternal) {
+        const clientRecipientEmail = (ticket.clientEmail || (clientUserData && clientUserData.email) || "").trim();
+
+        if (clientRecipientEmail && clientRecipientEmail.toLowerCase() !== fromEmail.toLowerCase()) {
+          if (!clientUserData) {
+            const clientQuery = await db
+              .collection("users")
+              .where("email", "==", clientRecipientEmail.toLowerCase())
+              .limit(1)
+              .get();
+            if (!clientQuery.empty) {
+              clientUserData = clientQuery.docs[0].data();
+            }
+          }
+
+          let shouldSendClientAckEmail = true;
+          if (
+            clientUserData &&
+            clientUserData.emailNotifications &&
+            clientUserData.emailNotifications.notifyOnTicketCreation === false
+          ) {
+            shouldSendClientAckEmail = false;
+            console.log(`[PREFERENCES] Accusé de réception d'ouverture désactivé par le client (${clientRecipientEmail})`);
+          }
+
+          if (shouldSendClientAckEmail) {
+            const matchesAccountOwner =
+              clientUserData &&
+              clientUserData.email &&
+              clientUserData.email.toLowerCase().trim() === clientRecipientEmail.toLowerCase();
+
+            let greetingName = "";
+            if (matchesAccountOwner) {
+              greetingName = (clientUserData.firstName || clientUserData.displayName || "").trim();
+            }
+
+            const greetingHtml = greetingName
+              ? `Bonjour <strong>${escapeHtml(greetingName)}</strong>,`
+              : "Bonjour,";
+            const greetingText = greetingName ? `Bonjour ${greetingName},` : "Bonjour,";
+
+            const ticketSubject = ticket.subject || "Sans objet";
+            const clientTicketUrl = `${APP_BASE_URL}/ticket/${ticketId}`;
+            const safeSubjectHtml = escapeHtml(ticketSubject);
+            const safeInitialMessageHtml = escapeHtml(initialMessage);
+
+            const ackMailOptions = {
+              from: `"Support Paniscope" <${fromEmail}>`,
+              to: clientRecipientEmail,
+              subject: `[Ticket #${ticketId}] Confirmation d'ouverture - ${ticketSubject}`,
+              inReplyTo: `<ticket-${ticketId}@paniscope.fr>`,
+              references: [`<ticket-${ticketId}@paniscope.fr>`],
+              html: `
+                <div style="font-family: Arial, sans-serif; color: #212529; line-height: 1.6; max-width: 640px; margin: 0 auto;">
+                  <div style="color: #6c757d; font-size: 12px; margin-bottom: 16px;">
+                    --- Répondez au-dessus de cette ligne ---
+                  </div>
+                  <div style="background-color: #0B1B2B; color: #ffffff; padding: 16px 20px; border-radius: 6px 6px 0 0;">
+                    <h2 style="margin: 0; font-size: 18px; color: #D9AC5F;">Confirmation d'ouverture de votre ticket</h2>
+                    <p style="margin: 4px 0 0; font-size: 13px; color: #ffffff;">Ticket #${escapeHtml(ticketId)}</p>
+                  </div>
+                  <div style="background-color: #ffffff; color: #212529; padding: 20px; border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 6px 6px;">
+                    <p style="margin-top: 0;">${greetingHtml}</p>
+                    <p>Votre demande a bien été enregistrée sous le numéro <strong>#${escapeHtml(ticketId)}</strong>. Votre ticket est désormais ouvert et une réponse vous sera apportée <strong>dans les plus brefs délais</strong>.</p>
+                    <div style="background-color: #f8f9fa; color: #212529; padding: 14px; border: 1px solid #e2e8f0; border-left: 4px solid #D9AC5F; border-radius: 4px; margin: 18px 0;">
+                      <p style="margin: 0 0 6px 0; font-size: 13px;"><strong>Sujet :</strong> ${safeSubjectHtml}</p>
+                      <p style="margin: 0 0 6px 0; font-size: 13px;"><strong>Message initial :</strong></p>
+                      <div style="white-space: pre-wrap; font-size: 13px; color: #212529;">${safeInitialMessageHtml}</div>
+                    </div>
+                    <p>Vous pouvez suivre l'avancement et l'historique de votre ticket à tout moment depuis votre espace support sur <a href="${APP_BASE_URL}" style="color: #0d6efd; font-weight: bold;">support.paniscope.fr</a> :</p>
+                    <p style="margin: 20px 0;">
+                      <a href="${clientTicketUrl}" style="display: inline-block; background-color: #0B1B2B; color: #ffffff; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Suivre mon ticket sur support.paniscope.fr</a>
+                    </p>
+                    <p style="font-size: 13px; color: #495057;">Vous pouvez également répondre directement à cet e-mail pour ajouter des précisions à votre demande.</p>
+                    <hr style="border: none; border-top: 1px solid #dee2e6; margin: 24px 0 12px;" />
+                    <p style="font-size: 12px; color: #6c757d; margin-bottom: 0;">L'équipe Support Paniscope — <a href="${APP_BASE_URL}" style="color: #0d6efd;">support.paniscope.fr</a></p>
+                  </div>
+                </div>
+              `,
+              text: `--- Répondez au-dessus de cette ligne ---\n\n${greetingText}\n\nVotre demande a bien été enregistrée sous le numéro #${ticketId}.\nVotre ticket est désormais ouvert et une réponse vous sera apportée dans les plus brefs délais.\n\nSujet : ${ticketSubject}\nMessage initial :\n${initialMessage}\n\nVous pouvez suivre ce ticket à tout moment depuis support.paniscope.fr : ${clientTicketUrl}\nVous pouvez également répondre directement à cet e-mail pour ajouter des précisions à votre demande.\n\nL'équipe Support Paniscope`,
+            };
+
+            if (Array.isArray(ticket.ccEmails) && ticket.ccEmails.length > 0) {
+              const cleanCc = ticket.ccEmails.filter(
+                (email) =>
+                  email &&
+                  email.toLowerCase().trim() !== clientRecipientEmail.toLowerCase() &&
+                  email.toLowerCase().trim() !== fromEmail.toLowerCase()
+              );
+              if (cleanCc.length > 0) {
+                ackMailOptions.cc = cleanCc.join(",");
+              }
+            }
+
+            await smtpTransporter.sendMail(ackMailOptions);
+            console.log(`✅ Accusé de réception d'ouverture envoyé à ${clientRecipientEmail} pour le ticket #${ticketId}`);
+          }
+        }
+      }
+    } catch (ackError) {
+      console.error(`❌ Erreur lors de l'envoi de l'accusé de réception client (Ticket ${ticketId}) :`, ackError.message);
+    }
   });
 
 /**
@@ -251,7 +373,7 @@ exports.notifyDeveloperOnAssignment = functions.firestore
           clientName = "Client inconnu";
         }
         
-        const ticketUrl = `https://paniscope-ticketing.web.app/dev/ticket/${ticketId}`;
+        const ticketUrl = `${APP_BASE_URL}/dev/ticket/${ticketId}`;
         const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
 
         for (const dev of devsToNotify) {
@@ -794,7 +916,7 @@ exports.notifyAdminOnNewUser = functions.firestore
               </table>
               <p>Merci de gérer cette demande en vous rendant sur le panneau d'administration :</p>
               <p style="text-align: center;">
-                <a href="https://paniscope-ticketing.web.app/admin" 
+                <a href="${APP_BASE_URL}/admin/users" 
                    style="display: inline-block; background: #0d6efd; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                   Gérer les utilisateurs
                 </a>
@@ -939,12 +1061,12 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
         html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #0B1B2B;">
               <div style="text-align: center; margin-bottom: 20px;">
-                <img src="https://support.paniscope.fr/paniscope.png" alt="Paniscope" style="height: auto; max-width: 200px; max-height: 60px;">
+                <img src="${APP_BASE_URL}/paniscope.png" alt="Paniscope" style="height: auto; max-width: 200px; max-height: 60px;">
               </div>
               
               <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                 <div style="text-align: center; margin-bottom: 20px;">
-                  <img src="https://support.paniscope.fr/pwa-192x192.png" alt="Support" style="width: 32px; height: 32px; border-radius: 6px; vertical-align: middle; margin-right: 12px;">
+                  <img src="${APP_BASE_URL}/pwa-192x192.png" alt="Support" style="width: 32px; height: 32px; border-radius: 6px; vertical-align: middle; margin-right: 12px;">
                   <h2 style="color: #0B1B2B; margin: 0; display: inline-block; vertical-align: middle; font-size: 22px;">Bienvenue sur le Support Paniscope !</h2>
                 </div>
                 <p>Bonjour <strong>${firstName} ${lastName}</strong>,</p>
@@ -952,7 +1074,7 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
                 
                 <div style="background: #e9ecef; padding: 15px; border-radius: 8px; margin: 20px 0;">
                   <h3 style="margin-top: 0; font-size: 16px; color: #495057;">Vos identifiants de connexion :</h3>
-                  <p style="margin: 5px 0;"><strong>Lien d'accès :</strong> <a href="https://support.paniscope.fr/" style="color: #0d6efd;">https://support.paniscope.fr</a></p>
+                  <p style="margin: 5px 0;"><strong>Lien d'accès :</strong> <a href="${APP_BASE_URL}/" style="color: #0d6efd;">${APP_BASE_URL}</a></p>
                   <p style="margin: 5px 0;"><strong>Identifiant :</strong> ${email}</p>
                   <div style="margin-top: 15px;">
                     <strong>Mot de passe provisoire :</strong>
@@ -968,7 +1090,7 @@ exports.createClientAccount = functions.https.onCall(async (data, context) => {
                 </p>
                 
                 <p style="margin-top: 30px; text-align: center;">
-                  <a href="https://support.paniscope.fr/" style="display: inline-block; background: #0B1B2B; color: #D9AC5F; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                  <a href="${APP_BASE_URL}/" style="display: inline-block; background: #0B1B2B; color: #D9AC5F; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                     Accéder au support
                   </a>
                 </p>
@@ -1125,7 +1247,7 @@ exports.notifyClientOnNewMessage = functions.firestore
           const fromEmail = process.env.SMTP_FROM || "support@paniscope.fr";
           const ticketSubject = afterData.subject || "Sans objet";
           const messageText = newMessage.text || "";
-          const ticketUrl = `https://paniscope-ticketing.web.app/dev/ticket/${ticketId}`;
+          const ticketUrl = `${APP_BASE_URL}/dev/ticket/${ticketId}`;
           const authorName = newMessage.displayName || newMessage.author || "Un utilisateur";
 
           // On récupère les emails des développeurs assignés
@@ -1292,13 +1414,13 @@ ${messageText}
               ${
                 newMessage.attachmentUrls &&
                 newMessage.attachmentUrls.length > 0
-                  ? `<p><em>📎 Ce message contient des pièces jointes. <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}">Connectez-vous à l'application</a> pour les consulter.</em></p>`
+                  ? `<p><em>📎 Ce message contient des pièces jointes. <a href="${APP_BASE_URL}/ticket/${ticketId}">Connectez-vous à l'application</a> pour les consulter.</em></p>`
                   : ""
               }
               ${initialMessageHtml}
               
               <p style="margin-top: 25px;">Vous pouvez répondre directement à cet e-mail pour ajouter un commentaire à votre ticket, ou vous connecter sur votre espace client : <br>
-              <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#ffffff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
+              <a href="${APP_BASE_URL}/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#ffffff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
               
               <hr style="border: none; border-top: 1px solid #eee; margin-top: 30px;" />
               <p style="font-size: 11px; color: #aaa;">Cet e-mail est lié au ticket #${ticketId}. Ne modifiez pas le sujet de cet e-mail lors de votre réponse.</p>
@@ -1310,7 +1432,7 @@ ${messageText}
             to: clientEmail,
             subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
             html: emailHtml,
-            text: `--- Répondez au-dessus de cette ligne ---\n\nBonjour,\n\n${newMessage.displayName || newMessage.author} a répondu à votre ticket :\n\n${messageText}${pendingReminderRawText}${initialMessageRawText}\n\nVous pouvez répondre directement à cet e-mail pour mettre à jour votre ticket.`,
+            text: `--- Répondez au-dessus de cette ligne ---\n\nBonjour,\n\n${newMessage.displayName || newMessage.author} a répondu à votre ticket :\n\n${messageText}${pendingReminderRawText}${initialMessageRawText}\n\nVous pouvez répondre directement à cet e-mail pour mettre à jour votre ticket.\n\nSuivre votre ticket en ligne : ${APP_BASE_URL}/ticket/${ticketId}`,
           };
 
           if (afterData.ccEmails && afterData.ccEmails.length > 0) {
@@ -1364,7 +1486,7 @@ ${messageText}
               let clientName = afterData.clientName || afterData.client || afterData.clientEmail || "Client";
               const ticketSubject = afterData.subject || "Sans objet";
               const messageText = newMessage.text || "";
-              const ticketUrl = `https://paniscope-ticketing.web.app/manager/ticket/${ticketId}`;
+              const ticketUrl = `${APP_BASE_URL}/manager/ticket/${ticketId}`;
               
               const hasAttachments = newMessage.attachmentUrls && newMessage.attachmentUrls.length > 0;
               const attachmentNote = hasAttachments ? `<br><p>📎 <em>Ce message contient des pièces jointes (visibles depuis l'application).</em></p>` : "";
@@ -1506,7 +1628,7 @@ ${messageText}
               ${initialMessageHtml}
               
               <p style="margin-top: 25px;">Vous pouvez consulter le récapitulatif complet de ce ticket en vous connectant sur votre espace client : <br>
-              <a href="https://paniscope-ticketing.web.app/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#ffffff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
+              <a href="${APP_BASE_URL}/ticket/${ticketId}" style="display:inline-block; margin-top:10px; padding:10px 15px; background-color:#0d6efd; color:#ffffff; text-decoration:none; border-radius:5px;">Voir mon ticket en ligne</a></p>
 
               <p style="margin-top: 20px; font-size: 13px; color: #555;">Si vous avez une nouvelle demande ou si le problème persiste, nous vous invitons à ouvrir un nouveau ticket depuis votre espace client ou à <a href="mailto:${fromEmail}">nous envoyer un nouvel e-mail</a>.</p>
               
@@ -1520,7 +1642,7 @@ ${messageText}
           to: clientEmail,
           subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
           html: emailHtml,
-          text: `Bonjour,\n\nLe statut de votre ticket #${ticketId} (${ticketSubject}) vient de passer à Clôturé.\n\n${closureTextBanner}${initialMessageRawText}\n\nVous pouvez consulter votre ticket en ligne : https://paniscope-ticketing.web.app/ticket/${ticketId}\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
+          text: `Bonjour,\n\nLe statut de votre ticket #${ticketId} (${ticketSubject}) vient de passer à Clôturé.\n\n${closureTextBanner}${initialMessageRawText}\n\nVous pouvez consulter votre ticket en ligne : ${APP_BASE_URL}/ticket/${ticketId}\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
         };
 
         if (afterData.ccEmails && afterData.ccEmails.length > 0) {
@@ -1633,7 +1755,7 @@ exports.notifyTeamOnInternalMention = functions.firestore
                 let routePrefix = "manager";
                 if (targetUser.role === "developer") routePrefix = "dev";
                 
-                const ticketUrl = `https://paniscope-ticketing.web.app/${routePrefix}/ticket/${ticketId}?tab=internal`;
+                const ticketUrl = `${APP_BASE_URL}/${routePrefix}/ticket/${ticketId}?tab=internal`;
                 const emailHtml = `
                   <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
                     <p>Bonjour ${targetUser.name},</p>
