@@ -1,6 +1,7 @@
 const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 const axios = require("axios");
+const crypto = require("crypto");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -1866,3 +1867,154 @@ exports.autoClosePendingTickets = functions.pubsub
       return null;
     }
   });
+
+/**
+ * 10. WEBHOOK SÉCURISÉ D'ESCALADE DEPUIS L'ASSISTANT PANI (site-souche)
+ * Crée un ticket numéroté dans Support Manager lorsque le personnel ou l'admin
+ * d'une boulangerie valide la proposition d'escalade depuis Pani.
+ */
+exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
+  if (req.method !== "POST") {
+    return res.status(405).json({ status: "error", message: "Méthode non autorisée." });
+  }
+
+  const expectedSecret = String(process.env.PANI_TICKETING_SECRET || "").trim();
+  if (!expectedSecret) {
+    console.error("[createTicketFromPani] PANI_TICKETING_SECRET non configuré.");
+    return res.status(500).json({ status: "error", message: "Configuration webhook incomplète." });
+  }
+
+  const providedSecret = String(req.get("x-pani-secret") || "").trim();
+  const expectedHash = crypto.createHash("sha256").update(expectedSecret).digest();
+  const providedHash = crypto.createHash("sha256").update(providedSecret).digest();
+
+  if (!providedSecret || !crypto.timingSafeEqual(expectedHash, providedHash)) {
+    return res.status(401).json({ status: "error", message: "Non autorisé." });
+  }
+
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const subject = String(body.subject || "").trim().slice(0, 200);
+    const description = String(body.description || "").trim().slice(0, 6000);
+
+    if (subject.length < 3 || description.length < 5) {
+      return res.status(400).json({
+        status: "error",
+        message: "Le sujet et la description du ticket sont obligatoires.",
+      });
+    }
+
+    const priorityMap = {
+      basse: "Basse",
+      normale: "Normale",
+      haute: "Haute",
+      urgente: "Urgente",
+    };
+    const rawPriority = String(body.priority || "normale").trim().toLowerCase();
+    const mappedPriority = priorityMap[rawPriority] || "Normale";
+
+    const allowedCategories = new Set(["bug", "question", "evolution", "autre"]);
+    const rawCategory = String(body.category || "question").trim().toLowerCase();
+    const category = allowedCategories.has(rawCategory) ? rawCategory : "question";
+
+    const senderEmailLower = String(body.senderEmail || "").trim().toLowerCase().slice(0, 200);
+    const senderName = String(body.senderName || senderEmailLower || "Équipe Boulangerie")
+      .trim()
+      .slice(0, 150);
+    const senderRole = String(body.senderRole || "").trim().slice(0, 80);
+    const bakeryName = String(body.bakeryName || "Paniscope").trim().slice(0, 150);
+    const bakeryDomain = body.bakeryDomain ? String(body.bakeryDomain).trim().slice(0, 200) : null;
+    const routeActive = body.routeActive ? String(body.routeActive).trim().slice(0, 255) : null;
+    const conversationExcerpt = body.conversationExcerpt
+      ? String(body.conversationExcerpt).trim().slice(0, 3000)
+      : "";
+
+    let userId = null;
+    let userData = null;
+
+    if (senderEmailLower) {
+      const userSnap = await db
+        .collection("users")
+        .where("email", "==", senderEmailLower)
+        .limit(1)
+        .get();
+      if (!userSnap.empty) {
+        const docSnap = userSnap.docs[0];
+        userId = docSnap.id;
+        userData = docSnap.data();
+      }
+    }
+
+    const contextLines = [
+      `Établissement : ${bakeryName}`,
+      `Émetteur : ${senderName}${senderRole ? ` (${senderRole})` : ""}`,
+      senderEmailLower ? `E-mail : ${senderEmailLower}` : null,
+      routeActive ? `Page active : ${routeActive}` : null,
+      `Catégorie Pani : ${category}`,
+    ].filter(Boolean);
+
+    const formattedMessageText = [
+      description,
+      "",
+      "--- Contexte Paniscope (escalade Pani) ---",
+      contextLines.join("\n"),
+      conversationExcerpt ? `\n--- Extrait de l'échange avec Pani ---\n${conversationExcerpt}` : null,
+    ]
+      .filter((line) => line !== null)
+      .join("\n");
+
+    const initialMessage = {
+      text: formattedMessageText,
+      author: senderName || senderEmailLower,
+      displayName: senderName || senderEmailLower,
+      timestamp: new Date(),
+      source: "pani",
+    };
+
+    const clientDisplay =
+      userData && userData.displayName && userData.company
+        ? `${userData.displayName} (${userData.company})`
+        : `${senderName} (${bakeryName})`;
+
+    const newTicket = {
+      subject,
+      clientUid: userId,
+      clientEmail: senderEmailLower,
+      client: clientDisplay,
+      companyDomain: userData ? userData.companyDomain || bakeryDomain : bakeryDomain,
+      status: "Nouveau",
+      priority: mappedPriority,
+      category,
+      source: "pani",
+      routeActive,
+      submittedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
+      conversation: [initialMessage],
+      hasNewClientMessage: true,
+      ccEmails: senderEmailLower ? [senderEmailLower] : [],
+    };
+
+    const counterRef = db.collection("counters").doc("ticketCounter");
+    const nextIdStr = await db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      let nextNum = 1;
+      if (counterDoc.exists && counterDoc.data() && typeof counterDoc.data().lastId === "number") {
+        nextNum = counterDoc.data().lastId + 1;
+      }
+      transaction.set(counterRef, { lastId: nextNum }, { merge: true });
+      return String(nextNum).padStart(7, "0");
+    });
+
+    await db.collection("tickets").doc(nextIdStr).set(newTicket);
+
+    return res.status(201).json({
+      status: "success",
+      ticketId: nextIdStr,
+      ticketNumber: `#${nextIdStr}`,
+      ticketUrl: `${APP_BASE_URL}/manager/ticket/${nextIdStr}`,
+    });
+  } catch (error) {
+    console.error("[createTicketFromPani] Erreur création ticket :", error);
+    return res.status(500).json({ status: "error", message: "Erreur interne lors de la création du ticket." });
+  }
+});
