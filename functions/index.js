@@ -1964,9 +1964,6 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
         companyDocData = companySnap.data() || null;
       }
     }
-    const resolvedBakeryName =
-      (companyDocData && companyDocData.name ? String(companyDocData.name).trim() : "") ||
-      bakeryName;
 
     const senderRoleInSupport =
       userData && userData.role ? String(userData.role).trim().toLowerCase() : "";
@@ -1979,23 +1976,76 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
       Boolean(senderCompanyDomain) &&
       senderCompanyDomain !== "paniscope.fr";
 
-    const effectiveDomain = hasClientCompanyDomain
-      ? senderCompanyDomain
-      : normalizedBakeryDomain || senderCompanyDomain || null;
+    const effectiveDomain =
+      normalizedBakeryDomain ||
+      (hasClientCompanyDomain ? senderCompanyDomain : null) ||
+      (senderCompanyDomain && senderCompanyDomain !== "paniscope.fr" ? senderCompanyDomain : null);
 
-    const effectiveCompany = hasClientCompanyDomain
-      ? (userData.company && String(userData.company).trim()) || resolvedBakeryName
-      : resolvedBakeryName;
+    let matchedClientUid = null;
+    let matchedClientData = null;
 
-    const effectiveClientUid =
-      senderRoleInSupport === "client" && userId ? userId : null;
+    if (
+      senderRoleInSupport === "client" &&
+      userId &&
+      (!effectiveDomain || senderCompanyDomain === effectiveDomain)
+    ) {
+      matchedClientUid = userId;
+      matchedClientData = userData;
+    } else if (effectiveDomain && effectiveDomain !== "paniscope.fr") {
+      const domainUsersSnap = await db
+        .collection("users")
+        .where("companyDomain", "==", effectiveDomain)
+        .get();
+      const clientDocs = domainUsersSnap.docs.filter((docSnap) => {
+        const d = docSnap.data() || {};
+        return String(d.role || "").trim().toLowerCase() === "client";
+      });
+      const approvedClientDoc =
+        clientDocs.find((docSnap) => {
+          const d = docSnap.data() || {};
+          return String(d.status || "").trim().toLowerCase() === "approved";
+        }) ||
+        clientDocs[0] ||
+        null;
+
+      if (approvedClientDoc) {
+        matchedClientUid = approvedClientDoc.id;
+        matchedClientData = approvedClientDoc.data() || null;
+      }
+    }
+
+    const effectiveClientUid = matchedClientUid || null;
+    const effectiveCompany =
+      (companyDocData && companyDocData.name ? String(companyDocData.name).trim() : "") ||
+      (matchedClientData && matchedClientData.company
+        ? String(matchedClientData.company).trim()
+        : "") ||
+      bakeryName;
 
     const effectiveSenderDisplay =
-      hasClientCompanyDomain && userData && userData.displayName
+      senderRoleInSupport === "client" && userId && userData && userData.displayName
         ? String(userData.displayName).trim()
         : senderName;
 
     const clientDisplay = `${effectiveSenderDisplay} (${effectiveCompany})`;
+
+    const matchedFullName = matchedClientData
+      ? `${matchedClientData.firstName || ""} ${matchedClientData.lastName || ""}`.trim()
+      : "";
+    const effectiveClientName = matchedClientData
+      ? String(
+          matchedClientData.displayName ||
+            matchedFullName ||
+            matchedClientData.company ||
+            effectiveCompany
+        ).trim()
+      : clientDisplay;
+
+    const effectiveClientEmail =
+      senderEmailLower ||
+      (matchedClientData && matchedClientData.email
+        ? String(matchedClientData.email).trim().toLowerCase()
+        : "");
 
     const contextLines = [
       `Établissement : ${effectiveCompany}`,
@@ -2028,8 +2078,8 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
       subject,
       type: ticketType,
       clientUid: effectiveClientUid,
-      clientEmail: senderEmailLower,
-      clientName: clientDisplay,
+      clientEmail: effectiveClientEmail,
+      clientName: effectiveClientName,
       client: clientDisplay,
       companyDomain: effectiveDomain,
       status: "Nouveau",
