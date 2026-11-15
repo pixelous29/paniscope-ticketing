@@ -1905,10 +1905,12 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
     }
 
     const priorityMap = {
-      basse: "Basse",
+      basse: "Faible",
+      faible: "Faible",
       normale: "Normale",
       haute: "Haute",
-      urgente: "Urgente",
+      urgente: "Critique",
+      critique: "Critique",
     };
     const rawPriority = String(body.priority || "normale").trim().toLowerCase();
     const mappedPriority = priorityMap[rawPriority] || "Normale";
@@ -1916,6 +1918,14 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
     const allowedCategories = new Set(["bug", "question", "evolution", "autre"]);
     const rawCategory = String(body.category || "question").trim().toLowerCase();
     const category = allowedCategories.has(rawCategory) ? rawCategory : "question";
+    const categoryToTypeMap = {
+      bug: "incident",
+      incident: "incident",
+      evolution: "evolution",
+      question: "question",
+      autre: "question",
+    };
+    const ticketType = categoryToTypeMap[rawCategory] || "question";
 
     const senderEmailLower = String(body.senderEmail || "").trim().toLowerCase().slice(0, 200);
     const senderName = String(body.senderName || senderEmailLower || "Équipe Boulangerie")
@@ -1923,7 +1933,9 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
       .slice(0, 150);
     const senderRole = String(body.senderRole || "").trim().slice(0, 80);
     const bakeryName = String(body.bakeryName || "Paniscope").trim().slice(0, 150);
-    const bakeryDomain = body.bakeryDomain ? String(body.bakeryDomain).trim().slice(0, 200) : null;
+    const normalizedBakeryDomain = body.bakeryDomain
+      ? String(body.bakeryDomain).trim().toLowerCase().slice(0, 200)
+      : null;
     const routeActive = body.routeActive ? String(body.routeActive).trim().slice(0, 255) : null;
     const conversationExcerpt = body.conversationExcerpt
       ? String(body.conversationExcerpt).trim().slice(0, 3000)
@@ -1945,8 +1957,48 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
       }
     }
 
+    let companyDocData = null;
+    if (normalizedBakeryDomain) {
+      const companySnap = await db.collection("companies").doc(normalizedBakeryDomain).get();
+      if (companySnap.exists) {
+        companyDocData = companySnap.data() || null;
+      }
+    }
+    const resolvedBakeryName =
+      (companyDocData && companyDocData.name ? String(companyDocData.name).trim() : "") ||
+      bakeryName;
+
+    const senderRoleInSupport =
+      userData && userData.role ? String(userData.role).trim().toLowerCase() : "";
+    const senderCompanyDomain =
+      userData && userData.companyDomain
+        ? String(userData.companyDomain).trim().toLowerCase()
+        : "";
+    const hasClientCompanyDomain =
+      senderRoleInSupport === "client" &&
+      Boolean(senderCompanyDomain) &&
+      senderCompanyDomain !== "paniscope.fr";
+
+    const effectiveDomain = hasClientCompanyDomain
+      ? senderCompanyDomain
+      : normalizedBakeryDomain || senderCompanyDomain || null;
+
+    const effectiveCompany = hasClientCompanyDomain
+      ? (userData.company && String(userData.company).trim()) || resolvedBakeryName
+      : resolvedBakeryName;
+
+    const effectiveClientUid =
+      senderRoleInSupport === "client" && userId ? userId : null;
+
+    const effectiveSenderDisplay =
+      hasClientCompanyDomain && userData && userData.displayName
+        ? String(userData.displayName).trim()
+        : senderName;
+
+    const clientDisplay = `${effectiveSenderDisplay} (${effectiveCompany})`;
+
     const contextLines = [
-      `Établissement : ${bakeryName}`,
+      `Établissement : ${effectiveCompany}`,
       `Émetteur : ${senderName}${senderRole ? ` (${senderRole})` : ""}`,
       senderEmailLower ? `E-mail : ${senderEmailLower}` : null,
       routeActive ? `Page active : ${routeActive}` : null,
@@ -1964,24 +2016,22 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
       .join("\n");
 
     const initialMessage = {
+      author: "Client",
+      ...(effectiveClientUid ? { uid: effectiveClientUid } : {}),
+      displayName: clientDisplay,
       text: formattedMessageText,
-      author: senderName || senderEmailLower,
-      displayName: senderName || senderEmailLower,
       timestamp: new Date(),
       source: "pani",
     };
 
-    const clientDisplay =
-      userData && userData.displayName && userData.company
-        ? `${userData.displayName} (${userData.company})`
-        : `${senderName} (${bakeryName})`;
-
     const newTicket = {
       subject,
-      clientUid: userId,
+      type: ticketType,
+      clientUid: effectiveClientUid,
       clientEmail: senderEmailLower,
+      clientName: clientDisplay,
       client: clientDisplay,
-      companyDomain: userData ? userData.companyDomain || bakeryDomain : bakeryDomain,
+      companyDomain: effectiveDomain,
       status: "Nouveau",
       priority: mappedPriority,
       category,
@@ -1991,6 +2041,8 @@ exports.createTicketFromPani = functions.https.onRequest(async (req, res) => {
       lastUpdate: admin.firestore.FieldValue.serverTimestamp(),
       conversation: [initialMessage],
       hasNewClientMessage: true,
+      hasNewDeveloperMessage: false,
+      hasNewManagerMessage: false,
       ccEmails: senderEmailLower ? [senderEmailLower] : [],
     };
 
