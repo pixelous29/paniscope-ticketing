@@ -37,6 +37,7 @@ export default function MyAccountPage() {
     notifyOnNewTicket: true,
     notifyOnClientMessage: true,
     notifyOnNewUser: true,
+    notifyOnClientValidation: true,
   });
 
   const isGoogleUser = currentUser?.providerData?.some(
@@ -512,6 +513,38 @@ export default function MyAccountPage() {
                           />
                         </div>
                       </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-validation-dev" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              ✅ Validation des prestations par le client
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsque le client valide les prestations sur un ticket qui vous est assigné.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-validation-dev"
+                            checked={emailNotifications.notifyOnClientValidation !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnClientValidation: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-close-dev" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              🔒 Clôture d'un ticket par le manager
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un ticket qui vous est assigné est clôturé par le manager.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-close-dev"
+                            checked={emailNotifications.notifyOnClose !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnClose: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
                     </>
                   )}
 
@@ -547,6 +580,38 @@ export default function MyAccountPage() {
                             id="notif-client-msg"
                             checked={emailNotifications.notifyOnClientMessage !== false}
                             onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnClientMessage: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-validation-mgr" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              ✅ Validation des prestations par le client
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email lorsque le client valide les prestations sur un ticket.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-validation-mgr"
+                            checked={emailNotifications.notifyOnClientValidation !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnClientValidation: e.target.checked }))}
+                          />
+                        </div>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                        <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
+                          <div>
+                            <Form.Label htmlFor="notif-close-mgr" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
+                              🔒 Clôture d'un ticket par le manager
+                            </Form.Label>
+                            <small className="d-block text-muted">Recevoir un email de confirmation lorsqu'un ticket est clôturé.</small>
+                          </div>
+                          <Form.Check 
+                            type="switch"
+                            id="notif-close-mgr"
+                            checked={emailNotifications.notifyOnClose !== false}
+                            onChange={(e) => setEmailNotifications(prev => ({ ...prev, notifyOnClose: e.target.checked }))}
                           />
                         </div>
                       </Form.Group>

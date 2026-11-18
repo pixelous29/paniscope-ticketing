@@ -1117,6 +1117,22 @@ exports.notifyClientOnNewMessage = functions.firestore
     // CAS 1 : NOUVEAU MESSAGE (Le manager a répondu)
     if (afterConv.length > beforeConv.length) {
       const newMessage = afterConv[afterConv.length - 1];
+      const newMessages = afterConv.slice(beforeConv.length);
+
+      const hasClientValidation = newMessages.some(m =>
+        m.isValidation === true ||
+        (m.author === "Client" && /(?:validation client|valid[ée] les (?:travaux|prestations))/i.test(m.text || ""))
+      ) || (afterData.clientValidated === true && beforeData.clientValidated !== true);
+
+      const isStatusClosure = (afterData.status === "Ticket Clôturé" || afterData.status === "Clôturé" || afterData.status === "CLOSED") &&
+        (beforeData.status !== "Ticket Clôturé" && beforeData.status !== "Clôturé" && beforeData.status !== "CLOSED");
+
+      const hasClosureMessage = newMessages.some(m =>
+        m.isClosure === true ||
+        (/(?:ticket cl[ôo]tur[ée]|cl[ôo]ture du ticket)/i.test(m.text || "") && m.author === "Système")
+      );
+
+      const isClosureEvent = isStatusClosure || hasClosureMessage;
 
       // --- NOUVELLE LOGIQUE : NOTIFICATION AUX DÉVELOPPEURS ASSIGNÉS ---
       const assignedTo = afterData.assignedTo && Array.isArray(afterData.assignedTo) ? afterData.assignedTo : [];
@@ -1142,6 +1158,14 @@ exports.notifyClientOnNewMessage = functions.firestore
               if (!authorMatchesDev) {
                 if (devData.emailNotifications && devData.emailNotifications.notifyOnAssignedMessage === false) {
                   console.log(`[PREFERENCES] Notification de message sur ticket assigné désactivée par le dev ${devName}`);
+                  return;
+                }
+                if (hasClientValidation && devData.emailNotifications && devData.emailNotifications.notifyOnClientValidation === false) {
+                  console.log(`[PREFERENCES] Notification de validation client désactivée par le dev ${devName}`);
+                  return;
+                }
+                if (isClosureEvent && devData.emailNotifications && devData.emailNotifications.notifyOnClose === false) {
+                  console.log(`[PREFERENCES] Notification de clôture désactivée par le dev ${devName}`);
                   return;
                 }
                 devsToNotify.push({ email: devData.email, name: devName });
@@ -1334,7 +1358,7 @@ ${messageText}
             error,
           );
         }
-      } else if (newMessage.author === "Client") {
+      } else if (newMessage.author === "Client" || hasClientValidation) {
         console.log(`Nouveau message du client sur le ticket ${ticketId}. Préparation de l'email managers...`);
         
         try {
@@ -1354,6 +1378,14 @@ ${messageText}
                 if (adminUserData.emailNotifications && adminUserData.emailNotifications.notifyOnClientMessage === false) {
                   shouldSendManagerEmail = false;
                   console.log(`[PREFERENCES] Notification de message client désactivée par le manager (${adminEmail})`);
+                }
+                if (hasClientValidation && adminUserData.emailNotifications && adminUserData.emailNotifications.notifyOnClientValidation === false) {
+                  shouldSendManagerEmail = false;
+                  console.log(`[PREFERENCES] Notification de validation client désactivée par le manager (${adminEmail})`);
+                }
+                if (isClosureEvent && adminUserData.emailNotifications && adminUserData.emailNotifications.notifyOnClose === false) {
+                  shouldSendManagerEmail = false;
+                  console.log(`[PREFERENCES] Notification de clôture désactivée par le manager (${adminEmail})`);
                 }
               }
             } catch (prefErr) {
@@ -1484,7 +1516,12 @@ ${messageText}
         }
 
         const isAutoClosed = afterData.autoClosed === true;
-        const closureBannerHtml = isAutoClosed
+        const isClientValidated = afterData.clientValidated === true;
+        const closureBannerHtml = isClientValidated
+          ? `<div style="background-color: #f0fff4; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #155724; font-weight: 500;">✅ Vous avez validé les prestations. Tout étant conforme, votre ticket a été clôturé.</p>
+              </div>`
+          : isAutoClosed
           ? `<div style="background-color: #f0fff4; border-left: 4px solid #28a745; padding: 15px; margin: 20px 0;">
                 <p style="margin: 0; color: #155724; font-weight: 500;">✅ En l'absence de retour de votre part sous 48h suite à notre dernière réponse, votre demande a été considérée comme résolue et votre ticket est maintenant clôturé.</p>
               </div>`
@@ -1492,7 +1529,9 @@ ${messageText}
                 <p style="margin: 0; color: #155724; font-weight: 500;">✅ Votre demande a été traitée et le ticket est maintenant clos.</p>
               </div>`;
 
-        const closureTextBanner = isAutoClosed
+        const closureTextBanner = isClientValidated
+          ? `✅ Vous avez validé les prestations. Tout étant conforme, votre ticket a été clôturé.`
+          : isAutoClosed
           ? `✅ En l'absence de retour de votre part sous 48h suite à notre dernière réponse, votre demande a été considérée comme résolue et votre ticket est maintenant clôturé.`
           : `✅ Votre demande a été traitée et le ticket est maintenant clos.`;
 
@@ -1524,9 +1563,23 @@ ${messageText}
         };
 
         if (afterData.ccEmails && afterData.ccEmails.length > 0) {
-          const cleanCc = afterData.ccEmails.filter(
-            (email) => email !== clientEmail,
-          );
+          const cleanCc = [];
+          for (const ccEmail of afterData.ccEmails) {
+            if (ccEmail === clientEmail || ccEmail === fromEmail) continue;
+            try {
+              const uQuery = await db.collection("users").where("email", "==", ccEmail.toLowerCase().trim()).get();
+              if (!uQuery.empty) {
+                const uData = uQuery.docs[0].data();
+                if (uData.emailNotifications && uData.emailNotifications.notifyOnClose === false) {
+                  console.log(`[PREFERENCES] Notification de clôture désactivée par CC (${ccEmail})`);
+                  continue;
+                }
+              }
+            } catch (prefErr) {
+              console.warn("Erreur vérif préférences CC:", prefErr.message);
+            }
+            cleanCc.push(ccEmail);
+          }
           if (cleanCc.length > 0) {
             closeMailOptions.cc = cleanCc.join(",");
           }

@@ -245,23 +245,35 @@ export default function ClientTicketDetailPage() {
     const handleAcceptValidation = async () => {
         setIsSubmitting(true);
         try {
-            const newMessage = {
+            const validationMessage = {
                 author: 'Client',
-                text: "✅ **Validation client :** J'ai validé les travaux. Tout est conforme, le ticket peut être clôturé par l'équipe.",
+                text: "✅ **Validation client :** J'ai validé les prestations. Tout est conforme, le ticket est clôturé.",
                 timestamp: new Date(),
                 uid: currentUser.uid,
                 displayName: (currentUser.displayName && currentUser.company) ? `${currentUser.displayName} (${currentUser.company})` : (currentUser.displayName || 'Client'),
+                isValidation: true
+            };
+            const closureMessage = {
+                text: '🔒 Ticket clôturé automatiquement suite à la validation des prestations par le client.',
+                author: 'Système',
+                displayName: 'Système',
+                timestamp: new Date(),
+                isClosure: true
             };
             const docRef = doc(db, "tickets", ticketId);
             await updateDoc(docRef, {
-                conversation: arrayUnion(newMessage),
-                status: STATUS.VALIDATED, // Marque explicitement le ticket comme validé et prêt pour clôture
+                conversation: arrayUnion(validationMessage, closureMessage),
+                status: STATUS.CLOSED, // Clôture automatique du ticket
+                closedAt: new Date(),
+                archived: true,
                 pendingSince: null,
-                hasNewClientMessage: true,
+                hasNewClientMessage: false,
                 hasNewDeveloperMessage: false,
+                clientValidated: true,
+                lastUpdate: new Date(),
                 ccEmails: arrayUnion(currentUser.email)
             });
-            showAlert('Succès', 'Votre validation a été enregistrée. Notre équipe procèdera prochainement à la clôture définitive du ticket.');
+            showAlert('Succès', 'Votre validation a été enregistrée avec succès. Le ticket est désormais clôturé.');
             autoScrolled.current = true;
         } catch (err) {
             console.error("Erreur de validation: ", err);
@@ -389,7 +401,16 @@ export default function ClientTicketDetailPage() {
                                 </div>
                             </div>
                         </div>
-                    ) : !isTicketClosed && (
+                    ) : isTicketClosed ? (
+                        <div className="p-3 p-md-4 bg-white border-top mt-auto">
+                            <Alert variant="secondary" className="mb-0 d-flex align-items-center gap-2">
+                                <i className="bi bi-lock-fill fs-5"></i>
+                                <div>
+                                    <strong>Ce ticket est clôturé.</strong> Vous ne pouvez plus y ajouter de message. Si vous avez une nouvelle demande, veuillez créer un nouveau ticket.
+                                </div>
+                            </Alert>
+                        </div>
+                    ) : (
                         <div className="p-3 p-md-4 bg-white border-top mt-auto">
                         {ticket.status === STATUS.VALIDATED && (
                             <Alert variant="success" className="mb-3 d-flex align-items-center gap-2">
