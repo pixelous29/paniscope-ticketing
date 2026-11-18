@@ -464,9 +464,9 @@ export default function MyAccountPage() {
                         <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
                           <div>
                             <Form.Label htmlFor="notif-close" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
-                              🔒 Clôture de mes tickets
+                              🔒 Clôture de mes tickets (automatique, manager ou validation)
                             </Form.Label>
-                            <small className="d-block text-muted">Recevoir un email de confirmation lorsqu'un ticket est clôturé.</small>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un ticket est clôturé (fermeture manuelle, automatique après 48h ou suite à votre validation).</small>
                           </div>
                           <Form.Check 
                             type="switch"
@@ -550,9 +550,9 @@ export default function MyAccountPage() {
                         <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
                           <div>
                             <Form.Label htmlFor="notif-close-dev" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
-                              🔒 Clôture d'un ticket par le manager
+                              🔒 Clôture de tickets (automatique, manager ou client)
                             </Form.Label>
-                            <small className="d-block text-muted">Recevoir un email lorsqu'un ticket qui vous est assigné est clôturé par le manager.</small>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un ticket qui vous est assigné est clôturé (fermeture manuelle par le manager, automatique après 48h ou suite à validation client).</small>
                           </div>
                           <Form.Check 
                             type="switch"
@@ -620,9 +620,9 @@ export default function MyAccountPage() {
                         <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded border">
                           <div>
                             <Form.Label htmlFor="notif-close-mgr" className="mb-0 fw-bold" style={{ cursor: 'pointer' }}>
-                              🔒 Clôture d'un ticket par le manager
+                              🔒 Clôture de tickets (automatique, manager ou client)
                             </Form.Label>
-                            <small className="d-block text-muted">Recevoir un email de confirmation lorsqu'un ticket est clôturé.</small>
+                            <small className="d-block text-muted">Recevoir un email lorsqu'un ticket est clôturé (fermeture manuelle, automatique après 48h ou suite à validation client).</small>
                           </div>
                           <Form.Check 
                             type="switch"

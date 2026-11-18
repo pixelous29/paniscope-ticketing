@@ -1247,15 +1247,16 @@ exports.notifyClientOnNewMessage = functions.firestore
         (m.author === "Client" && /(?:validation client|valid[ée] les (?:travaux|prestations))/i.test(m.text || ""))
       ) || (afterData.clientValidated === true && beforeData.clientValidated !== true);
 
-      const isStatusClosure = (afterData.status === "Ticket Clôturé" || afterData.status === "Clôturé" || afterData.status === "CLOSED") &&
+      const isClosedStatus = afterData.status === "Ticket Clôturé" || afterData.status === "Clôturé" || afterData.status === "CLOSED";
+      const isStatusClosure = isClosedStatus &&
         (beforeData.status !== "Ticket Clôturé" && beforeData.status !== "Clôturé" && beforeData.status !== "CLOSED");
 
       const hasClosureMessage = newMessages.some(m =>
         m.isClosure === true ||
-        (/(?:ticket cl[ôo]tur[ée]|cl[ôo]ture du ticket)/i.test(m.text || "") && m.author === "Système")
+        /(?:cl[ôo]tur[ée]|cl[ôo]ture)/i.test(m.text || "")
       );
 
-      const isClosureEvent = isStatusClosure || hasClosureMessage;
+      const isClosureEvent = isClosedStatus || isStatusClosure || hasClosureMessage || afterData.autoClosed === true || afterData.clientValidated === true;
 
       // --- NOUVELLE LOGIQUE : NOTIFICATION AUX DÉVELOPPEURS ASSIGNÉS ---
       const assignedTo = afterData.assignedTo && Array.isArray(afterData.assignedTo) ? afterData.assignedTo : [];
@@ -1267,28 +1268,29 @@ exports.notifyClientOnNewMessage = functions.firestore
           const ticketUrl = `${APP_BASE_URL}/dev/ticket/${ticketId}`;
           const authorName = newMessage.displayName || newMessage.author || "Un utilisateur";
 
-          // On récupère les emails des développeurs assignés
-          const devsQuery = await db.collection("users").where("role", "==", "developer").get();
+          // On récupère les membres de l'équipe assignés (développeurs, managers, admins)
+          const devsQuery = await db.collection("users").where("role", "in", ["developer", "manager", "admin"]).get();
           const devsToNotify = [];
 
           devsQuery.forEach(doc => {
             const devData = doc.data();
             const devName = devData.displayName || devData.firstName || devData.email;
             
-            // Si le dev est assigné ET qu'il n'est pas l'auteur du message, on l'ajoute
+            // Si le membre est assigné ET qu'il n'est pas l'auteur du message, on l'ajoute
             if (assignedTo.includes(devName) && devData.email) {
               const authorMatchesDev = (newMessage.uid && newMessage.uid === doc.id) || (authorName === devName);
               if (!authorMatchesDev) {
+                // Règle 1 : Clôture (automatique 48h, manager ou client) - si notifyOnClose est désactivé, aucun mail
+                if (isClosureEvent && devData.emailNotifications && devData.emailNotifications.notifyOnClose === false) {
+                  console.log(`[PREFERENCES] Notification de clôture désactivée par ${devName} (${devData.email})`);
+                  return;
+                }
                 if (devData.emailNotifications && devData.emailNotifications.notifyOnAssignedMessage === false) {
-                  console.log(`[PREFERENCES] Notification de message sur ticket assigné désactivée par le dev ${devName}`);
+                  console.log(`[PREFERENCES] Notification de message sur ticket assigné désactivée par ${devName}`);
                   return;
                 }
                 if (hasClientValidation && devData.emailNotifications && devData.emailNotifications.notifyOnClientValidation === false) {
-                  console.log(`[PREFERENCES] Notification de validation client désactivée par le dev ${devName}`);
-                  return;
-                }
-                if (isClosureEvent && devData.emailNotifications && devData.emailNotifications.notifyOnClose === false) {
-                  console.log(`[PREFERENCES] Notification de clôture désactivée par le dev ${devName}`);
+                  console.log(`[PREFERENCES] Notification de validation client désactivée par ${devName}`);
                   return;
                 }
                 devsToNotify.push({ email: devData.email, name: devName });
@@ -1589,12 +1591,7 @@ ${messageText}
           }
         }
 
-        if (!clientEmail) {
-          console.warn(
-            `Impossible de trouver l'email du client pour la clôture du ticket ${ticketId}`,
-          );
-          return;
-        }
+        let shouldSendClientEmail = !!clientEmail;
 
         if (afterData.clientUid) {
           const userDoc = await db
@@ -1604,9 +1601,24 @@ ${messageText}
           if (userDoc.exists) {
             const clientData = userDoc.data();
             if (clientData.emailNotifications && clientData.emailNotifications.notifyOnClose === false) {
-              console.log(`[PREFERENCES] Notification de clôture de ticket désactivée par le client (${clientEmail})`);
-              return;
+              console.log(`[PREFERENCES] Notification de clôture de ticket désactivée par clientUid (${afterData.clientUid})`);
+              shouldSendClientEmail = false;
             }
+          }
+        }
+
+        if (shouldSendClientEmail && clientEmail) {
+          try {
+            const userQuery = await db.collection("users").where("email", "==", clientEmail.toLowerCase().trim()).limit(1).get();
+            if (!userQuery.empty) {
+              const clientData = userQuery.docs[0].data();
+              if (clientData.emailNotifications && clientData.emailNotifications.notifyOnClose === false) {
+                console.log(`[PREFERENCES] Notification de clôture de ticket désactivée par email (${clientEmail})`);
+                shouldSendClientEmail = false;
+              }
+            }
+          } catch (e) {
+            console.warn("Erreur vérif email client closure:", e.message);
           }
         }
 
@@ -1677,18 +1689,11 @@ ${messageText}
             </div>
           `;
 
-        const closeMailOptions = {
-          from: `"Support Paniscope" <${fromEmail}>`,
-          to: clientEmail,
-          subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
-          html: emailHtml,
-          text: `Bonjour,\n\nLe statut de votre ticket #${ticketId} (${ticketSubject}) vient de passer à Clôturé.\n\n${closureTextBanner}${initialMessageRawText}\n\nVous pouvez consulter votre ticket en ligne : ${APP_BASE_URL}/ticket/${ticketId}\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
-        };
-
+        const cleanCc = [];
         if (afterData.ccEmails && afterData.ccEmails.length > 0) {
-          const cleanCc = [];
           for (const ccEmail of afterData.ccEmails) {
-            if (ccEmail === clientEmail || ccEmail === fromEmail) continue;
+            if (ccEmail === fromEmail) continue;
+            if (shouldSendClientEmail && ccEmail === clientEmail) continue;
             try {
               const uQuery = await db.collection("users").where("email", "==", ccEmail.toLowerCase().trim()).get();
               if (!uQuery.empty) {
@@ -1703,15 +1708,32 @@ ${messageText}
             }
             cleanCc.push(ccEmail);
           }
-          if (cleanCc.length > 0) {
-            closeMailOptions.cc = cleanCc.join(",");
-          }
+        }
+
+        if (!shouldSendClientEmail && cleanCc.length === 0) {
+          console.log(`[PREFERENCES] Clôture ticket ${ticketId} : aucun destinataire restant (toutes notifications de clôture désactivées).`);
+          return;
+        }
+
+        const primaryTo = shouldSendClientEmail ? clientEmail : cleanCc[0];
+        const remainingCc = shouldSendClientEmail ? cleanCc : cleanCc.slice(1);
+
+        const closeMailOptions = {
+          from: `"Support Paniscope" <${fromEmail}>`,
+          to: primaryTo,
+          subject: `Re: [Ticket #${ticketId}] ${ticketSubject}`,
+          html: emailHtml,
+          text: `Bonjour,\n\nLe statut de votre ticket #${ticketId} (${ticketSubject}) vient de passer à Clôturé.\n\n${closureTextBanner}${initialMessageRawText}\n\nVous pouvez consulter votre ticket en ligne : ${APP_BASE_URL}/ticket/${ticketId}\n\nSi vous avez une nouvelle demande, veuillez ouvrir un nouveau ticket.\n\nL'équipe Support Paniscope.`,
+        };
+
+        if (remainingCc.length > 0) {
+          closeMailOptions.cc = remainingCc.join(",");
         }
 
         await smtpTransporter.sendMail(closeMailOptions);
 
         console.log(
-          `✅ Email de clôture envoyé avec succès au client ${clientEmail} ${afterData.ccEmails && afterData.ccEmails.length > 0 ? `et CC (${afterData.ccEmails.join(", ")}) ` : ""}(Ticket ${ticketId})`,
+          `✅ Email de clôture envoyé avec succès à ${primaryTo} ${remainingCc.length > 0 ? `et CC (${remainingCc.join(", ")}) ` : ""}(Ticket ${ticketId})`,
         );
       } catch (error) {
         console.error(
